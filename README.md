@@ -17,6 +17,8 @@ Install this repository as a Shopware platform plugin:
     cp -R <repository-path> custom/plugins/SwagWebMcp
     bin/console plugin:refresh
     bin/console plugin:install --activate SwagWebMcp
+    bin/console assets:install
+    bin/console theme:compile
     bin/console cache:clear
 
 ## Endpoints
@@ -36,6 +38,22 @@ The plugin configuration currently supports:
 - `staticElementsJson`: optional JSON for additional WebMCP element definitions.
 
 `staticElementsJson` accepts either an array of element objects or an object with an `elements` array. Each element must include `selector`, `role`, and `name`; optional `action` values are validated before being emitted.
+
+## Storefront Script
+
+The plugin injects `src/Resources/public/webmcp-hello-world.global.js` through a Twig script tag.
+
+When the script loads, it creates `document.modelContext` if needed and registers a test tool immediately:
+
+- `shopware.webmcp.hello_world`
+
+For manual testing in the browser console:
+
+    window.SwagWebMcp.registerHelloWorldTool()
+    document.modelContext.getTools()
+    await document.modelContext.callTool('shopware.webmcp.hello_world', { subject: 'tester' })
+
+If `window.SwagWebMcp` is undefined, check the page source for `webmcp-hello-world.global.js`. If it is missing, rerun `bin/console assets:install`, `bin/console theme:compile`, and `bin/console cache:clear`.
 
 ## Local QA
 

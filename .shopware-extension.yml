@@ -5,7 +5,7 @@ build:
     composer:
       enabled: true
     assets:
-      enabled: false
+      enabled: true
     pack:
       excludes:
         paths:

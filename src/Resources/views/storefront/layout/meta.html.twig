@@ -1,0 +1,6 @@
+{% sw_extends '@Storefront/storefront/layout/meta.html.twig' %}
+
+{% block layout_head_javascript_hmr_mode %}
+    {{ parent() }}
+    <script src="{{ asset('bundles/swagwebmcp/webmcp-hello-world.global.js') }}" defer></script>
+{% endblock %}
