@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/platform/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
+    <card>
+        <title>WebMCP</title>
+        <title lang="de-DE">WebMCP</title>
+
+        <input-field type="bool">
+            <name>enabled</name>
+            <label>Enable WebMCP endpoints</label>
+            <label lang="de-DE">WebMCP-Endpunkte aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
+
+        <input-field type="text">
+            <name>context</name>
+            <label>WebMCP context</label>
+            <label lang="de-DE">WebMCP-Kontext</label>
+            <defaultValue>Shopware storefront interaction graph</defaultValue>
+        </input-field>
+
+        <input-field type="textarea">
+            <name>staticElementsJson</name>
+            <label>Static elements JSON</label>
+            <label lang="de-DE">Statische Elemente als JSON</label>
+        </input-field>
+    </card>
+</config>

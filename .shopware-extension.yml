@@ -1,0 +1,17 @@
+compatibility_date: 2026-06-24
+build:
+  shopwareVersionConstraint: ">=6.5.0 <6.8.0"
+  zip:
+    composer:
+      enabled: true
+    assets:
+      enabled: false
+    pack:
+      excludes:
+        paths:
+          - .github
+          - .tools
+          - dist
+          - tests
+          - Dockerfile
+          - docker-compose.yml

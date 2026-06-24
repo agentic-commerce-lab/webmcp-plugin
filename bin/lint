@@ -1,0 +1,45 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+$roots = [
+    __DIR__,
+    __DIR__.'/../src',
+];
+
+$files = [];
+foreach ($roots as $root) {
+    if (!is_dir($root)) {
+        continue;
+    }
+
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root));
+    foreach ($iterator as $file) {
+        if (!$file instanceof SplFileInfo || !$file->isFile() || 'php' !== $file->getExtension()) {
+            continue;
+        }
+
+        $files[] = $file->getPathname();
+    }
+}
+
+sort($files);
+
+$failures = 0;
+foreach ($files as $file) {
+    $command = sprintf('php -l %s 2>&1', escapeshellarg($file));
+    exec($command, $output, $exitCode);
+
+    if (0 !== $exitCode) {
+        ++$failures;
+        fwrite(STDERR, implode("\n", $output)."\n");
+    }
+}
+
+if ($failures > 0) {
+    fwrite(STDERR, sprintf("%d PHP lint failure(s).\n", $failures));
+    exit(1);
+}
+
+fwrite(STDOUT, sprintf("PHP lint passed for %d file(s).\n", count($files)));

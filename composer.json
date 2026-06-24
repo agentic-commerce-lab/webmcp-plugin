@@ -1,0 +1,44 @@
+{
+    "name": "shopware/web-mcp",
+    "description": "Shopware plugin for WebMCP side-car documents",
+    "type": "shopware-platform-plugin",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1",
+        "symfony/http-foundation": "^6.4 || ^7.0",
+        "symfony/routing": "^6.4 || ^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Swag\\WebMcp\\": "src/"
+        }
+    },
+    "scripts": {
+        "lint": "php bin/lint",
+        "qa": [
+            "@lint"
+        ],
+        "ci": "@qa"
+    },
+    "extra": {
+        "shopware-plugin-class": "Swag\\WebMcp\\SwagWebMcp",
+        "label": {
+            "de-DE": "WebMCP",
+            "en-GB": "WebMCP"
+        },
+        "description": {
+            "de-DE": "WebMCP Side-Car-Dokumente fuer Shopware",
+            "en-GB": "WebMCP side-car documents for Shopware"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "vendor-dir": ".tools/vendor",
+        "allow-plugins": {},
+        "platform": {
+            "php": "8.1.0"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

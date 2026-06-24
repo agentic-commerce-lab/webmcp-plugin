@@ -1,0 +1,7 @@
+.git
+.tools
+vendor
+node_modules
+var
+dist
+.DS_Store
