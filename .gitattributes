@@ -1,0 +1,51 @@
+*.cfg               text eol=lf
+*.cjs               text eol=lf
+*.conf              text eol=lf
+*.css               text eol=lf
+*.dockerignore      text eol=lf
+*.example           text eol=lf
+*.html              text eol=lf
+*.htm               text eol=lf
+*.ini               text eol=lf
+*.j2                text eol=lf
+*.js                text eol=lf
+*.json              text eol=lf
+*.jsx               text eol=lf
+*.lock              text eol=lf
+*.map               text eol=lf
+*.md                text eol=lf
+*.mjs               text eol=lf
+*.npmrc             text eol=lf
+*.patch             text eol=lf
+*.php               text eol=lf
+*.scss              text eol=lf
+*.sh                text eol=lf
+*.sql               text eol=lf
+*.template          text eol=lf
+*.toml              text eol=lf
+*.ts                text eol=lf
+*.tsx               text eol=lf
+*.twig              text eol=lf
+*.txt               text eol=lf
+*.vue               text eol=lf
+*.xml               text eol=lf
+*.yaml              text eol=lf
+*.yml               text eol=lf
+
+.gitattributes      text eol=lf
+.gitignore          text eol=lf
+.husky/*            text eol=lf
+Dockerfile          text eol=lf
+Dockerfile.*        text eol=lf
+
+# TODO: uncomment and test after 11/06/2026
+# *.gif               binary
+# *.ico               binary
+# *.jpeg              binary
+# *.jpg               binary
+# *.png               binary
+# *.webp              binary
+# *.woff              binary
+# *.woff2             binary
+
+*.svg               text eol=lf -diff
