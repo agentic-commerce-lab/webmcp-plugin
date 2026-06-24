@@ -1,14 +1,21 @@
 {% sw_extends '@Storefront/storefront/layout/meta.html.twig' %}
 
 {% block layout_head_javascript_hmr_mode %}
-    <script id="swag-web-mcp-config" type="application/json">
-        {{ {
-            enabled: config('SwagWebMcp.config.enabled') is same as(false) ? false : true,
-            tools: {
-                helloWorld: config('SwagWebMcp.config.helloWorldToolEnabled') is same as(false) ? false : true
-            }
-        }|json_encode|raw }}
-    </script>
+    {% set webMcpModelContextOptions = {
+        enabled: config('SwagWebMcp.config.enabled') is same as(false) ? false : true,
+        context: config('SwagWebMcp.config.context') ?: 'Shopware storefront interaction graph',
+        staticElementsJson: config('SwagWebMcp.config.staticElementsJson'),
+        tools: {
+            helloWorld: config('SwagWebMcp.config.helloWorldToolEnabled') is same as(false) ? false : true
+        }
+    } %}
+
+    <script
+        id="swag-web-mcp-config"
+        type="application/json"
+        data-swag-web-mcp-model-context
+        data-swag-web-mcp-model-context-options="{{ webMcpModelContextOptions|json_encode|escape('html_attr') }}"
+    ></script>
     {{ parent() }}
     <script type="module" src="{{ asset('bundles/swagwebmcp/webmcp-model-context.js') }}"></script>
 {% endblock %}

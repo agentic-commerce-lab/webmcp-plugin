@@ -1,5 +1,7 @@
-import WebMcpModelContextPlugin from './webmcp-model-context/webmcp-model-context.plugin';
-
 const PluginManager = window.PluginManager;
 
-PluginManager.register('SwagWebMcpModelContext', WebMcpModelContextPlugin, '#swag-web-mcp-config');
+PluginManager.register(
+    'SwagWebMcpModelContext',
+    () => import('./webmcp-model-context/webmcp-model-context.plugin'),
+    '[data-swag-web-mcp-model-context]',
+);

@@ -7,7 +7,8 @@ The plugin uses a conventional root-level Shopware package structure:
 - `composer.json` declares the Shopware plugin package and autoloading.
 - `src/SwagWebMcp.php` is the plugin class.
 - `src/Resources/config` contains Shopware service, route, and plugin configuration.
-- `src/WebMcp` contains the document controller, config reader, document builder, and element providers.
+- `src/WebMcp` contains the document controller and Shopware config reader.
+- `src/Resources/app/storefront/src` contains the storefront JavaScript plugin.
 
 ## Installation
 
@@ -45,20 +46,21 @@ The plugin configuration currently supports:
 ## Storefront Script
 
 The plugin uses Shopware's storefront JavaScript entrypoint at `src/Resources/app/storefront/src/main.js`.
-It registers `SwagWebMcpModelContext` through `window.PluginManager`, and Twig renders a small JSON config block from Shopware Admin settings.
-The same JavaScript module is also published as `src/Resources/public/webmcp-model-context.js` and loaded with a module script tag as a fallback for storefront builds that have not picked up plugin `main.js` yet.
+It registers `SwagWebMcpModelContext` through `window.PluginManager`, and Twig passes Shopware Admin settings through Shopware data-options on the bound config element.
+Twig also loads the same browser runtime from `src/Resources/public/webmcp-model-context.js` so WebMCP tools still initialize if the active storefront bundle has not included the plugin entrypoint.
 
-When the storefront JavaScript plugin initializes, it creates `document.modelContext` if needed and registers enabled tools:
+When the storefront JavaScript plugin initializes, it builds a browser-side WebMCP document at `document.webMcp`, creates `document.modelContext` if needed, and registers enabled tools:
 
 - `shopware.webmcp.hello_world`
 
 For manual testing in the browser console:
 
     window.SwagWebMcp.registerHelloWorldTool()
+    document.webMcp.getDocument()
     document.modelContext.getTools()
     await document.modelContext.callTool('shopware.webmcp.hello_world', { subject: 'tester' })
 
-If `window.SwagWebMcp` is undefined, check the page source for `webmcp-model-context.js`. If it is missing, rerun `bin/console assets:install`, `bin/console theme:compile`, and `bin/console cache:clear`.
+If `window.SwagWebMcp` is undefined, check the page source for `data-swag-web-mcp-model-context` and `webmcp-model-context.js`. If either is missing, rerun `bin/console assets:install`, `bin/console theme:compile`, and `bin/console cache:clear`.
 
 ## Local QA
 
