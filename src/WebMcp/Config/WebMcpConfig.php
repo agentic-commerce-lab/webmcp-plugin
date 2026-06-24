@@ -9,6 +9,7 @@ final class WebMcpConfig
     public function __construct(
         public readonly bool $enabled,
         public readonly string $context,
+        public readonly bool $helloWorldToolEnabled = true,
         public readonly ?string $staticElementsJson = null,
     ) {
     }

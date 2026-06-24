@@ -1,6 +1,14 @@
 {% sw_extends '@Storefront/storefront/layout/meta.html.twig' %}
 
 {% block layout_head_javascript_hmr_mode %}
+    <script id="swag-web-mcp-config" type="application/json">
+        {{ {
+            enabled: config('SwagWebMcp.config.enabled') is same as(false) ? false : true,
+            tools: {
+                helloWorld: config('SwagWebMcp.config.helloWorldToolEnabled') is same as(false) ? false : true
+            }
+        }|json_encode|raw }}
+    </script>
     {{ parent() }}
-    <script src="{{ asset('bundles/swagwebmcp/webmcp-hello-world.global.js') }}" defer></script>
+    <script type="module" src="{{ asset('bundles/swagwebmcp/webmcp-model-context.js') }}"></script>
 {% endblock %}

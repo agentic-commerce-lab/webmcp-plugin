@@ -31,19 +31,24 @@ The response is served as `application/webmcp+json` and returns `404` when the p
 
 ## Configuration
 
+Shopware renders these settings in the plugin configuration screen in the Admin panel.
+
 The plugin configuration currently supports:
 
 - `enabled`: enables the public WebMCP document endpoint.
 - `context`: human-readable context for the WebMCP document.
 - `staticElementsJson`: optional JSON for additional WebMCP element definitions.
+- `helloWorldToolEnabled`: enables the test `document.modelContext` tool.
 
 `staticElementsJson` accepts either an array of element objects or an object with an `elements` array. Each element must include `selector`, `role`, and `name`; optional `action` values are validated before being emitted.
 
 ## Storefront Script
 
-The plugin injects `src/Resources/public/webmcp-hello-world.global.js` through a Twig script tag.
+The plugin uses Shopware's storefront JavaScript entrypoint at `src/Resources/app/storefront/src/main.js`.
+It registers `SwagWebMcpModelContext` through `window.PluginManager`, and Twig renders a small JSON config block from Shopware Admin settings.
+The same JavaScript module is also published as `src/Resources/public/webmcp-model-context.js` and loaded with a module script tag as a fallback for storefront builds that have not picked up plugin `main.js` yet.
 
-When the script loads, it creates `document.modelContext` if needed and registers a test tool immediately:
+When the storefront JavaScript plugin initializes, it creates `document.modelContext` if needed and registers enabled tools:
 
 - `shopware.webmcp.hello_world`
 
@@ -53,7 +58,7 @@ For manual testing in the browser console:
     document.modelContext.getTools()
     await document.modelContext.callTool('shopware.webmcp.hello_world', { subject: 'tester' })
 
-If `window.SwagWebMcp` is undefined, check the page source for `webmcp-hello-world.global.js`. If it is missing, rerun `bin/console assets:install`, `bin/console theme:compile`, and `bin/console cache:clear`.
+If `window.SwagWebMcp` is undefined, check the page source for `webmcp-model-context.js`. If it is missing, rerun `bin/console assets:install`, `bin/console theme:compile`, and `bin/console cache:clear`.
 
 ## Local QA
 

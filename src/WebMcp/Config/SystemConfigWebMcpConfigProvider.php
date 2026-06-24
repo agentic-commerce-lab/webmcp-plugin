@@ -19,6 +19,7 @@ final class SystemConfigWebMcpConfigProvider implements WebMcpConfigProviderInte
         return new WebMcpConfig(
             enabled: $this->boolConfig('enabled', $salesChannelId, true),
             context: $this->stringConfig('context', $salesChannelId, 'Shopware storefront interaction graph'),
+            helloWorldToolEnabled: $this->boolConfig('helloWorldToolEnabled', $salesChannelId, true),
             staticElementsJson: $this->nullableStringConfig('staticElementsJson', $salesChannelId),
         );
     }

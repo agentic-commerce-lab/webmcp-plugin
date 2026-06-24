@@ -24,5 +24,12 @@
             <label>Static elements JSON</label>
             <label lang="de-DE">Statische Elemente als JSON</label>
         </input-field>
+
+        <input-field type="bool">
+            <name>helloWorldToolEnabled</name>
+            <label>Enable hello world modelContext tool</label>
+            <label lang="de-DE">Hello-World-modelContext-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
     </card>
 </config>
