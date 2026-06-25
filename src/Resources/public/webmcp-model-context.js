@@ -35,6 +35,8 @@ const SWAG_WEB_MCP_TOOL_NAME_PREFIX = 'shopware.webmcp.';
 const ORIGINAL_GET_TOOLS_KEY = '__swagWebMcpOriginalGetTools';
 const ORIGINAL_CALL_TOOL_KEY = '__swagWebMcpOriginalCallTool';
 const WRAPPED_HELPER_KEY = '__swagWebMcpWrapped';
+const NATIVE_TOOL_REGISTRY_KEY = '__swagWebMcpNativeToolRegistry';
+const NATIVE_TOOL_NAMES_KEY = '__swagWebMcpNativeToolNames';
 
 export function bootstrapWebMcpModelContext(configOrElement = document.querySelector(CONFIG_SELECTOR)) {
     const config = normalizeConfig(readConfig(configOrElement));
@@ -413,10 +415,12 @@ function registerModelContextTool(tool) {
 
     upsertTool(modelContext, tool);
     addModelContextHelpers(modelContext);
+    const nativeToolName = registerNativeModelContextTool(tool);
 
     document.dispatchEvent(new CustomEvent('webmcp:model-context-ready', {
         detail: {
             toolName: tool.name,
+            nativeToolName,
             modelContext,
         },
     }));
@@ -433,20 +437,13 @@ function unregisterModelContextTool(toolName) {
 
     const previousLength = modelContext.tools.length;
 
-    if (typeof modelContext.unregisterTool === 'function') {
-        try {
-            modelContext.unregisterTool(toolName);
-        } catch (error) {
-            // Continue with local tool removal for WebMCP surfaces without this signature.
-        }
-    }
-
     modelContext.tools = modelContext.tools.filter((candidate) => {
         return candidate && candidate.name !== toolName;
     });
+    const nativeToolRemoved = unregisterNativeModelContextTool(toolName);
     addModelContextHelpers(modelContext);
 
-    if (modelContext.tools.length !== previousLength) {
+    if (modelContext.tools.length !== previousLength || nativeToolRemoved) {
         document.dispatchEvent(new CustomEvent('webmcp:model-context-ready', {
             detail: {
                 toolName,
@@ -455,7 +452,7 @@ function unregisterModelContextTool(toolName) {
         }));
     }
 
-    return modelContext.tools.length !== previousLength;
+    return modelContext.tools.length !== previousLength || nativeToolRemoved;
 }
 
 function upsertTool(modelContext, tool) {
@@ -467,10 +464,6 @@ function upsertTool(modelContext, tool) {
         modelContext.tools[existingIndex] = tool;
 
         return;
-    }
-
-    if (typeof modelContext.registerTool === 'function') {
-        modelContext.registerTool(tool);
     }
 
     const registeredIndex = modelContext.tools.findIndex((candidate) => {
@@ -562,7 +555,7 @@ function appendVisibleModelContextTool(visibleTools, tool, includeSwagWebMcpTool
 
 async function callVisibleModelContextTool(modelContext, name, input) {
     const tool = getVisibleModelContextTools(modelContext).find((candidate) => {
-        return candidate && candidate.name === name;
+        return candidate && (candidate.name === name || nativeToolNameForToolName(candidate.name) === name);
     });
 
     if (isSwagWebMcpToolName(name)) {
@@ -584,6 +577,209 @@ async function callVisibleModelContextTool(modelContext, name, input) {
     }
 
     return tool.execute(input);
+}
+
+function registerNativeModelContextTool(tool) {
+    const nativeModelContext = getNativeModelContext();
+
+    if (!nativeModelContext) {
+        return null;
+    }
+
+    const registry = getNativeToolRegistry();
+    const existingNativeToolName = registry.get(tool.name);
+
+    if (existingNativeToolName) {
+        return existingNativeToolName;
+    }
+
+    for (const nativeToolName of nativeToolNameCandidates(tool.name)) {
+        if (getNativeToolNames().has(nativeToolName)) {
+            registry.set(tool.name, nativeToolName);
+
+            return nativeToolName;
+        }
+
+        const nativeTool = createNativeModelContextTool(tool, nativeToolName);
+
+        if (tryRegisterNativeModelContextTool(nativeModelContext, nativeTool)) {
+            registry.set(tool.name, nativeToolName);
+            getNativeToolNames().add(nativeToolName);
+
+            return nativeToolName;
+        }
+    }
+
+    return null;
+}
+
+function unregisterNativeModelContextTool(toolName) {
+    const nativeModelContext = getNativeModelContext();
+    const registry = getNativeToolRegistry();
+    const nativeToolNames = nativeToolNameCandidates(toolName);
+    const registeredNativeToolName = registry.get(toolName);
+
+    if (registeredNativeToolName && !nativeToolNames.includes(registeredNativeToolName)) {
+        nativeToolNames.push(registeredNativeToolName);
+    }
+
+    let removed = false;
+
+    nativeToolNames.forEach((nativeToolName) => {
+        if (nativeModelContext && typeof nativeModelContext.unregisterTool === 'function') {
+            try {
+                nativeModelContext.unregisterTool(nativeToolName);
+            } catch (error) {
+                try {
+                    nativeModelContext.unregisterTool({ name: nativeToolName });
+                } catch (nestedError) {
+                    // The fallback registry still removes disabled tools even when the native API cannot unregister.
+                }
+            }
+        }
+
+        if (getNativeToolNames().delete(nativeToolName)) {
+            removed = true;
+        }
+    });
+
+    if (registry.delete(toolName)) {
+        removed = true;
+    }
+
+    return removed;
+}
+
+function getNativeModelContext() {
+    const candidates = [
+        typeof navigator !== 'undefined' ? navigator.modelContext : null,
+        typeof document !== 'undefined' ? document.modelContext : null,
+        typeof navigator !== 'undefined' ? navigator.modelContextTesting : null,
+    ];
+
+    return candidates.find((candidate) => {
+        return Boolean(candidate)
+            && typeof candidate === 'object'
+            && typeof candidate.registerTool === 'function';
+    }) || null;
+}
+
+function createNativeModelContextTool(tool, nativeToolName) {
+    const execute = async (input = {}) => {
+        const result = await tool.execute(normalizeNativeToolInput(input));
+
+        return serializeNativeToolResult(result);
+    };
+
+    return removeEmptyValues({
+        name: nativeToolName,
+        title: tool.title,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        annotations: tool.annotations,
+        execute,
+        handler: execute,
+    });
+}
+
+function tryRegisterNativeModelContextTool(nativeModelContext, nativeTool) {
+    const registerTool = nativeModelContext.registerTool.bind(nativeModelContext);
+    const attempts = [
+        () => registerTool(nativeTool),
+        () => registerTool(nativeTool.name, nativeTool),
+        () => registerTool(nativeTool.name, {
+            description: nativeTool.description,
+            inputSchema: nativeTool.inputSchema,
+            annotations: nativeTool.annotations,
+        }, nativeTool.handler),
+        () => registerTool(nativeTool.name, nativeTool.description, nativeTool.inputSchema, nativeTool.handler),
+    ];
+
+    for (const attempt of attempts) {
+        try {
+            const result = attempt();
+
+            if (result && typeof result.catch === 'function') {
+                result.catch(() => {
+                    unregisterNativeModelContextTool(nativeTool.name);
+                });
+            }
+
+            return true;
+        } catch (error) {
+            // Try the next experimental WebMCP registration signature.
+        }
+    }
+
+    return false;
+}
+
+function normalizeNativeToolInput(input) {
+    if (typeof input !== 'string') {
+        return input ?? {};
+    }
+
+    const trimmedInput = input.trim();
+
+    if (!trimmedInput) {
+        return {};
+    }
+
+    try {
+        return JSON.parse(trimmedInput);
+    } catch (error) {
+        throw new Error('WebMCP tool input must be valid JSON.');
+    }
+}
+
+function serializeNativeToolResult(result) {
+    if (typeof result === 'string') {
+        return result;
+    }
+
+    try {
+        return JSON.stringify(result);
+    } catch (error) {
+        return String(result);
+    }
+}
+
+function nativeToolNameCandidates(toolName) {
+    const nativeToolName = nativeToolNameForToolName(toolName);
+
+    return [toolName, nativeToolName].filter((candidate, index, candidates) => {
+        return candidate && candidates.indexOf(candidate) === index;
+    });
+}
+
+function nativeToolNameForToolName(toolName) {
+    if (typeof toolName !== 'string') {
+        return null;
+    }
+
+    const nativeToolName = toolName.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    if (/^[a-zA-Z_]/.test(nativeToolName)) {
+        return nativeToolName;
+    }
+
+    return `_${nativeToolName}`;
+}
+
+function getNativeToolRegistry() {
+    if (!(window[NATIVE_TOOL_REGISTRY_KEY] instanceof Map)) {
+        window[NATIVE_TOOL_REGISTRY_KEY] = new Map();
+    }
+
+    return window[NATIVE_TOOL_REGISTRY_KEY];
+}
+
+function getNativeToolNames() {
+    if (!(window[NATIVE_TOOL_NAMES_KEY] instanceof Set)) {
+        window[NATIVE_TOOL_NAMES_KEY] = new Set();
+    }
+
+    return window[NATIVE_TOOL_NAMES_KEY];
 }
 
 function isSwagWebMcpToolName(name) {
@@ -667,6 +863,18 @@ function nonEmptyString(value) {
     const trimmed = value.trim();
 
     return trimmed || null;
+}
+
+function removeEmptyValues(value) {
+    return Object.entries(value).reduce((normalizedValue, [key, item]) => {
+        if (item === null || typeof item === 'undefined' || item === '') {
+            return normalizedValue;
+        }
+
+        normalizedValue[key] = item;
+
+        return normalizedValue;
+    }, {});
 }
 
 function isPlainObject(value) {

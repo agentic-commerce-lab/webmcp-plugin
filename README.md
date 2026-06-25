@@ -118,8 +118,9 @@ refreshes see the same cart. Twig also loads the same browser runtime from
 if the active storefront bundle has not included the plugin entrypoint.
 
 When the storefront runtime initializes, it builds a browser-side WebMCP document
-at `document.webMcp`, creates `document.modelContext` if needed, and registers
-the enabled tools.
+at `document.webMcp`, registers the enabled tools with Chrome's native
+`navigator.modelContext` API when available, and keeps a fallback
+`document.modelContext` helper for manual console testing.
 
 ## Model Context Tools
 
@@ -225,6 +226,20 @@ missing, rerun:
     bin/console assets:install
     bin/console theme:compile
     bin/console cache:clear
+
+If the WebMCP Model Context Tool Inspector shows no tools, confirm Chrome's
+`WebMCP for testing` flag is enabled and then check:
+
+```js
+window.SwagWebMcp?.loaded
+document.modelContext?.getTools?.().map((tool) => tool.name)
+navigator.modelContextTesting?.listTools?.()
+```
+
+The inspector reads the native registry, so `navigator.modelContextTesting`
+should list the registered tools. If Chrome rejects dotted names such as
+`shopware.webmcp.search_products`, the runtime registers native-safe aliases
+such as `shopware_webmcp_search_products`.
 
 If product tools fail with `401` or `403`, confirm the storefront page includes
 a valid sales channel Store API access key and that the current sales channel
