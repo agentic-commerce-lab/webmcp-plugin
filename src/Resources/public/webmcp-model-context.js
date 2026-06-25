@@ -4,6 +4,7 @@ import { createGetProductCategoriesTool } from './webmcp-model-context/tools/get
 import { createGetProductTool } from './webmcp-model-context/tools/get-product.tool.js';
 import { createRemoveFromCartTool } from './webmcp-model-context/tools/remove-from-cart.tool.js';
 import { createSearchProductsTool } from './webmcp-model-context/tools/search-products.tool.js';
+import { createUpdateLineItemTool } from './webmcp-model-context/tools/update-line-item.tool.js';
 
 const CONFIG_SELECTOR = '[data-swag-web-mcp-model-context]';
 const CONFIG_OPTIONS_ATTRIBUTE = 'data-swag-web-mcp-model-context-options';
@@ -71,6 +72,10 @@ export function registerConfiguredTools(config = {}) {
         registerAddToCartTool(normalizedConfig);
     }
 
+    if (normalizedConfig.enabled && normalizedConfig.tools.updateLineItem) {
+        registerUpdateLineItemTool(normalizedConfig);
+    }
+
     if (normalizedConfig.enabled && normalizedConfig.tools.removeFromCart) {
         registerRemoveFromCartTool(normalizedConfig);
     }
@@ -116,6 +121,15 @@ export function registerAddToCartTool(config = {}) {
     const normalizedConfig = normalizeConfig(config);
 
     registerModelContextTool(createAddToCartTool({
+        baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
+        accessKey: normalizedConfig.storeApiAccessKey,
+    }));
+}
+
+export function registerUpdateLineItemTool(config = {}) {
+    const normalizedConfig = normalizeConfig(config);
+
+    registerModelContextTool(createUpdateLineItemTool({
         baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
         accessKey: normalizedConfig.storeApiAccessKey,
     }));
@@ -177,6 +191,7 @@ function exposeGlobals(config, webMcpDocument) {
         registerGetProductCategoriesTool: () => registerGetProductCategoriesTool(config),
         registerGetCartTool: () => registerGetCartTool(config),
         registerAddToCartTool: () => registerAddToCartTool(config),
+        registerUpdateLineItemTool: () => registerUpdateLineItemTool(config),
         registerRemoveFromCartTool: () => registerRemoveFromCartTool(config),
     };
 }
@@ -198,6 +213,7 @@ function normalizeConfig(options = {}) {
             getProductCategories: booleanOption(tools.getProductCategories, true),
             getCart: booleanOption(tools.getCart, true),
             addToCart: booleanOption(tools.addToCart, true),
+            updateLineItem: booleanOption(tools.updateLineItem, true),
             removeFromCart: booleanOption(tools.removeFromCart, true),
         },
     };
@@ -537,6 +553,7 @@ window.SwagWebMcpRuntime = {
     registerGetProductCategoriesTool,
     registerGetCartTool,
     registerAddToCartTool,
+    registerUpdateLineItemTool,
     registerRemoveFromCartTool,
 };
 

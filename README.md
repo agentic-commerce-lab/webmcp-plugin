@@ -45,6 +45,7 @@ The plugin configuration currently supports:
 - `getProductCategoriesToolEnabled`: enables the product category `document.modelContext` tool.
 - `getCartToolEnabled`: enables the cart read `document.modelContext` tool.
 - `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
+- `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool.
 - `removeFromCartToolEnabled`: enables the cart removal `document.modelContext` tool.
 
 `staticElementsJson` accepts either an array of element objects or an object with an `elements` array. Each element must include `selector`, `role`, and `name`; optional `action` values are validated before being emitted.
@@ -63,6 +64,7 @@ When the storefront JavaScript plugin initializes, it builds a browser-side WebM
 - `shopware.webmcp.get_product_categories`
 - `shopware.webmcp.get_cart`
 - `shopware.webmcp.add_to_cart`
+- `shopware.webmcp.update_line_item`
 - `shopware.webmcp.remove_from_cart`
 
 For manual testing in the browser console:
@@ -72,6 +74,7 @@ For manual testing in the browser console:
     window.SwagWebMcp.registerGetProductCategoriesTool()
     window.SwagWebMcp.registerGetCartTool()
     window.SwagWebMcp.registerAddToCartTool()
+    window.SwagWebMcp.registerUpdateLineItemTool()
     window.SwagWebMcp.registerRemoveFromCartTool()
     document.webMcp.getDocument()
     document.modelContext.getTools()
@@ -83,6 +86,12 @@ For manual testing in the browser console:
     await document.modelContext.callTool('shopware.webmcp.get_cart', {})
     await document.modelContext.callTool('shopware.webmcp.get_product', { id: searchResult.structuredContent.products[0].id })
     await document.modelContext.callTool('shopware.webmcp.add_to_cart', { sku: 'SWDEMO10006', quantity: 1 })
+    const cartResult = await document.modelContext.callTool('shopware.webmcp.get_cart', {})
+    await document.modelContext.callTool('shopware.webmcp.update_line_item', { lineItemId: cartResult.structuredContent.cart.lineItems[0].id, quantity: 2 })
+    await document.modelContext.callTool('shopware.webmcp.update_line_item', { sku: 'SWDEMO10006', quantity: 2 })
+    await document.modelContext.callTool('shopware.webmcp.update_line_item', { id: searchResult.structuredContent.products[0].id, quantity: 2 })
+    await document.modelContext.callTool('shopware.webmcp.update_line_item', { lineItemId: cartResult.structuredContent.cart.lineItems[0].id, quantity: 0 })
+    await document.modelContext.callTool('shopware.webmcp.update_line_item', { sku: 'SWDEMO10006', quantity: 0 })
     await document.modelContext.callTool('shopware.webmcp.remove_from_cart', { sku: 'SWDEMO10006', quantity: 1 })
     await document.modelContext.callTool('shopware.webmcp.remove_from_cart', { lineItemId: '<cart-line-item-id>', quantity: 1 })
 

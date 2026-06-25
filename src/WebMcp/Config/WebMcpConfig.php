@@ -14,6 +14,7 @@ final class WebMcpConfig
         public readonly bool $getProductCategoriesToolEnabled = true,
         public readonly bool $getCartToolEnabled = true,
         public readonly bool $addToCartToolEnabled = true,
+        public readonly bool $updateLineItemToolEnabled = true,
         public readonly bool $removeFromCartToolEnabled = true,
         public readonly ?string $staticElementsJson = null,
     ) {

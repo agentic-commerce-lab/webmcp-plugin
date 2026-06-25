@@ -121,6 +121,41 @@ export class ShopwareClient {
         return normalizeCart(cart);
     }
 
+    async updateLineItem(input = {}) {
+        const lineItemIdInput = cleanText(input.lineItemId);
+        const lineItemLookup = lineItemIdInput || await this.resolveProductId(input);
+        const cartLineItem = await this.findStorefrontCartLineItem(lineItemLookup);
+
+        if (!cartLineItem) {
+            if (!lineItemIdInput && input.quantity > 0) {
+                return this.addProductToCart(input);
+            }
+
+            throw new Error(`No cart line item found for ${lineItemLookup}.`);
+        }
+
+        const lineItemId = cartLineItem.id;
+        const quantityDelta = input.quantity - cartLineItem.quantity;
+        const cart = input.quantity > 0
+            ? await this.storefrontChangeLineItemQuantity({
+                lineItemId,
+                quantity: input.quantity,
+                previousQuantity: cartLineItem.quantity,
+                removedQuantity: Math.max(cartLineItem.quantity - input.quantity, 0),
+                quantityDelta,
+                action: 'update',
+            })
+            : await this.storefrontRemoveLineItemFromCart({
+                lineItemId,
+                previousQuantity: cartLineItem.quantity,
+                removedQuantity: cartLineItem.quantity,
+                quantityDelta,
+                action: 'update',
+            });
+
+        return normalizeCart(cart);
+    }
+
     async resolveProductId(input = {}) {
         if (cleanText(input.id)) {
             return cleanText(input.id);
@@ -211,6 +246,17 @@ export class ShopwareClient {
             return currentDocumentLineItem;
         }
 
+        try {
+            const cart = await this.webMcpCartRequest();
+            const payloadLineItem = findCartLineItemInPayload(cart, lineItemId);
+
+            if (payloadLineItem) {
+                return payloadLineItem;
+            }
+        } catch (error) {
+            // Fall back to the storefront cart page when the optional cart endpoint is unavailable.
+        }
+
         const cartHtml = await fetchStorefrontHtml(new URL(STOREFRONT_CART_PATH, this.baseUrl), 'Cart lookup');
         const cartDocument = parseHtmlDocument(cartHtml, 'Cart lookup');
 
@@ -274,7 +320,14 @@ export class ShopwareClient {
             };
     }
 
-    async storefrontChangeLineItemQuantity({ lineItemId, quantity, previousQuantity, removedQuantity }) {
+    async storefrontChangeLineItemQuantity({
+        lineItemId,
+        quantity,
+        previousQuantity,
+        removedQuantity,
+        quantityDelta,
+        action = 'update',
+    }) {
         const url = new URL(`${STOREFRONT_CHANGE_LINE_ITEM_QUANTITY_PATH}/${encodeURIComponent(lineItemId)}`, this.baseUrl);
         const body = new URLSearchParams();
         const csrfToken = readCsrfToken();
@@ -304,10 +357,11 @@ export class ShopwareClient {
         }
 
         const cartWidgetRefreshed = publishCartMutation({
-            action: 'remove',
+            action,
             lineItemId,
             previousQuantity,
             removedQuantity,
+            quantityDelta: Number.isFinite(quantityDelta) ? quantityDelta : quantity - previousQuantity,
             remainingQuantity: quantity,
             lineItemDeleted: false,
         });
@@ -335,7 +389,13 @@ export class ShopwareClient {
             };
     }
 
-    async storefrontRemoveLineItemFromCart({ lineItemId, previousQuantity, removedQuantity }) {
+    async storefrontRemoveLineItemFromCart({
+        lineItemId,
+        previousQuantity,
+        removedQuantity,
+        quantityDelta,
+        action = 'remove',
+    }) {
         const url = new URL(`${STOREFRONT_REMOVE_FROM_CART_PATH}/${encodeURIComponent(lineItemId)}`, this.baseUrl);
         const body = new URLSearchParams();
         const csrfToken = readCsrfToken();
@@ -363,10 +423,11 @@ export class ShopwareClient {
         }
 
         const cartWidgetRefreshed = publishCartMutation({
-            action: 'remove',
+            action,
             lineItemId,
             previousQuantity,
             removedQuantity,
+            quantityDelta: Number.isFinite(quantityDelta) ? quantityDelta : -previousQuantity,
             remainingQuantity: 0,
             lineItemDeleted: true,
         });
@@ -382,6 +443,53 @@ export class ShopwareClient {
                 lineItems: [],
             };
     }
+}
+
+function findCartLineItemInPayload(cart, lineItemId) {
+    const lineItems = Array.isArray(cart?.lineItems) ? cart.lineItems : [];
+
+    for (const lineItem of lineItems) {
+        const matchedLineItem = findNestedCartLineItem(lineItem, lineItemId);
+
+        if (matchedLineItem) {
+            return matchedLineItem;
+        }
+    }
+
+    return null;
+}
+
+function findNestedCartLineItem(lineItem, lineItemId) {
+    if (!isPlainObject(lineItem)) {
+        return null;
+    }
+
+    const candidateId = cleanText(lineItem.id);
+    const candidateReferencedId = cleanText(lineItem.referencedId);
+
+    if (
+        (candidateId === lineItemId || candidateReferencedId === lineItemId)
+        && candidateId
+        && Number.isInteger(lineItem.quantity)
+        && lineItem.quantity > 0
+    ) {
+        return {
+            id: candidateId,
+            quantity: lineItem.quantity,
+        };
+    }
+
+    const children = Array.isArray(lineItem.children) ? lineItem.children : [];
+
+    for (const child of children) {
+        const matchedChild = findNestedCartLineItem(child, lineItemId);
+
+        if (matchedChild) {
+            return matchedChild;
+        }
+    }
+
+    return null;
 }
 
 function findCartLineItemInDocument(root, lineItemId, baseUrl) {

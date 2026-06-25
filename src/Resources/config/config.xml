@@ -61,6 +61,13 @@
         </input-field>
 
         <input-field type="bool">
+            <name>updateLineItemToolEnabled</name>
+            <label>Enable update_line_item tool</label>
+            <label lang="de-DE">update_line_item-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
+
+        <input-field type="bool">
             <name>removeFromCartToolEnabled</name>
             <label>Enable remove_from_cart tool</label>
             <label lang="de-DE">remove_from_cart-Tool aktivieren</label>
