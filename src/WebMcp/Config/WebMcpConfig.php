@@ -12,6 +12,7 @@ final class WebMcpConfig
         public readonly bool $searchProductsToolEnabled = true,
         public readonly bool $getProductToolEnabled = true,
         public readonly bool $getProductCategoriesToolEnabled = true,
+        public readonly bool $addToCartToolEnabled = true,
         public readonly ?string $staticElementsJson = null,
     ) {
     }

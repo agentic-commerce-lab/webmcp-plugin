@@ -45,5 +45,12 @@
             <label lang="de-DE">Produktkategorien-modelContext-Tool aktivieren</label>
             <defaultValue>true</defaultValue>
         </input-field>
+
+        <input-field type="bool">
+            <name>addToCartToolEnabled</name>
+            <label>Enable add to cart modelContext tool</label>
+            <label lang="de-DE">In-den-Warenkorb-modelContext-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
     </card>
 </config>

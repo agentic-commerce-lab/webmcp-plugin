@@ -1,3 +1,4 @@
+import { createAddToCartTool } from './webmcp-model-context/tools/add-to-cart.tool.js';
 import { createGetProductCategoriesTool } from './webmcp-model-context/tools/get-product-categories.tool.js';
 import { createGetProductTool } from './webmcp-model-context/tools/get-product.tool.js';
 import { createSearchProductsTool } from './webmcp-model-context/tools/search-products.tool.js';
@@ -59,6 +60,10 @@ export function registerConfiguredTools(config = {}) {
     if (normalizedConfig.enabled && normalizedConfig.tools.getProductCategories) {
         registerGetProductCategoriesTool(normalizedConfig);
     }
+
+    if (normalizedConfig.enabled && normalizedConfig.tools.addToCart) {
+        registerAddToCartTool(normalizedConfig);
+    }
 }
 
 export function registerSearchProductsTool(config = {}) {
@@ -83,6 +88,15 @@ export function registerGetProductCategoriesTool(config = {}) {
     const normalizedConfig = normalizeConfig(config);
 
     registerModelContextTool(createGetProductCategoriesTool({
+        baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
+        accessKey: normalizedConfig.storeApiAccessKey,
+    }));
+}
+
+export function registerAddToCartTool(config = {}) {
+    const normalizedConfig = normalizeConfig(config);
+
+    registerModelContextTool(createAddToCartTool({
         baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
         accessKey: normalizedConfig.storeApiAccessKey,
     }));
@@ -133,6 +147,7 @@ function exposeGlobals(config, webMcpDocument) {
         registerSearchProductsTool: () => registerSearchProductsTool(config),
         registerGetProductTool: () => registerGetProductTool(config),
         registerGetProductCategoriesTool: () => registerGetProductCategoriesTool(config),
+        registerAddToCartTool: () => registerAddToCartTool(config),
     };
 }
 
@@ -151,6 +166,7 @@ function normalizeConfig(options = {}) {
             searchProducts: booleanOption(tools.searchProducts, true),
             getProduct: booleanOption(tools.getProduct, true),
             getProductCategories: booleanOption(tools.getProductCategories, true),
+            addToCart: booleanOption(tools.addToCart, true),
         },
     };
 }
@@ -487,6 +503,7 @@ window.SwagWebMcpRuntime = {
     registerSearchProductsTool,
     registerGetProductTool,
     registerGetProductCategoriesTool,
+    registerAddToCartTool,
 };
 
 if (document.readyState === 'loading') {

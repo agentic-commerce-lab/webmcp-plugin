@@ -8,6 +8,7 @@ import {
 } from './tools/storefront-tool.utils.js';
 
 const STORE_API_PATH = '/store-api';
+const STOREFRONT_ADD_TO_CART_PATH = '/checkout/line-item/add';
 const CONTEXT_TOKEN_HEADER = 'sw-context-token';
 const ACCESS_KEY_HEADER = 'sw-access-key';
 const CONTEXT_TOKEN_STORAGE_KEY = 'sw-context-token';
@@ -66,6 +67,17 @@ export class ShopwareClient {
         }
 
         return product;
+    }
+
+    async addProductToCart(input = {}) {
+        const productId = await this.resolveProductId(input);
+        const cart = await this.storefrontAddProductToCart({
+            productId,
+            quantity: input.quantity,
+            lineItemId: cleanText(input.lineItemId) || productId,
+        });
+
+        return normalizeCart(cart);
     }
 
     async resolveProductId(input = {}) {
@@ -131,6 +143,65 @@ export class ShopwareClient {
 
         return payload;
     }
+
+    async storefrontAddProductToCart({ productId, quantity, lineItemId }) {
+        const url = new URL(STOREFRONT_ADD_TO_CART_PATH, this.baseUrl);
+        const body = createAddToCartFormBody({
+            productId,
+            lineItemId,
+            quantity,
+        });
+        const csrfToken = readCsrfToken();
+        const headers = {
+            Accept: 'application/json, text/html, */*',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+
+        if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken;
+            body.set('_csrf_token', csrfToken);
+        }
+
+        const response = await fetch(url.toString(), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers,
+            body: body.toString(),
+        });
+        const payload = await parseFlexibleResponse(response);
+
+        if (!response.ok) {
+            throw new Error(storefrontErrorMessage(response, payload));
+        }
+
+        document.dispatchEvent(new CustomEvent('webmcp:cart-updated', {
+            detail: {
+                productId,
+                quantity,
+                lineItemId,
+            },
+        }));
+        const cartWidgetRefreshed = refreshCartWidgets();
+
+        return isPlainObject(payload)
+            ? {
+                ...payload,
+                cartWidgetRefreshed,
+            }
+            : {
+                sessionCartUpdated: true,
+                cartWidgetRefreshed,
+                lineItems: [
+                    {
+                        id: lineItemId,
+                        referencedId: productId,
+                        type: 'product',
+                        quantity,
+                    },
+                ],
+            };
+    }
 }
 
 function createProductCriteria(options = {}) {
@@ -185,6 +256,87 @@ function normalizeProductCollection(result, baseUrl) {
     return elements
         .map((product) => normalizeProduct(product, baseUrl))
         .filter(Boolean);
+}
+
+function normalizeCart(cart) {
+    if (!isPlainObject(cart)) {
+        return null;
+    }
+
+    const lineItems = normalizeLineItems(cart.lineItems);
+
+    return removeEmptyValues({
+        sessionCartUpdated: cart.sessionCartUpdated,
+        cartWidgetRefreshed: cart.cartWidgetRefreshed,
+        name: cleanText(cart.name),
+        itemCount: lineItems.reduce((count, item) => count + (item.quantity || 0), 0),
+        totalPrice: normalizeCartPrice(cart.price),
+        lineItems,
+    });
+}
+
+function refreshCartWidgets() {
+    const instances = window.PluginManager?.getPluginInstances?.('CartWidget');
+    let refreshed = false;
+
+    if (!instances || typeof instances.forEach !== 'function') {
+        return refreshed;
+    }
+
+    instances.forEach((instance) => {
+        if (!instance || typeof instance.fetch !== 'function') {
+            return;
+        }
+
+        instance.fetch();
+        refreshed = true;
+    });
+
+    return refreshed;
+}
+
+function normalizeLineItems(collection) {
+    const items = Array.isArray(collection)
+        ? collection
+        : isPlainObject(collection?.elements) ? Object.values(collection.elements)
+            : isPlainObject(collection) ? Object.values(collection) : [];
+
+    return items.map((item) => {
+        return removeEmptyValues({
+            id: cleanText(item.id),
+            referencedId: cleanText(item.referencedId),
+            type: cleanText(item.type),
+            label: cleanText(item.label),
+            quantity: Number.isFinite(item.quantity) ? item.quantity : null,
+            price: normalizeCartPrice(item.price),
+            payload: normalizeLineItemPayload(item.payload),
+        });
+    }).filter((item) => item.id || item.label);
+}
+
+function normalizeCartPrice(price) {
+    if (!isPlainObject(price)) {
+        return null;
+    }
+
+    return removeEmptyValues({
+        unitPrice: Number.isFinite(price.unitPrice) ? price.unitPrice : null,
+        totalPrice: Number.isFinite(price.totalPrice) ? price.totalPrice : null,
+        positionPrice: Number.isFinite(price.positionPrice) ? price.positionPrice : null,
+        netPrice: Number.isFinite(price.netPrice) ? price.netPrice : null,
+    });
+}
+
+function normalizeLineItemPayload(payload) {
+    if (!isPlainObject(payload)) {
+        return null;
+    }
+
+    return removeEmptyValues({
+        productNumber: cleanText(payload.productNumber),
+        parentId: cleanText(payload.parentId),
+        optionIds: Array.isArray(payload.optionIds) ? payload.optionIds.filter((value) => cleanText(value)) : null,
+    });
 }
 
 function normalizeProduct(product, baseUrl) {
@@ -352,6 +504,29 @@ async function parseJsonResponse(response) {
     }
 }
 
+async function parseFlexibleResponse(response) {
+    const contentType = response.headers.get('content-type') || '';
+    const text = await response.text();
+
+    if (!text) {
+        return null;
+    }
+
+    if (contentType.includes('application/json')) {
+        try {
+            return JSON.parse(text);
+        } catch (error) {
+            return {
+                raw: text,
+            };
+        }
+    }
+
+    return {
+        raw: text,
+    };
+}
+
 function storeApiErrorMessage(response, payload) {
     const errorDetail = Array.isArray(payload?.errors)
         ? payload.errors.map((error) => error.detail || error.title).filter(Boolean).join(' ')
@@ -364,6 +539,32 @@ function storeApiErrorMessage(response, payload) {
     return errorDetail || `Shopware Store API request failed with status ${response.status}.`;
 }
 
+function storefrontErrorMessage(response, payload) {
+    if (Array.isArray(payload?.errors)) {
+        const errorDetail = payload.errors.map((error) => error.detail || error.title).filter(Boolean).join(' ');
+
+        if (errorDetail) {
+            return errorDetail;
+        }
+    }
+
+    return `Shopware storefront add to cart request failed with status ${response.status}.`;
+}
+
+function createAddToCartFormBody({ productId, lineItemId, quantity }) {
+    const body = new URLSearchParams();
+    const lineItemPrefix = `lineItems[${lineItemId}]`;
+
+    body.set(`${lineItemPrefix}[id]`, lineItemId);
+    body.set(`${lineItemPrefix}[referencedId]`, productId);
+    body.set(`${lineItemPrefix}[type]`, 'product');
+    body.set(`${lineItemPrefix}[stackable]`, '1');
+    body.set(`${lineItemPrefix}[removable]`, '1');
+    body.set(`${lineItemPrefix}[quantity]`, String(quantity));
+
+    return body;
+}
+
 function readContextToken() {
     return readKnownValue([
         () => readMetaContent('sw-context-token'),
@@ -371,6 +572,17 @@ function readContextToken() {
         () => readStorageValue('swContextToken'),
         () => readCookieValue(CONTEXT_TOKEN_STORAGE_KEY),
         () => readCookieValue('sw_context_token'),
+    ]);
+}
+
+function readCsrfToken() {
+    return readKnownValue([
+        () => document.querySelector('form[action*="/checkout/line-item/add"] input[name="_csrf_token"]')?.value,
+        () => document.querySelector('input[name="_csrf_token"]')?.value,
+        () => readMetaContent('csrf-token'),
+        () => readMetaContent('csrf_token'),
+        () => window?.csrf?.token,
+        () => window?.Shopware?.Context?.csrfToken,
     ]);
 }
 
