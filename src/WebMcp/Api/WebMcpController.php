@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Swag\WebMcp\WebMcp\Api;
 
+use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Swag\WebMcp\WebMcp\Config\WebMcpConfig;
 use Swag\WebMcp\WebMcp\Config\WebMcpConfigProviderInterface;
+use Swag\WebMcp\WebMcp\Model\CartPayloadBuilder;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -15,8 +18,11 @@ final class WebMcpController
 {
     private const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
-    public function __construct(private readonly WebMcpConfigProviderInterface $configProvider)
-    {
+    public function __construct(
+        private readonly WebMcpConfigProviderInterface $configProvider,
+        private readonly CartService $cartService,
+        private readonly CartPayloadBuilder $cartPayloadBuilder,
+    ) {
     }
 
     #[Route(
@@ -39,6 +45,30 @@ final class WebMcpController
             ['content-type' => 'application/webmcp+json'],
         );
         $response->headers->set('cache-control', 'public, max-age=300');
+
+        return $response;
+    }
+
+    #[Route(
+        path: '/webmcp/cart',
+        name: 'swag_web_mcp.cart',
+        defaults: ['_routeScope' => ['storefront'], 'auth_required' => false, 'XmlHttpRequest' => true],
+        methods: ['GET'],
+    )]
+    public function cart(Request $request, ?SalesChannelContext $salesChannelContext = null): Response
+    {
+        $config = $this->configProvider->getConfig($salesChannelContext);
+        if (!$config->enabled || !$config->getCartToolEnabled) {
+            return new JsonResponse(['message' => 'WebMCP cart tool is disabled.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$salesChannelContext instanceof SalesChannelContext) {
+            return new JsonResponse(['message' => 'Sales channel context is unavailable.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $cart = $this->cartService->getCart($salesChannelContext->getToken(), $salesChannelContext);
+        $response = new JsonResponse($this->cartPayloadBuilder->build($cart, $salesChannelContext, $request));
+        $response->headers->set('cache-control', 'private, no-store');
 
         return $response;
     }

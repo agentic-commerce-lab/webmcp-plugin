@@ -1,4 +1,5 @@
 import { createAddToCartTool } from './webmcp-model-context/tools/add-to-cart.tool.js';
+import { createGetCartTool } from './webmcp-model-context/tools/get-cart.tool.js';
 import { createGetProductCategoriesTool } from './webmcp-model-context/tools/get-product-categories.tool.js';
 import { createGetProductTool } from './webmcp-model-context/tools/get-product.tool.js';
 import { createRemoveFromCartTool } from './webmcp-model-context/tools/remove-from-cart.tool.js';
@@ -62,6 +63,10 @@ export function registerConfiguredTools(config = {}) {
         registerGetProductCategoriesTool(normalizedConfig);
     }
 
+    if (normalizedConfig.enabled && normalizedConfig.tools.getCart) {
+        registerGetCartTool(normalizedConfig);
+    }
+
     if (normalizedConfig.enabled && normalizedConfig.tools.addToCart) {
         registerAddToCartTool(normalizedConfig);
     }
@@ -93,6 +98,15 @@ export function registerGetProductCategoriesTool(config = {}) {
     const normalizedConfig = normalizeConfig(config);
 
     registerModelContextTool(createGetProductCategoriesTool({
+        baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
+        accessKey: normalizedConfig.storeApiAccessKey,
+    }));
+}
+
+export function registerGetCartTool(config = {}) {
+    const normalizedConfig = normalizeConfig(config);
+
+    registerModelContextTool(createGetCartTool({
         baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
         accessKey: normalizedConfig.storeApiAccessKey,
     }));
@@ -161,6 +175,7 @@ function exposeGlobals(config, webMcpDocument) {
         registerSearchProductsTool: () => registerSearchProductsTool(config),
         registerGetProductTool: () => registerGetProductTool(config),
         registerGetProductCategoriesTool: () => registerGetProductCategoriesTool(config),
+        registerGetCartTool: () => registerGetCartTool(config),
         registerAddToCartTool: () => registerAddToCartTool(config),
         registerRemoveFromCartTool: () => registerRemoveFromCartTool(config),
     };
@@ -181,6 +196,7 @@ function normalizeConfig(options = {}) {
             searchProducts: booleanOption(tools.searchProducts, true),
             getProduct: booleanOption(tools.getProduct, true),
             getProductCategories: booleanOption(tools.getProductCategories, true),
+            getCart: booleanOption(tools.getCart, true),
             addToCart: booleanOption(tools.addToCart, true),
             removeFromCart: booleanOption(tools.removeFromCart, true),
         },
@@ -519,6 +535,7 @@ window.SwagWebMcpRuntime = {
     registerSearchProductsTool,
     registerGetProductTool,
     registerGetProductCategoriesTool,
+    registerGetCartTool,
     registerAddToCartTool,
     registerRemoveFromCartTool,
 };

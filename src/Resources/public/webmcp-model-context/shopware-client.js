@@ -10,6 +10,7 @@ import {
 } from './tools/storefront-tool.utils.js';
 
 const STORE_API_PATH = '/store-api';
+const WEBMCP_CART_PATH = '/webmcp/cart';
 const STOREFRONT_ADD_TO_CART_PATH = '/checkout/line-item/add';
 const STOREFRONT_CART_PATH = '/checkout/cart';
 const STOREFRONT_CHANGE_LINE_ITEM_QUANTITY_PATH = '/checkout/line-item/change-quantity';
@@ -72,6 +73,16 @@ export class ShopwareClient {
         }
 
         return product;
+    }
+
+    async getCart() {
+        const cart = await this.webMcpCartRequest();
+
+        if (!isPlainObject(cart)) {
+            throw new Error('No cart details were returned by the Shopware WebMCP cart endpoint.');
+        }
+
+        return cart;
     }
 
     async addProductToCart(input = {}) {
@@ -169,6 +180,25 @@ export class ShopwareClient {
 
         if (!response.ok) {
             throw new Error(storeApiErrorMessage(response, payload));
+        }
+
+        return payload;
+    }
+
+    async webMcpCartRequest() {
+        const url = new URL(WEBMCP_CART_PATH, this.baseUrl);
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        const payload = await parseJsonResponse(response);
+
+        if (!response.ok) {
+            throw new Error(webMcpCartErrorMessage(response, payload));
         }
 
         return payload;
@@ -793,6 +823,14 @@ function storefrontErrorMessage(response, payload) {
     }
 
     return `Shopware storefront cart request failed with status ${response.status}.`;
+}
+
+function webMcpCartErrorMessage(response, payload) {
+    if (typeof payload?.message === 'string' && payload.message.trim()) {
+        return payload.message.trim();
+    }
+
+    return `Shopware WebMCP cart request failed with status ${response.status}.`;
 }
 
 function createAddToCartFormBody({ productId, lineItemId, quantity }) {

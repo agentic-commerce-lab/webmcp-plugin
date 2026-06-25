@@ -27,8 +27,9 @@ Install this repository as a Shopware platform plugin:
 When enabled, the storefront exposes a WebMCP side-car document:
 
 - `GET /webmcp.wmcp`
+- `GET /webmcp/cart`
 
-The response is served as `application/webmcp+json` and returns `404` when the plugin is disabled in Shopware Admin.
+The WebMCP document response is served as `application/webmcp+json` and returns `404` when the plugin is disabled in Shopware Admin. The cart endpoint returns the current storefront cart as JSON for the browser-side `get_cart` tool.
 
 ## Configuration
 
@@ -42,6 +43,7 @@ The plugin configuration currently supports:
 - `searchProductsToolEnabled`: enables the product search `document.modelContext` tool.
 - `getProductToolEnabled`: enables the product detail `document.modelContext` tool.
 - `getProductCategoriesToolEnabled`: enables the product category `document.modelContext` tool.
+- `getCartToolEnabled`: enables the cart read `document.modelContext` tool.
 - `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
 - `removeFromCartToolEnabled`: enables the cart removal `document.modelContext` tool.
 
@@ -59,6 +61,7 @@ When the storefront JavaScript plugin initializes, it builds a browser-side WebM
 - `shopware.webmcp.search_products`
 - `shopware.webmcp.get_product`
 - `shopware.webmcp.get_product_categories`
+- `shopware.webmcp.get_cart`
 - `shopware.webmcp.add_to_cart`
 - `shopware.webmcp.remove_from_cart`
 
@@ -67,6 +70,7 @@ For manual testing in the browser console:
     window.SwagWebMcp.registerSearchProductsTool()
     window.SwagWebMcp.registerGetProductTool()
     window.SwagWebMcp.registerGetProductCategoriesTool()
+    window.SwagWebMcp.registerGetCartTool()
     window.SwagWebMcp.registerAddToCartTool()
     window.SwagWebMcp.registerRemoveFromCartTool()
     document.webMcp.getDocument()
@@ -76,6 +80,7 @@ For manual testing in the browser console:
     await document.modelContext.callTool('shopware.webmcp.get_product', { sku: 'SWDEMO10006' })
     await document.modelContext.callTool('shopware.webmcp.get_product_categories', {})
     await document.modelContext.callTool('shopware.webmcp.get_product_categories', { sku: 'SWDEMO10006' })
+    await document.modelContext.callTool('shopware.webmcp.get_cart', {})
     await document.modelContext.callTool('shopware.webmcp.get_product', { id: searchResult.structuredContent.products[0].id })
     await document.modelContext.callTool('shopware.webmcp.add_to_cart', { sku: 'SWDEMO10006', quantity: 1 })
     await document.modelContext.callTool('shopware.webmcp.remove_from_cart', { sku: 'SWDEMO10006', quantity: 1 })

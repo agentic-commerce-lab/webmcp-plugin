@@ -22,6 +22,7 @@ final class SystemConfigWebMcpConfigProvider implements WebMcpConfigProviderInte
             searchProductsToolEnabled: $this->boolConfig('searchProductsToolEnabled', $salesChannelId, true),
             getProductToolEnabled: $this->boolConfig('getProductToolEnabled', $salesChannelId, true),
             getProductCategoriesToolEnabled: $this->boolConfig('getProductCategoriesToolEnabled', $salesChannelId, true),
+            getCartToolEnabled: $this->boolConfig('getCartToolEnabled', $salesChannelId, true),
             addToCartToolEnabled: $this->boolConfig('addToCartToolEnabled', $salesChannelId, true),
             removeFromCartToolEnabled: $this->boolConfig('removeFromCartToolEnabled', $salesChannelId, true),
             staticElementsJson: $this->nullableStringConfig('staticElementsJson', $salesChannelId),
