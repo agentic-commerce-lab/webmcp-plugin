@@ -1,3 +1,4 @@
+import { createGetProductCategoriesTool } from './webmcp-model-context/tools/get-product-categories.tool.js';
 import { createGetProductTool } from './webmcp-model-context/tools/get-product.tool.js';
 import { createSearchProductsTool } from './webmcp-model-context/tools/search-products.tool.js';
 
@@ -54,6 +55,10 @@ export function registerConfiguredTools(config = {}) {
     if (normalizedConfig.enabled && normalizedConfig.tools.getProduct) {
         registerGetProductTool(normalizedConfig);
     }
+
+    if (normalizedConfig.enabled && normalizedConfig.tools.getProductCategories) {
+        registerGetProductCategoriesTool(normalizedConfig);
+    }
 }
 
 export function registerSearchProductsTool(config = {}) {
@@ -61,6 +66,7 @@ export function registerSearchProductsTool(config = {}) {
 
     registerModelContextTool(createSearchProductsTool({
         baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
+        accessKey: normalizedConfig.storeApiAccessKey,
     }));
 }
 
@@ -69,6 +75,16 @@ export function registerGetProductTool(config = {}) {
 
     registerModelContextTool(createGetProductTool({
         baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
+        accessKey: normalizedConfig.storeApiAccessKey,
+    }));
+}
+
+export function registerGetProductCategoriesTool(config = {}) {
+    const normalizedConfig = normalizeConfig(config);
+
+    registerModelContextTool(createGetProductCategoriesTool({
+        baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
+        accessKey: normalizedConfig.storeApiAccessKey,
     }));
 }
 
@@ -116,6 +132,7 @@ function exposeGlobals(config, webMcpDocument) {
         registerConfiguredTools: () => registerConfiguredTools(config),
         registerSearchProductsTool: () => registerSearchProductsTool(config),
         registerGetProductTool: () => registerGetProductTool(config),
+        registerGetProductCategoriesTool: () => registerGetProductCategoriesTool(config),
     };
 }
 
@@ -127,11 +144,13 @@ function normalizeConfig(options = {}) {
         enabled: booleanOption(source.enabled, true),
         context: nonEmptyString(source.context) || DEFAULT_CONTEXT,
         baseUrl: nonEmptyString(source.baseUrl),
+        storeApiAccessKey: nonEmptyString(source.storeApiAccessKey),
         staticElements: source.staticElements,
         staticElementsJson: nonEmptyString(source.staticElementsJson),
         tools: {
             searchProducts: booleanOption(tools.searchProducts, true),
             getProduct: booleanOption(tools.getProduct, true),
+            getProductCategories: booleanOption(tools.getProductCategories, true),
         },
     };
 }
@@ -467,6 +486,7 @@ window.SwagWebMcpRuntime = {
     registerConfiguredTools,
     registerSearchProductsTool,
     registerGetProductTool,
+    registerGetProductCategoriesTool,
 };
 
 if (document.readyState === 'loading') {

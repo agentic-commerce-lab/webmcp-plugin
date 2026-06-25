@@ -38,5 +38,12 @@
             <label lang="de-DE">Produktdetails-modelContext-Tool aktivieren</label>
             <defaultValue>true</defaultValue>
         </input-field>
+
+        <input-field type="bool">
+            <name>getProductCategoriesToolEnabled</name>
+            <label>Enable product categories modelContext tool</label>
+            <label lang="de-DE">Produktkategorien-modelContext-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
     </card>
 </config>

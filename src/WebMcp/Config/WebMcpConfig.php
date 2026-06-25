@@ -11,6 +11,7 @@ final class WebMcpConfig
         public readonly string $context,
         public readonly bool $searchProductsToolEnabled = true,
         public readonly bool $getProductToolEnabled = true,
+        public readonly bool $getProductCategoriesToolEnabled = true,
         public readonly ?string $staticElementsJson = null,
     ) {
     }

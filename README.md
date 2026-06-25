@@ -41,6 +41,7 @@ The plugin configuration currently supports:
 - `staticElementsJson`: optional JSON for additional WebMCP element definitions.
 - `searchProductsToolEnabled`: enables the product search `document.modelContext` tool.
 - `getProductToolEnabled`: enables the product detail `document.modelContext` tool.
+- `getProductCategoriesToolEnabled`: enables the product category `document.modelContext` tool.
 
 `staticElementsJson` accepts either an array of element objects or an object with an `elements` array. Each element must include `selector`, `role`, and `name`; optional `action` values are validated before being emitted.
 
@@ -48,22 +49,28 @@ The plugin configuration currently supports:
 
 The plugin uses Shopware's storefront JavaScript entrypoint at `src/Resources/app/storefront/src/main.js`.
 It registers `SwagWebMcpModelContext` through `window.PluginManager`, and Twig passes Shopware Admin settings through Shopware data-options on the bound config element.
+Twig also passes the current sales channel's Store API access key so product tools can call Shopware's Store API. Context tokens are not rendered into HTML; the browser client reuses discoverable client-side context tokens where available and persists Store API response tokens.
 Twig also loads the same browser runtime from `src/Resources/public/webmcp-model-context.js` so WebMCP tools still initialize if the active storefront bundle has not included the plugin entrypoint.
 
 When the storefront JavaScript plugin initializes, it builds a browser-side WebMCP document at `document.webMcp`, creates `document.modelContext` if needed, and registers enabled tools:
 
 - `shopware.webmcp.search_products`
 - `shopware.webmcp.get_product`
+- `shopware.webmcp.get_product_categories`
 
 For manual testing in the browser console:
 
     window.SwagWebMcp.registerSearchProductsTool()
     window.SwagWebMcp.registerGetProductTool()
+    window.SwagWebMcp.registerGetProductCategoriesTool()
     document.webMcp.getDocument()
     document.modelContext.getTools()
+    await document.modelContext.callTool('shopware.webmcp.search_products', {})
     const searchResult = await document.modelContext.callTool('shopware.webmcp.search_products', { query: 'shirt', limit: 3 })
     await document.modelContext.callTool('shopware.webmcp.get_product', { sku: 'SWDEMO10006' })
-    await document.modelContext.callTool('shopware.webmcp.get_product', { url: searchResult.structuredContent.products[0].url })
+    await document.modelContext.callTool('shopware.webmcp.get_product_categories', {})
+    await document.modelContext.callTool('shopware.webmcp.get_product_categories', { sku: 'SWDEMO10006' })
+    await document.modelContext.callTool('shopware.webmcp.get_product', { id: searchResult.structuredContent.products[0].id })
 
 If `window.SwagWebMcp` is undefined, check the page source for `data-swag-web-mcp-model-context` and `webmcp-model-context.js`. If either is missing, rerun `bin/console assets:install`, `bin/console theme:compile`, and `bin/console cache:clear`.
 

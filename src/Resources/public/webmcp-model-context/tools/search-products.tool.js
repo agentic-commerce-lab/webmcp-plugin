@@ -1,7 +1,5 @@
+import { ShopwareClient } from '../shopware-client.js';
 import {
-    createSearchUrl,
-    extractProductsFromSearchHtml,
-    fetchStorefrontHtml,
     isPlainObject,
     normalizeBaseUrl,
 } from './storefront-tool.utils.js';
@@ -14,24 +12,28 @@ const MAX_QUERY_LENGTH = 120;
 
 export function createSearchProductsTool(options = {}) {
     const baseUrl = normalizeBaseUrl(options.baseUrl);
+    const shopwareClient = new ShopwareClient({
+        baseUrl,
+        accessKey: options.accessKey,
+        contextToken: options.contextToken,
+    });
 
     const execute = async (input = {}) => {
         const normalizedInput = normalizeInput(input);
-        const searchUrl = createSearchUrl(baseUrl, normalizedInput.query);
-        const html = await fetchStorefrontHtml(searchUrl, 'Product search');
-        const products = extractProductsFromSearchHtml(html, searchUrl, normalizedInput.limit);
+        const searchResult = await shopwareClient.searchProducts(normalizedInput);
 
         return {
             content: [
                 {
                     type: 'text',
-                    text: formatProductSearchResult(normalizedInput.query, products),
+                    text: formatProductSearchResult(normalizedInput.query, searchResult.products),
                 },
             ],
             structuredContent: {
                 query: normalizedInput.query,
-                count: products.length,
-                products,
+                count: searchResult.products.length,
+                total: searchResult.total,
+                products: searchResult.products,
             },
         };
     };
@@ -39,16 +41,14 @@ export function createSearchProductsTool(options = {}) {
     return {
         name: SEARCH_PRODUCTS_TOOL_NAME,
         title: 'Search products',
-        description: 'Searches the Shopware storefront and returns matching product summaries.',
+        description: 'Searches products through the Shopware Store API using customer context.',
         inputSchema: {
             type: 'object',
-            required: ['query'],
             properties: {
                 query: {
                     type: 'string',
-                    minLength: 1,
                     maxLength: MAX_QUERY_LENGTH,
-                    description: 'Product search term.',
+                    description: 'Optional product search term. Omit or pass an empty string to list products.',
                 },
                 limit: {
                     type: 'integer',
@@ -66,8 +66,10 @@ export function createSearchProductsTool(options = {}) {
 }
 
 function formatProductSearchResult(query, products) {
+    const resultLabel = query ? `for "${query}"` : 'without a search term';
+
     if (products.length === 0) {
-        return `No products found for "${query}".`;
+        return `No products found ${resultLabel}.`;
     }
 
     const lines = products.map((product, index) => {
@@ -76,7 +78,7 @@ function formatProductSearchResult(query, products) {
         return `${index + 1}. ${product.name}${details ? ` - ${details}` : ''}`;
     });
 
-    return `Found ${products.length} product${products.length === 1 ? '' : 's'} for "${query}":\n${lines.join('\n')}`;
+    return `Found ${products.length} product${products.length === 1 ? '' : 's'} ${resultLabel}:\n${lines.join('\n')}`;
 }
 
 function normalizeInput(input) {
@@ -91,14 +93,22 @@ function normalizeInput(input) {
 }
 
 function normalizeQuery(value) {
+    if (typeof value === 'undefined' || value === null) {
+        return null;
+    }
+
     if (typeof value !== 'string') {
         throw new Error('Product search query must be a string.');
     }
 
     const query = value.trim();
 
-    if (!query || /[\x00-\x1F\x7F]/.test(query)) {
-        throw new Error('Product search query must be non-empty text.');
+    if (!query) {
+        return null;
+    }
+
+    if (/[\x00-\x1F\x7F]/.test(query)) {
+        throw new Error('Product search query must not contain control characters.');
     }
 
     if (query.length > MAX_QUERY_LENGTH) {
