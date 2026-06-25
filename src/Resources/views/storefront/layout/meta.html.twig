@@ -1,19 +1,27 @@
 {% sw_extends '@Storefront/storefront/layout/meta.html.twig' %}
 
 {% block layout_head_javascript_hmr_mode %}
+    {% set webMcpEnabled = config('SwagWebMcp.config.enabled') %}
+    {% set searchProductsToolEnabled = config('SwagWebMcp.config.searchProductsToolEnabled') %}
+    {% set getProductToolEnabled = config('SwagWebMcp.config.getProductToolEnabled') %}
+    {% set getProductCategoriesToolEnabled = config('SwagWebMcp.config.getProductCategoriesToolEnabled') %}
+    {% set getCartToolEnabled = config('SwagWebMcp.config.getCartToolEnabled') %}
+    {% set addToCartToolEnabled = config('SwagWebMcp.config.addToCartToolEnabled') %}
+    {% set updateLineItemToolEnabled = config('SwagWebMcp.config.updateLineItemToolEnabled') %}
+    {% set removeFromCartToolEnabled = config('SwagWebMcp.config.removeFromCartToolEnabled') %}
     {% set webMcpModelContextOptions = {
-        enabled: config('SwagWebMcp.config.enabled') is same as(false) ? false : true,
+        enabled: webMcpEnabled,
         context: config('SwagWebMcp.config.context') ?: 'Shopware storefront interaction graph',
         storeApiAccessKey: context.salesChannel.accessKey|default(null),
         staticElementsJson: config('SwagWebMcp.config.staticElementsJson'),
         tools: {
-            searchProducts: config('SwagWebMcp.config.searchProductsToolEnabled') is same as(false) ? false : true,
-            getProduct: config('SwagWebMcp.config.getProductToolEnabled') is same as(false) ? false : true,
-            getProductCategories: config('SwagWebMcp.config.getProductCategoriesToolEnabled') is same as(false) ? false : true,
-            getCart: config('SwagWebMcp.config.getCartToolEnabled') is same as(false) ? false : true,
-            addToCart: config('SwagWebMcp.config.addToCartToolEnabled') is same as(false) ? false : true,
-            updateLineItem: config('SwagWebMcp.config.updateLineItemToolEnabled') is same as(false) ? false : true,
-            removeFromCart: config('SwagWebMcp.config.removeFromCartToolEnabled') is same as(false) ? false : true
+            searchProducts: searchProductsToolEnabled,
+            getProduct: getProductToolEnabled,
+            getProductCategories: getProductCategoriesToolEnabled,
+            getCart: getCartToolEnabled,
+            addToCart: addToCartToolEnabled,
+            updateLineItem: updateLineItemToolEnabled,
+            removeFromCart: removeFromCartToolEnabled
         }
     } %}
 
