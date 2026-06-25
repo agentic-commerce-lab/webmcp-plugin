@@ -52,5 +52,12 @@
             <label lang="de-DE">In-den-Warenkorb-modelContext-Tool aktivieren</label>
             <defaultValue>true</defaultValue>
         </input-field>
+
+        <input-field type="bool">
+            <name>removeFromCartToolEnabled</name>
+            <label>Enable remove from cart modelContext tool</label>
+            <label lang="de-DE">Aus-dem-Warenkorb-modelContext-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
     </card>
 </config>

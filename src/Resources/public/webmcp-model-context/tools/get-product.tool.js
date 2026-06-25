@@ -2,6 +2,7 @@ import { ShopwareClient } from '../shopware-client.js';
 import {
     isPlainObject,
     normalizeBaseUrl,
+    normalizeOptionalStringField,
 } from './storefront-tool.utils.js';
 
 export const GET_PRODUCT_TOOL_NAME = 'shopware.webmcp.get_product';
@@ -71,9 +72,9 @@ function normalizeInput(input) {
         throw new Error('Get product input must be an object.');
     }
 
-    const id = normalizeOptionalText(input.id, MAX_PRODUCT_ID_LENGTH, 'Product id');
-    const sku = normalizeOptionalText(input.sku, MAX_SKU_LENGTH, 'Product SKU');
-    const url = normalizeOptionalText(input.url, MAX_URL_LENGTH, 'Product URL');
+    const id = normalizeOptionalStringField(input.id, MAX_PRODUCT_ID_LENGTH, 'Product id');
+    const sku = normalizeOptionalStringField(input.sku, MAX_SKU_LENGTH, 'Product SKU');
+    const url = normalizeOptionalStringField(input.url, MAX_URL_LENGTH, 'Product URL');
     const providedFields = [id, sku, url].filter(Boolean);
 
     if (providedFields.length !== 1) {
@@ -85,32 +86,6 @@ function normalizeInput(input) {
         ...(sku ? { sku } : {}),
         ...(url ? { url } : {}),
     };
-}
-
-function normalizeOptionalText(value, maxLength, label) {
-    if (typeof value === 'undefined' || value === null || value === '') {
-        return null;
-    }
-
-    if (typeof value !== 'string') {
-        throw new Error(`${label} must be a string.`);
-    }
-
-    const text = value.trim();
-
-    if (!text) {
-        return null;
-    }
-
-    if (text.length > maxLength) {
-        throw new Error(`${label} must be ${maxLength} characters or fewer.`);
-    }
-
-    if (/[\x00-\x1F\x7F]/.test(text)) {
-        throw new Error(`${label} must not contain control characters.`);
-    }
-
-    return text;
 }
 
 function formatProductResult(product) {

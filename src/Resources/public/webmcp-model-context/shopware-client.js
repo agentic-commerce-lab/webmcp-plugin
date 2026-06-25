@@ -1,14 +1,19 @@
 import {
     cleanText,
+    fetchStorefrontHtml,
     isPlainObject,
     normalizeBaseUrl,
     normalizeSameOriginUrl,
     normalizeUrl,
+    parseHtmlDocument,
     uniqueStrings,
 } from './tools/storefront-tool.utils.js';
 
 const STORE_API_PATH = '/store-api';
 const STOREFRONT_ADD_TO_CART_PATH = '/checkout/line-item/add';
+const STOREFRONT_CART_PATH = '/checkout/cart';
+const STOREFRONT_CHANGE_LINE_ITEM_QUANTITY_PATH = '/checkout/line-item/change-quantity';
+const STOREFRONT_REMOVE_FROM_CART_PATH = '/checkout/line-item/delete';
 const CONTEXT_TOKEN_HEADER = 'sw-context-token';
 const ACCESS_KEY_HEADER = 'sw-access-key';
 const CONTEXT_TOKEN_STORAGE_KEY = 'sw-context-token';
@@ -80,6 +85,31 @@ export class ShopwareClient {
         return normalizeCart(cart);
     }
 
+    async removeProductFromCart(input = {}) {
+        const lineItemId = cleanText(input.lineItemId) || await this.resolveProductId(input);
+        const cartLineItem = await this.findStorefrontCartLineItem(lineItemId);
+
+        if (!cartLineItem) {
+            throw new Error(`No cart line item found for ${lineItemId}.`);
+        }
+
+        const remainingQuantity = cartLineItem.quantity - input.quantity;
+        const cart = remainingQuantity > 0
+            ? await this.storefrontChangeLineItemQuantity({
+                lineItemId,
+                quantity: remainingQuantity,
+                previousQuantity: cartLineItem.quantity,
+                removedQuantity: input.quantity,
+            })
+            : await this.storefrontRemoveLineItemFromCart({
+                lineItemId,
+                previousQuantity: cartLineItem.quantity,
+                removedQuantity: cartLineItem.quantity,
+            });
+
+        return normalizeCart(cart);
+    }
+
     async resolveProductId(input = {}) {
         if (cleanText(input.id)) {
             return cleanText(input.id);
@@ -144,6 +174,19 @@ export class ShopwareClient {
         return payload;
     }
 
+    async findStorefrontCartLineItem(lineItemId) {
+        const currentDocumentLineItem = findCartLineItemInDocument(document, lineItemId, this.baseUrl);
+
+        if (currentDocumentLineItem) {
+            return currentDocumentLineItem;
+        }
+
+        const cartHtml = await fetchStorefrontHtml(new URL(STOREFRONT_CART_PATH, this.baseUrl), 'Cart lookup');
+        const cartDocument = parseHtmlDocument(cartHtml, 'Cart lookup');
+
+        return findCartLineItemInDocument(cartDocument, lineItemId, this.baseUrl);
+    }
+
     async storefrontAddProductToCart({ productId, quantity, lineItemId }) {
         const url = new URL(STOREFRONT_ADD_TO_CART_PATH, this.baseUrl);
         const body = createAddToCartFormBody({
@@ -175,14 +218,12 @@ export class ShopwareClient {
             throw new Error(storefrontErrorMessage(response, payload));
         }
 
-        document.dispatchEvent(new CustomEvent('webmcp:cart-updated', {
-            detail: {
-                productId,
-                quantity,
-                lineItemId,
-            },
-        }));
-        const cartWidgetRefreshed = refreshCartWidgets();
+        const cartWidgetRefreshed = publishCartMutation({
+            action: 'add',
+            productId,
+            quantity,
+            lineItemId,
+        });
 
         return isPlainObject(payload)
             ? {
@@ -202,6 +243,192 @@ export class ShopwareClient {
                 ],
             };
     }
+
+    async storefrontChangeLineItemQuantity({ lineItemId, quantity, previousQuantity, removedQuantity }) {
+        const url = new URL(`${STOREFRONT_CHANGE_LINE_ITEM_QUANTITY_PATH}/${encodeURIComponent(lineItemId)}`, this.baseUrl);
+        const body = new URLSearchParams();
+        const csrfToken = readCsrfToken();
+        const headers = {
+            Accept: 'application/json, text/html, */*',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+
+        body.set('quantity', String(quantity));
+
+        if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken;
+            body.set('_csrf_token', csrfToken);
+        }
+
+        const response = await fetch(url.toString(), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers,
+            body: body.toString(),
+        });
+        const payload = await parseFlexibleResponse(response);
+
+        if (!response.ok) {
+            throw new Error(storefrontErrorMessage(response, payload));
+        }
+
+        const cartWidgetRefreshed = publishCartMutation({
+            action: 'remove',
+            lineItemId,
+            previousQuantity,
+            removedQuantity,
+            remainingQuantity: quantity,
+            lineItemDeleted: false,
+        });
+
+        return isPlainObject(payload)
+            ? {
+                ...payload,
+                cartWidgetRefreshed,
+                lineItems: normalizeLineItems(payload.lineItems).length > 0 ? payload.lineItems : [
+                    {
+                        id: lineItemId,
+                        quantity,
+                    },
+                ],
+            }
+            : {
+                sessionCartUpdated: true,
+                cartWidgetRefreshed,
+                lineItems: [
+                    {
+                        id: lineItemId,
+                        quantity,
+                    },
+                ],
+            };
+    }
+
+    async storefrontRemoveLineItemFromCart({ lineItemId, previousQuantity, removedQuantity }) {
+        const url = new URL(`${STOREFRONT_REMOVE_FROM_CART_PATH}/${encodeURIComponent(lineItemId)}`, this.baseUrl);
+        const body = new URLSearchParams();
+        const csrfToken = readCsrfToken();
+        const headers = {
+            Accept: 'application/json, text/html, */*',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+
+        if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken;
+            body.set('_csrf_token', csrfToken);
+        }
+
+        const response = await fetch(url.toString(), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers,
+            body: body.toString(),
+        });
+        const payload = await parseFlexibleResponse(response);
+
+        if (!response.ok) {
+            throw new Error(storefrontErrorMessage(response, payload));
+        }
+
+        const cartWidgetRefreshed = publishCartMutation({
+            action: 'remove',
+            lineItemId,
+            previousQuantity,
+            removedQuantity,
+            remainingQuantity: 0,
+            lineItemDeleted: true,
+        });
+
+        return isPlainObject(payload)
+            ? {
+                ...payload,
+                cartWidgetRefreshed,
+            }
+            : {
+                sessionCartUpdated: true,
+                cartWidgetRefreshed,
+                lineItems: [],
+            };
+    }
+}
+
+function findCartLineItemInDocument(root, lineItemId, baseUrl) {
+    if (!root || typeof root.querySelectorAll !== 'function') {
+        return null;
+    }
+
+    const forms = root.querySelectorAll([
+        'form[action*="/checkout/line-item/change-quantity/"]',
+        'form[action*="/checkout/line-item/delete/"]',
+    ].join(','));
+
+    for (const form of forms) {
+        const candidateId = lineItemIdFromFormAction(form, baseUrl);
+
+        if (candidateId !== lineItemId) {
+            continue;
+        }
+
+        const quantity = readLineItemQuantity(form);
+
+        if (quantity) {
+            return {
+                id: candidateId,
+                quantity,
+            };
+        }
+    }
+
+    return null;
+}
+
+function lineItemIdFromFormAction(form, baseUrl) {
+    const action = cleanText(form.getAttribute?.('action'));
+    const url = action ? normalizeSameOriginUrl(action, baseUrl) : null;
+
+    if (!url) {
+        return null;
+    }
+
+    const path = new URL(url).pathname;
+    const lineItemMatch = path.match(/\/checkout\/line-item\/(?:change-quantity|delete)\/([^/]+)(?:\/|$)/i);
+
+    return lineItemMatch ? decodeURIComponent(lineItemMatch[1]) : null;
+}
+
+function readLineItemQuantity(form) {
+    const formQuantity = readQuantityFromElement(form);
+
+    if (formQuantity) {
+        return formQuantity;
+    }
+
+    const container = form.closest?.([
+        '[data-line-item-id]',
+        '.cart-item',
+        '.line-item',
+        '.checkout-aside-item',
+    ].join(','));
+
+    return container ? readQuantityFromElement(container) : null;
+}
+
+function readQuantityFromElement(element) {
+    const quantityField = element.querySelector?.([
+        'input[name="quantity"]',
+        'select[name="quantity"]',
+        'input[name$="[quantity]"]',
+        'select[name$="[quantity]"]',
+        '[data-quantity]',
+    ].join(','));
+    const rawQuantity = quantityField?.value
+        ?? quantityField?.getAttribute?.('value')
+        ?? quantityField?.getAttribute?.('data-quantity');
+    const quantity = Number(rawQuantity);
+
+    return Number.isInteger(quantity) && quantity > 0 ? quantity : null;
 }
 
 function createProductCriteria(options = {}) {
@@ -275,6 +502,14 @@ function normalizeCart(cart) {
     });
 }
 
+function publishCartMutation(detail) {
+    document.dispatchEvent(new CustomEvent('webmcp:cart-updated', {
+        detail,
+    }));
+
+    return refreshCartWidgets();
+}
+
 function refreshCartWidgets() {
     const instances = window.PluginManager?.getPluginInstances?.('CartWidget');
     let refreshed = false;
@@ -288,8 +523,17 @@ function refreshCartWidgets() {
             return;
         }
 
-        instance.fetch();
-        refreshed = true;
+        try {
+            const refreshResult = instance.fetch();
+
+            if (refreshResult && typeof refreshResult.catch === 'function') {
+                refreshResult.catch(() => {});
+            }
+
+            refreshed = true;
+        } catch (error) {
+            // Cart widget refresh is a best-effort UI sync after the cart mutation succeeds.
+        }
     });
 
     return refreshed;
@@ -548,7 +792,7 @@ function storefrontErrorMessage(response, payload) {
         }
     }
 
-    return `Shopware storefront add to cart request failed with status ${response.status}.`;
+    return `Shopware storefront cart request failed with status ${response.status}.`;
 }
 
 function createAddToCartFormBody({ productId, lineItemId, quantity }) {

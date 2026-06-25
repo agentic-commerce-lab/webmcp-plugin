@@ -43,6 +43,7 @@ The plugin configuration currently supports:
 - `getProductToolEnabled`: enables the product detail `document.modelContext` tool.
 - `getProductCategoriesToolEnabled`: enables the product category `document.modelContext` tool.
 - `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
+- `removeFromCartToolEnabled`: enables the cart removal `document.modelContext` tool.
 
 `staticElementsJson` accepts either an array of element objects or an object with an `elements` array. Each element must include `selector`, `role`, and `name`; optional `action` values are validated before being emitted.
 
@@ -59,6 +60,7 @@ When the storefront JavaScript plugin initializes, it builds a browser-side WebM
 - `shopware.webmcp.get_product`
 - `shopware.webmcp.get_product_categories`
 - `shopware.webmcp.add_to_cart`
+- `shopware.webmcp.remove_from_cart`
 
 For manual testing in the browser console:
 
@@ -66,6 +68,7 @@ For manual testing in the browser console:
     window.SwagWebMcp.registerGetProductTool()
     window.SwagWebMcp.registerGetProductCategoriesTool()
     window.SwagWebMcp.registerAddToCartTool()
+    window.SwagWebMcp.registerRemoveFromCartTool()
     document.webMcp.getDocument()
     document.modelContext.getTools()
     await document.modelContext.callTool('shopware.webmcp.search_products', {})
@@ -75,6 +78,8 @@ For manual testing in the browser console:
     await document.modelContext.callTool('shopware.webmcp.get_product_categories', { sku: 'SWDEMO10006' })
     await document.modelContext.callTool('shopware.webmcp.get_product', { id: searchResult.structuredContent.products[0].id })
     await document.modelContext.callTool('shopware.webmcp.add_to_cart', { sku: 'SWDEMO10006', quantity: 1 })
+    await document.modelContext.callTool('shopware.webmcp.remove_from_cart', { sku: 'SWDEMO10006', quantity: 1 })
+    await document.modelContext.callTool('shopware.webmcp.remove_from_cart', { lineItemId: '<cart-line-item-id>', quantity: 1 })
 
 If `window.SwagWebMcp` is undefined, check the page source for `data-swag-web-mcp-model-context` and `webmcp-model-context.js`. If either is missing, rerun `bin/console assets:install`, `bin/console theme:compile`, and `bin/console cache:clear`.
 

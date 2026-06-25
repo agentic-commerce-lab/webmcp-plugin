@@ -79,6 +79,32 @@ export function cleanText(value) {
     return text || null;
 }
 
+export function normalizeOptionalStringField(value, maxLength, label) {
+    if (typeof value === 'undefined' || value === null || value === '') {
+        return null;
+    }
+
+    if (typeof value !== 'string') {
+        throw new Error(`${label} must be a string.`);
+    }
+
+    const text = value.trim();
+
+    if (!text) {
+        return null;
+    }
+
+    if (text.length > maxLength) {
+        throw new Error(`${label} must be ${maxLength} characters or fewer.`);
+    }
+
+    if (/[\x00-\x1F\x7F]/.test(text)) {
+        throw new Error(`${label} must not contain control characters.`);
+    }
+
+    return text;
+}
+
 export function uniqueStrings(values) {
     const seenValues = new Set();
     const normalizedValues = [];
