@@ -39,7 +39,7 @@ The plugin configuration currently supports:
 - `enabled`: enables the public WebMCP document endpoint.
 - `context`: human-readable context for the WebMCP document.
 - `staticElementsJson`: optional JSON for additional WebMCP element definitions.
-- `helloWorldToolEnabled`: enables the test `document.modelContext` tool.
+- `searchProductsToolEnabled`: enables the product search `document.modelContext` tool.
 
 `staticElementsJson` accepts either an array of element objects or an object with an `elements` array. Each element must include `selector`, `role`, and `name`; optional `action` values are validated before being emitted.
 
@@ -51,14 +51,14 @@ Twig also loads the same browser runtime from `src/Resources/public/webmcp-model
 
 When the storefront JavaScript plugin initializes, it builds a browser-side WebMCP document at `document.webMcp`, creates `document.modelContext` if needed, and registers enabled tools:
 
-- `shopware.webmcp.hello_world`
+- `shopware.webmcp.search_products`
 
 For manual testing in the browser console:
 
-    window.SwagWebMcp.registerHelloWorldTool()
+    window.SwagWebMcp.registerSearchProductsTool()
     document.webMcp.getDocument()
     document.modelContext.getTools()
-    await document.modelContext.callTool('shopware.webmcp.hello_world', { subject: 'tester' })
+    await document.modelContext.callTool('shopware.webmcp.search_products', { query: 'shirt', limit: 3 })
 
 If `window.SwagWebMcp` is undefined, check the page source for `data-swag-web-mcp-model-context` and `webmcp-model-context.js`. If either is missing, rerun `bin/console assets:install`, `bin/console theme:compile`, and `bin/console cache:clear`.
 

@@ -26,9 +26,9 @@
         </input-field>
 
         <input-field type="bool">
-            <name>helloWorldToolEnabled</name>
-            <label>Enable hello world modelContext tool</label>
-            <label lang="de-DE">Hello-World-modelContext-Tool aktivieren</label>
+            <name>searchProductsToolEnabled</name>
+            <label>Enable product search modelContext tool</label>
+            <label lang="de-DE">Produktsuche-modelContext-Tool aktivieren</label>
             <defaultValue>true</defaultValue>
         </input-field>
     </card>

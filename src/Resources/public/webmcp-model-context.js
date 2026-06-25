@@ -1,7 +1,8 @@
+import { createSearchProductsTool } from './webmcp-model-context/tools/search-products.tool.js';
+
 const CONFIG_SELECTOR = '[data-swag-web-mcp-model-context]';
 const CONFIG_OPTIONS_ATTRIBUTE = 'data-swag-web-mcp-model-context-options';
 const DEFAULT_CONTEXT = 'Shopware storefront interaction graph';
-const HELLO_WORLD_TOOL_NAME = 'shopware.webmcp.hello_world';
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
 export function bootstrapWebMcpModelContext(configOrElement = document.querySelector(CONFIG_SELECTOR)) {
@@ -45,23 +46,16 @@ export function buildWebMcpDocument(config = {}) {
 export function registerConfiguredTools(config = {}) {
     const normalizedConfig = normalizeConfig(config);
 
-    if (normalizedConfig.enabled && normalizedConfig.tools.helloWorld) {
-        registerHelloWorldTool();
+    if (normalizedConfig.enabled && normalizedConfig.tools.searchProducts) {
+        registerSearchProductsTool(normalizedConfig);
     }
 }
 
-export function registerHelloWorldTool() {
-    const modelContext = getModelContext();
-    const tool = createHelloWorldTool();
+export function registerSearchProductsTool(config = {}) {
+    const normalizedConfig = normalizeConfig(config);
 
-    upsertTool(modelContext, tool);
-    addModelContextHelpers(modelContext);
-
-    document.dispatchEvent(new CustomEvent('webmcp:model-context-ready', {
-        detail: {
-            toolName: HELLO_WORLD_TOOL_NAME,
-            modelContext,
-        },
+    registerModelContextTool(createSearchProductsTool({
+        baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
     }));
 }
 
@@ -107,7 +101,7 @@ function exposeGlobals(config, webMcpDocument) {
         getDocument,
         getElements,
         registerConfiguredTools: () => registerConfiguredTools(config),
-        registerHelloWorldTool,
+        registerSearchProductsTool: () => registerSearchProductsTool(config),
     };
 }
 
@@ -122,7 +116,7 @@ function normalizeConfig(options = {}) {
         staticElements: source.staticElements,
         staticElementsJson: nonEmptyString(source.staticElementsJson),
         tools: {
-            helloWorld: booleanOption(tools.helloWorld, true),
+            searchProducts: booleanOption(tools.searchProducts, true),
         },
     };
 }
@@ -308,39 +302,18 @@ function getModelContext() {
     return document.modelContext;
 }
 
-function createHelloWorldTool() {
-    const execute = async (input = {}) => {
-        const subject = typeof input.subject === 'string' && input.subject.trim() !== ''
-            ? input.subject.trim()
-            : 'world';
+function registerModelContextTool(tool) {
+    const modelContext = getModelContext();
 
-        return {
-            content: [
-                {
-                    type: 'text',
-                    text: `Hello, ${subject} from Shopware WebMCP.`,
-                },
-            ],
-        };
-    };
+    upsertTool(modelContext, tool);
+    addModelContextHelpers(modelContext);
 
-    return {
-        name: HELLO_WORLD_TOOL_NAME,
-        title: 'Hello world',
-        description: 'Returns a hello world response from the Shopware storefront.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                subject: {
-                    type: 'string',
-                    description: 'Optional name or subject to greet.',
-                },
-            },
-            additionalProperties: false,
+    document.dispatchEvent(new CustomEvent('webmcp:model-context-ready', {
+        detail: {
+            toolName: tool.name,
+            modelContext,
         },
-        execute,
-        handler: execute,
-    };
+    }));
 }
 
 function upsertTool(modelContext, tool) {
@@ -477,7 +450,7 @@ window.SwagWebMcpRuntime = {
     bootstrap: bootstrapWebMcpModelContext,
     buildDocument: buildWebMcpDocument,
     registerConfiguredTools,
-    registerHelloWorldTool,
+    registerSearchProductsTool,
 };
 
 if (document.readyState === 'loading') {
