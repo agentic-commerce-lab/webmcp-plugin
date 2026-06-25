@@ -1,3 +1,4 @@
+import { createGetProductTool } from './webmcp-model-context/tools/get-product.tool.js';
 import { createSearchProductsTool } from './webmcp-model-context/tools/search-products.tool.js';
 
 const CONFIG_SELECTOR = '[data-swag-web-mcp-model-context]';
@@ -49,12 +50,24 @@ export function registerConfiguredTools(config = {}) {
     if (normalizedConfig.enabled && normalizedConfig.tools.searchProducts) {
         registerSearchProductsTool(normalizedConfig);
     }
+
+    if (normalizedConfig.enabled && normalizedConfig.tools.getProduct) {
+        registerGetProductTool(normalizedConfig);
+    }
 }
 
 export function registerSearchProductsTool(config = {}) {
     const normalizedConfig = normalizeConfig(config);
 
     registerModelContextTool(createSearchProductsTool({
+        baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
+    }));
+}
+
+export function registerGetProductTool(config = {}) {
+    const normalizedConfig = normalizeConfig(config);
+
+    registerModelContextTool(createGetProductTool({
         baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
     }));
 }
@@ -102,6 +115,7 @@ function exposeGlobals(config, webMcpDocument) {
         getElements,
         registerConfiguredTools: () => registerConfiguredTools(config),
         registerSearchProductsTool: () => registerSearchProductsTool(config),
+        registerGetProductTool: () => registerGetProductTool(config),
     };
 }
 
@@ -117,6 +131,7 @@ function normalizeConfig(options = {}) {
         staticElementsJson: nonEmptyString(source.staticElementsJson),
         tools: {
             searchProducts: booleanOption(tools.searchProducts, true),
+            getProduct: booleanOption(tools.getProduct, true),
         },
     };
 }
@@ -451,6 +466,7 @@ window.SwagWebMcpRuntime = {
     buildDocument: buildWebMcpDocument,
     registerConfiguredTools,
     registerSearchProductsTool,
+    registerGetProductTool,
 };
 
 if (document.readyState === 'loading') {

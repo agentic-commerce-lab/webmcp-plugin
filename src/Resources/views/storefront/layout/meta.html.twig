@@ -6,7 +6,8 @@
         context: config('SwagWebMcp.config.context') ?: 'Shopware storefront interaction graph',
         staticElementsJson: config('SwagWebMcp.config.staticElementsJson'),
         tools: {
-            searchProducts: config('SwagWebMcp.config.searchProductsToolEnabled') is same as(false) ? false : true
+            searchProducts: config('SwagWebMcp.config.searchProductsToolEnabled') is same as(false) ? false : true,
+            getProduct: config('SwagWebMcp.config.getProductToolEnabled') is same as(false) ? false : true
         }
     } %}
 

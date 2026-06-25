@@ -31,5 +31,12 @@
             <label lang="de-DE">Produktsuche-modelContext-Tool aktivieren</label>
             <defaultValue>true</defaultValue>
         </input-field>
+
+        <input-field type="bool">
+            <name>getProductToolEnabled</name>
+            <label>Enable get product modelContext tool</label>
+            <label lang="de-DE">Produktdetails-modelContext-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
     </card>
 </config>
