@@ -131,13 +131,13 @@ event after successful mutations.
 
 | Tool | Input | Structured output |
 | --- | --- | --- |
-| `shopware.webmcp.search_products` | Optional `query`; optional `limit` from `1` to `20`, default `5`. | `query`, `count`, `total`, `products`. |
-| `shopware.webmcp.get_product` | Exactly one of `id`, `sku`, or same-origin product `url`. | `lookup`, `product`. |
-| `shopware.webmcp.get_product_categories` | Optional `scope`: `tree` or `product`; optional `sku` or same-origin `url`. `sku` implies `product` scope. | `lookup`, `scope`, `source`, `sourceUrl`, `count`, `activeCategoryIds`, `categories`, `tree`. |
-| `shopware.webmcp.get_cart` | No input properties. | `cart`. |
-| `shopware.webmcp.add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`. | `added`, `cart`. |
-| `shopware.webmcp.update_line_item` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100`. Quantity `0` removes the line item. | `updated`, `cart`, or `skipped` with `reason`. |
-| `shopware.webmcp.remove_from_cart` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`. | `removed`, `cart`. |
+| `shopware_webmcp_search_products` | Optional `query`; optional `limit` from `1` to `20`, default `5`. | `query`, `count`, `total`, `products`. |
+| `shopware_webmcp_get_product` | Exactly one of `id`, `sku`, or same-origin product `url`. | `lookup`, `product`. |
+| `shopware_webmcp_get_product_categories` | Optional `scope`: `tree` or `product`; optional `sku` or same-origin `url`. `sku` implies `product` scope. | `lookup`, `scope`, `source`, `sourceUrl`, `count`, `activeCategoryIds`, `categories`, `tree`. |
+| `shopware_webmcp_get_cart` | No input properties. | `cart`. |
+| `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`. | `added`, `cart`. |
+| `shopware_webmcp_update_line_item` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100`. Quantity `0` removes the line item. | `updated`, `cart`, or `skipped` with `reason`. |
+| `shopware_webmcp_remove_from_cart` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`. | `removed`, `cart`. |
 
 Product URLs must be same-origin storefront URLs or paths. `/detail/{id}` URLs
 can be resolved directly; SKU lookups resolve through Store API product search.
@@ -167,38 +167,38 @@ Open a storefront page and run these examples in the browser console:
 document.webMcp.getDocument()
 document.modelContext.getTools()
 
-await document.modelContext.callTool('shopware.webmcp.search_products', {})
+await document.modelContext.callTool('shopware_webmcp_search_products', {})
 const searchResult = await document.modelContext.callTool(
-    'shopware.webmcp.search_products',
+    'shopware_webmcp_search_products',
     { query: 'shirt', limit: 3 },
 )
 
-await document.modelContext.callTool('shopware.webmcp.get_product', { sku: 'SWDEMO10006' })
-await document.modelContext.callTool('shopware.webmcp.get_product', {
+await document.modelContext.callTool('shopware_webmcp_get_product', { sku: 'SWDEMO10006' })
+await document.modelContext.callTool('shopware_webmcp_get_product', {
     id: searchResult.structuredContent.products[0].id,
 })
 
-await document.modelContext.callTool('shopware.webmcp.get_product_categories', {})
-await document.modelContext.callTool('shopware.webmcp.get_product_categories', {
+await document.modelContext.callTool('shopware_webmcp_get_product_categories', {})
+await document.modelContext.callTool('shopware_webmcp_get_product_categories', {
     sku: 'SWDEMO10006',
 })
 
-await document.modelContext.callTool('shopware.webmcp.get_cart', {})
-await document.modelContext.callTool('shopware.webmcp.add_to_cart', {
+await document.modelContext.callTool('shopware_webmcp_get_cart', {})
+await document.modelContext.callTool('shopware_webmcp_add_to_cart', {
     sku: 'SWDEMO10006',
     quantity: 1,
 })
 
-const cartResult = await document.modelContext.callTool('shopware.webmcp.get_cart', {})
-await document.modelContext.callTool('shopware.webmcp.update_line_item', {
+const cartResult = await document.modelContext.callTool('shopware_webmcp_get_cart', {})
+await document.modelContext.callTool('shopware_webmcp_update_line_item', {
     lineItemId: cartResult.structuredContent.cart.lineItems[0].id,
     quantity: 2,
 })
-await document.modelContext.callTool('shopware.webmcp.update_line_item', {
+await document.modelContext.callTool('shopware_webmcp_update_line_item', {
     sku: 'SWDEMO10006',
     quantity: 0,
 })
-await document.modelContext.callTool('shopware.webmcp.remove_from_cart', {
+await document.modelContext.callTool('shopware_webmcp_remove_from_cart', {
     lineItemId: '<cart-line-item-id>',
     quantity: 1,
 })
@@ -237,9 +237,8 @@ navigator.modelContextTesting?.listTools?.()
 ```
 
 The inspector reads the native registry, so `navigator.modelContextTesting`
-should list the registered tools. If Chrome rejects dotted names such as
-`shopware.webmcp.search_products`, the runtime registers native-safe aliases
-such as `shopware_webmcp_search_products`.
+should list the same native-safe tool names returned by
+`document.modelContext.getTools()`, such as `shopware_webmcp_search_products`.
 
 If product tools fail with `401` or `403`, confirm the storefront page includes
 a valid sales channel Store API access key and that the current sales channel

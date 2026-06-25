@@ -5,7 +5,7 @@ import {
     normalizeOptionalStringField,
 } from './storefront-tool.utils.js';
 
-export const UPDATE_LINE_ITEM_TOOL_NAME = 'shopware.webmcp.update_line_item';
+export const UPDATE_LINE_ITEM_TOOL_NAME = 'shopware_webmcp_update_line_item';
 
 const MAX_LINE_ITEM_ID_LENGTH = 128;
 const MAX_PRODUCT_ID_LENGTH = 64;

@@ -9,7 +9,7 @@ import {
     parseHtmlDocument,
 } from './storefront-tool.utils.js';
 
-export const GET_PRODUCT_CATEGORIES_TOOL_NAME = 'shopware.webmcp.get_product_categories';
+export const GET_PRODUCT_CATEGORIES_TOOL_NAME = 'shopware_webmcp_get_product_categories';
 
 const MAX_URL_LENGTH = 2048;
 const MAX_SKU_LENGTH = 120;

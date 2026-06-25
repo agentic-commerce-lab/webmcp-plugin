@@ -5,7 +5,7 @@ import {
     normalizeOptionalStringField,
 } from './storefront-tool.utils.js';
 
-export const GET_PRODUCT_TOOL_NAME = 'shopware.webmcp.get_product';
+export const GET_PRODUCT_TOOL_NAME = 'shopware_webmcp_get_product';
 
 const MAX_PRODUCT_ID_LENGTH = 64;
 const MAX_SKU_LENGTH = 120;

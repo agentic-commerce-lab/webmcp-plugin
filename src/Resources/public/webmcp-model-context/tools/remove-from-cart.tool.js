@@ -5,7 +5,7 @@ import {
     normalizeOptionalStringField,
 } from './storefront-tool.utils.js';
 
-export const REMOVE_FROM_CART_TOOL_NAME = 'shopware.webmcp.remove_from_cart';
+export const REMOVE_FROM_CART_TOOL_NAME = 'shopware_webmcp_remove_from_cart';
 
 const MAX_LINE_ITEM_ID_LENGTH = 128;
 const MAX_PRODUCT_ID_LENGTH = 64;

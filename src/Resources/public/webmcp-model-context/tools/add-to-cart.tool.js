@@ -5,7 +5,7 @@ import {
     normalizeOptionalStringField,
 } from './storefront-tool.utils.js';
 
-export const ADD_TO_CART_TOOL_NAME = 'shopware.webmcp.add_to_cart';
+export const ADD_TO_CART_TOOL_NAME = 'shopware_webmcp_add_to_cart';
 
 const MAX_PRODUCT_ID_LENGTH = 64;
 const MAX_SKU_LENGTH = 120;

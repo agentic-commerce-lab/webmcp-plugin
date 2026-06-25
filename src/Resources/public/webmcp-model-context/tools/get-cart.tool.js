@@ -4,7 +4,7 @@ import {
     normalizeBaseUrl,
 } from './storefront-tool.utils.js';
 
-export const GET_CART_TOOL_NAME = 'shopware.webmcp.get_cart';
+export const GET_CART_TOOL_NAME = 'shopware_webmcp_get_cart';
 
 export function createGetCartTool(options = {}) {
     const baseUrl = normalizeBaseUrl(options.baseUrl);

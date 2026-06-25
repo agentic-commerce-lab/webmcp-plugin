@@ -4,7 +4,7 @@ import {
     normalizeBaseUrl,
 } from './storefront-tool.utils.js';
 
-export const SEARCH_PRODUCTS_TOOL_NAME = 'shopware.webmcp.search_products';
+export const SEARCH_PRODUCTS_TOOL_NAME = 'shopware_webmcp_search_products';
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 20;
