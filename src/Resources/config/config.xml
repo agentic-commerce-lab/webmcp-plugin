@@ -27,43 +27,43 @@
 
         <input-field type="bool">
             <name>searchProductsToolEnabled</name>
-            <label>Enable product search modelContext tool</label>
-            <label lang="de-DE">Produktsuche-modelContext-Tool aktivieren</label>
+            <label>Enable search_products tool</label>
+            <label lang="de-DE">search_products-Tool aktivieren</label>
             <defaultValue>true</defaultValue>
         </input-field>
 
         <input-field type="bool">
             <name>getProductToolEnabled</name>
-            <label>Enable get product modelContext tool</label>
-            <label lang="de-DE">Produktdetails-modelContext-Tool aktivieren</label>
+            <label>Enable get_product tool</label>
+            <label lang="de-DE">get_product-Tool aktivieren</label>
             <defaultValue>true</defaultValue>
         </input-field>
 
         <input-field type="bool">
             <name>getProductCategoriesToolEnabled</name>
-            <label>Enable product categories modelContext tool</label>
-            <label lang="de-DE">Produktkategorien-modelContext-Tool aktivieren</label>
+            <label>Enable get_product_categories tool</label>
+            <label lang="de-DE">get_product_categories-Tool aktivieren</label>
             <defaultValue>true</defaultValue>
         </input-field>
 
         <input-field type="bool">
             <name>getCartToolEnabled</name>
-            <label>Enable get cart modelContext tool</label>
-            <label lang="de-DE">Warenkorb-modelContext-Tool aktivieren</label>
+            <label>Enable get_cart tool</label>
+            <label lang="de-DE">get_cart-Tool aktivieren</label>
             <defaultValue>true</defaultValue>
         </input-field>
 
         <input-field type="bool">
             <name>addToCartToolEnabled</name>
-            <label>Enable add to cart modelContext tool</label>
-            <label lang="de-DE">In-den-Warenkorb-modelContext-Tool aktivieren</label>
+            <label>Enable add_to_cart tool</label>
+            <label lang="de-DE">add_to_cart-Tool aktivieren</label>
             <defaultValue>true</defaultValue>
         </input-field>
 
         <input-field type="bool">
             <name>removeFromCartToolEnabled</name>
-            <label>Enable remove from cart modelContext tool</label>
-            <label lang="de-DE">Aus-dem-Warenkorb-modelContext-Tool aktivieren</label>
+            <label>Enable remove_from_cart tool</label>
+            <label lang="de-DE">remove_from_cart-Tool aktivieren</label>
             <defaultValue>true</defaultValue>
         </input-field>
     </card>
