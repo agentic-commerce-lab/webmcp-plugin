@@ -276,6 +276,8 @@ again when they are dispatched:
 Shopware renders these settings in the plugin configuration screen in the Admin
 panel:
 
+<img src="docs/admin-configuration.svg" alt="Shopware Admin WebMCP configuration screen" width="760">
+
 - `enabled`: enables the public WebMCP document endpoint and browser tools.
 - `context`: human-readable context for the WebMCP document.
 - `staticElementsJson`: optional JSON for additional WebMCP element definitions.
