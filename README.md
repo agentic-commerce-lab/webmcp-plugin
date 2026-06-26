@@ -64,10 +64,6 @@ After installation, enable or configure the plugin in Shopware Admin.
 
 ## Demo Video
 
-<a href="docs/shopware-webmcp-storefront-demo.mp4?raw=1">
-  <img src="docs/shopware-webmcp-storefront-demo.gif" alt="Shopware WebMCP storefront demo video" width="640">
-</a>
-
 [Download the Shopware WebMCP storefront demo video](docs/shopware-webmcp-storefront-demo.mp4?raw=1)
 
 ## Configuration
