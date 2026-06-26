@@ -16,8 +16,8 @@ The plugin uses a conventional root-level Shopware package structure:
 
 ## Requirements
 
-- Shopware 6 storefront plugin installation.
-- PHP `^8.1`, matching the Composer platform configuration.
+- Shopware 6 storefront plugin installation, version `>=6.6.10.18 <6.8.0`.
+- PHP `^8.2`, matching the Composer platform configuration.
 - Docker for the repository QA workflow.
 - Host PHP and Composer are optional for local development because QA runs in Docker.
 
