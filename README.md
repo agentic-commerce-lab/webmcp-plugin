@@ -122,7 +122,7 @@ Suggested comparison points:
 ## Requirements
 
 - Shopware 6 storefront plugin installation.
-- PHP `^8.1`, matching the Composer platform configuration.
+- PHP `^8.2`, matching the Composer platform configuration.
 - Docker for the repository QA workflow.
 - Host PHP and Composer are optional for local development because QA runs in Docker.
 
