@@ -280,7 +280,6 @@ panel:
 
 - `enabled`: enables the public WebMCP document endpoint and browser tools.
 - `context`: human-readable context for the WebMCP document.
-- `staticElementsJson`: optional JSON for additional WebMCP element definitions.
 - `searchProductsToolEnabled`: enables the product search `document.modelContext` tool.
 - `getProductToolEnabled`: enables the product detail `document.modelContext` tool.
 - `getProductCategoriesToolEnabled`: enables the product category `document.modelContext` tool.
@@ -288,41 +287,6 @@ panel:
 - `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
 - `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool.
 - `removeFromCartToolEnabled`: enables the cart removal `document.modelContext` tool.
-
-`staticElementsJson` accepts either an array of element objects or an object
-with an `elements` array. Each element must include `selector`, `role`, and
-`name`. Optional `action` values are validated before being emitted.
-
-Example:
-
-```json
-{
-  "elements": [
-    {
-      "selector": ".footer-newsletter input[type=\"email\"]",
-      "role": "input.email",
-      "name": "NEWSLETTER_EMAIL",
-      "description": "Newsletter email address"
-    },
-    {
-      "selector": ".footer-newsletter button[type=\"submit\"]",
-      "role": "button.submit",
-      "name": "SUBMIT_NEWSLETTER",
-      "action": {
-        "kind": "POST",
-        "endpoint": "/newsletter/subscribe",
-        "params": {
-          "email": "$NEWSLETTER_EMAIL"
-        }
-      }
-    }
-  ]
-}
-```
-
-Supported action methods are `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`.
-Action endpoints may be absolute URLs, same-origin paths beginning with `/`, or
-symbolic endpoints such as `@ADD_TO_CART`.
 
 ## Extend
 
