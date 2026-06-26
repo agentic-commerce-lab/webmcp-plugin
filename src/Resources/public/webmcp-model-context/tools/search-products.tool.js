@@ -41,7 +41,7 @@ export function createSearchProductsTool(options = {}) {
     return {
         name: SEARCH_PRODUCTS_TOOL_NAME,
         title: 'Search products',
-        description: 'Searches products through the Shopware Store API using customer context.',
+        description: 'Searches products.',
         inputSchema: {
             type: 'object',
             properties: {
