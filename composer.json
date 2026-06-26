@@ -4,7 +4,8 @@
     "type": "shopware-platform-plugin",
     "license": "MIT",
     "require": {
-        "php": "^8.1",
+        "php": "^8.2",
+        "shopware/core": ">=6.6.10.18 <6.8.0",
         "symfony/http-foundation": "^6.4 || ^7.0",
         "symfony/routing": "^6.4 || ^7.0"
     },
@@ -34,9 +35,11 @@
     "config": {
         "sort-packages": true,
         "vendor-dir": ".tools/vendor",
-        "allow-plugins": {},
+        "allow-plugins": {
+            "symfony/runtime": true
+        },
         "platform": {
-            "php": "8.1.0"
+            "php": "8.2.0"
         }
     },
     "minimum-stability": "stable",

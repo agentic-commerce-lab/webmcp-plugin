@@ -27,7 +27,7 @@ final class WebMcpController
 
     #[Route(
         path: '/webmcp.wmcp',
-        name: 'swag_web_mcp.document',
+        name: 'frontend.swag_web_mcp.document',
         defaults: ['_routeScope' => ['storefront'], 'auth_required' => false],
         methods: ['GET'],
     )]
@@ -51,7 +51,7 @@ final class WebMcpController
 
     #[Route(
         path: '/webmcp/cart',
-        name: 'swag_web_mcp.cart',
+        name: 'frontend.swag_web_mcp.cart',
         defaults: ['_routeScope' => ['storefront'], 'auth_required' => false, 'XmlHttpRequest' => true],
         methods: ['GET'],
     )]
