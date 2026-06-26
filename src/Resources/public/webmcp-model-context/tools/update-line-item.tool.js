@@ -63,7 +63,7 @@ export function createUpdateLineItemTool(options = {}) {
     return {
         name: UPDATE_LINE_ITEM_TOOL_NAME,
         title: 'Update line item',
-        description: 'Changes the quantity for a Shopware cart line item by line item id, product id, SKU, or product URL. Product lookups are added to the cart when missing and quantity is greater than 0. Set quantity to 0 to remove the line item.',
+        description: 'Sets the cart quantity for a line item or product.',
         inputSchema: {
             type: 'object',
             required: ['quantity'],
@@ -77,22 +77,22 @@ export function createUpdateLineItemTool(options = {}) {
                 lineItemId: {
                     type: 'string',
                     maxLength: MAX_LINE_ITEM_ID_LENGTH,
-                    description: 'Shopware cart line item id, available from get_cart.',
+                    description: 'Cart line item ID.',
                 },
                 id: {
                     type: 'string',
                     maxLength: MAX_PRODUCT_ID_LENGTH,
-                    description: 'Shopware product or selected variant UUID.',
+                    description: 'Product or selected variant ID.',
                 },
                 sku: {
                     type: 'string',
                     maxLength: MAX_SKU_LENGTH,
-                    description: 'Product or selected variant SKU/product number.',
+                    description: 'Product or selected variant SKU.',
                 },
                 url: {
                     type: 'string',
                     maxLength: MAX_URL_LENGTH,
-                    description: 'Same-origin /detail/{id} product or selected variant URL/path.',
+                    description: 'Product or selected variant URL.',
                 },
                 quantity: {
                     type: 'integer',

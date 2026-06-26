@@ -41,7 +41,7 @@ export function createAddToCartTool(options = {}) {
     return {
         name: ADD_TO_CART_TOOL_NAME,
         title: 'Add to cart',
-        description: 'Adds a product or selected variant to the current shopper cart through the Shopware storefront cart endpoint.',
+        description: 'Adds a product or selected variant to the current cart.',
         inputSchema: {
             type: 'object',
             oneOf: [
@@ -53,24 +53,24 @@ export function createAddToCartTool(options = {}) {
                 id: {
                     type: 'string',
                     maxLength: MAX_PRODUCT_ID_LENGTH,
-                    description: 'Shopware product or selected variant UUID.',
+                    description: 'Product or selected variant ID.',
                 },
                 sku: {
                     type: 'string',
                     maxLength: MAX_SKU_LENGTH,
-                    description: 'Product or selected variant SKU/product number.',
+                    description: 'Product or selected variant SKU.',
                 },
                 url: {
                     type: 'string',
                     maxLength: MAX_URL_LENGTH,
-                    description: 'Same-origin /detail/{id} product or selected variant URL/path.',
+                    description: 'Product or selected variant URL.',
                 },
                 quantity: {
                     type: 'integer',
                     minimum: 1,
                     maximum: MAX_QUANTITY,
                     default: 1,
-                    description: 'Quantity to add to the current shopper cart.',
+                    description: 'Quantity to add.',
                 },
             },
             additionalProperties: false,

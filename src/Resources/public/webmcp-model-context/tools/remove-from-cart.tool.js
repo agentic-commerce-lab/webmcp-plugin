@@ -42,7 +42,7 @@ export function createRemoveFromCartTool(options = {}) {
     return {
         name: REMOVE_FROM_CART_TOOL_NAME,
         title: 'Remove from cart',
-        description: 'Removes a quantity of a product, selected variant, or known line item from the current shopper cart through the Shopware storefront cart endpoint.',
+        description: 'Removes a product, selected variant, or line item from the current cart.',
         inputSchema: {
             type: 'object',
             oneOf: [
@@ -55,29 +55,29 @@ export function createRemoveFromCartTool(options = {}) {
                 lineItemId: {
                     type: 'string',
                     maxLength: MAX_LINE_ITEM_ID_LENGTH,
-                    description: 'Shopware cart line item id. Prefer this when it is available from cart state.',
+                    description: 'Cart line item ID. Prefer this when available.',
                 },
                 id: {
                     type: 'string',
                     maxLength: MAX_PRODUCT_ID_LENGTH,
-                    description: 'Shopware product or selected variant UUID. Used as the product line item id.',
+                    description: 'Product or selected variant ID.',
                 },
                 sku: {
                     type: 'string',
                     maxLength: MAX_SKU_LENGTH,
-                    description: 'Product or selected variant SKU/product number. Resolves to the product line item id.',
+                    description: 'Product or selected variant SKU.',
                 },
                 url: {
                     type: 'string',
                     maxLength: MAX_URL_LENGTH,
-                    description: 'Same-origin /detail/{id} product or selected variant URL/path.',
+                    description: 'Product or selected variant URL.',
                 },
                 quantity: {
                     type: 'integer',
                     minimum: 1,
                     maximum: MAX_QUANTITY,
                     default: 1,
-                    description: 'Quantity to remove from the current shopper cart.',
+                    description: 'Quantity to remove.',
                 },
             },
             additionalProperties: false,

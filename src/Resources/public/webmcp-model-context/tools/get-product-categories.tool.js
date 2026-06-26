@@ -69,7 +69,7 @@ export function createGetProductCategoriesTool(options = {}) {
     return {
         name: GET_PRODUCT_CATEGORIES_TOOL_NAME,
         title: 'Get product categories',
-        description: 'Returns the storefront category tree or a product category path.',
+        description: 'Returns categories for navigation or for a product.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -77,17 +77,17 @@ export function createGetProductCategoriesTool(options = {}) {
                     type: 'string',
                     enum: VALID_SCOPES,
                     default: 'tree',
-                    description: 'Use tree for storefront navigation or product for categories assigned to a product page.',
+                    description: 'Category lookup scope: navigation tree or product categories.',
                 },
                 sku: {
                     type: 'string',
                     maxLength: MAX_SKU_LENGTH,
-                    description: 'Product SKU/product number. Implies product scope.',
+                    description: 'Product SKU. Implies product scope.',
                 },
                 url: {
                     type: 'string',
                     maxLength: MAX_URL_LENGTH,
-                    description: 'Same-origin page URL or path. With product scope, this should be a product page.',
+                    description: 'Page URL. With product scope, use a product page URL.',
                 },
             },
             additionalProperties: false,

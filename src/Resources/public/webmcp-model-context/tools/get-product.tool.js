@@ -40,24 +40,24 @@ export function createGetProductTool(options = {}) {
     return {
         name: GET_PRODUCT_TOOL_NAME,
         title: 'Get product',
-        description: 'Fetches product details from the Shopware Store API using customer context.',
+        description: 'Returns product details.',
         inputSchema: {
             type: 'object',
             properties: {
                 id: {
                     type: 'string',
                     maxLength: MAX_PRODUCT_ID_LENGTH,
-                    description: 'Shopware product UUID.',
+                    description: 'Product ID.',
                 },
                 sku: {
                     type: 'string',
                     maxLength: MAX_SKU_LENGTH,
-                    description: 'Product SKU/product number.',
+                    description: 'Product SKU.',
                 },
                 url: {
                     type: 'string',
                     maxLength: MAX_URL_LENGTH,
-                    description: 'Same-origin /detail/{id} product URL or path.',
+                    description: 'Product URL.',
                 },
             },
             additionalProperties: false,

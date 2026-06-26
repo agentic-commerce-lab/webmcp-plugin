@@ -35,7 +35,7 @@ export function createGetCartTool(options = {}) {
     return {
         name: GET_CART_TOOL_NAME,
         title: 'Get cart',
-        description: 'Returns the current shopper cart contents, line-item identifiers, quantities, prices, taxes, totals, currency, and checkout URL.',
+        description: 'Returns the current cart.',
         inputSchema: {
             type: 'object',
             properties: {},
