@@ -51,31 +51,16 @@ The plugin does not handle checkout, payment, private backend operations, or pri
 
 ## Installation
 
-Download the latest build from the `latest-main` release:
+Download the plugin here:
 
-    curl -L -o SwagWebMcp.zip https://github.com/agentic-commerce-lab/web-mcp-plugin/releases/download/latest-main/SwagWebMcp.zip
+https://github.com/agentic-commerce-lab/web-mcp-plugin/releases/download/latest-main/SwagWebMcp.zip
 
-You can upload this zip directly in Shopware Admin, or install it manually:
+Then upload the zip file in Shopware Admin.
 
-    unzip SwagWebMcp.zip -d custom/plugins
-    bin/console plugin:refresh
-    bin/console plugin:install --activate SwagWebMcp
-    bin/console assets:install
-    bin/console theme:compile
-    bin/console cache:clear
+Alternatively, clone this repository into your Shopware installation under
+`custom/plugins`.
 
-Alternatively, install this repository as a Shopware platform plugin:
-
-    mkdir -p custom/plugins
-    cp -R <repository-path> custom/plugins/SwagWebMcp
-    bin/console plugin:refresh
-    bin/console plugin:install --activate SwagWebMcp
-    bin/console assets:install
-    bin/console theme:compile
-    bin/console cache:clear
-
-After installation, enable or configure the plugin in Shopware Admin under the
-plugin configuration screen.
+After installation, enable or configure the plugin in Shopware Admin.
 
 ## Configuration
 
