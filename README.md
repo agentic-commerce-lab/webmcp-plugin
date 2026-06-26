@@ -96,7 +96,20 @@ This plugin deliberately does not:
 
 ## Installation
 
-Install this repository as a Shopware platform plugin:
+Download the latest build from the `latest-main` release:
+
+    curl -L -o SwagWebMcp.zip https://github.com/agentic-commerce-lab/web-mcp-plugin/releases/download/latest-main/SwagWebMcp.zip
+
+You can upload this zip directly in Shopware Admin, or install it manually:
+
+    unzip SwagWebMcp.zip -d custom/plugins
+    bin/console plugin:refresh
+    bin/console plugin:install --activate SwagWebMcp
+    bin/console assets:install
+    bin/console theme:compile
+    bin/console cache:clear
+
+Alternatively, install this repository as a Shopware platform plugin:
 
     mkdir -p custom/plugins
     cp -R <repository-path> custom/plugins/SwagWebMcp

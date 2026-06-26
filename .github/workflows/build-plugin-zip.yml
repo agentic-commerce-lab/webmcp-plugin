@@ -1,0 +1,55 @@
+name: Build Plugin Zip
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-plugin-zip-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-plugin-zip:
+    name: Build Plugin Zip
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run QA
+        run: docker compose run --rm qa
+
+      - name: Build zip
+        run: docker compose run --rm qa bin/build-zip.sh
+
+      - name: Upload plugin zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: SwagWebMcp
+          path: dist/SwagWebMcp.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish latest main release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag --force latest-main "${{ github.sha }}"
+          git push --force origin latest-main
+
+          if gh release view latest-main >/dev/null 2>&1; then
+            gh release upload latest-main dist/SwagWebMcp.zip --clobber
+          else
+            gh release create latest-main dist/SwagWebMcp.zip \
+              --title "Latest main build" \
+              --notes "Automatically updated from the latest successful build on main." \
+              --prerelease
+          fi
