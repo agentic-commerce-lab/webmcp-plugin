@@ -44,7 +44,7 @@ The plugin does not handle checkout, payment, private backend operations, or pri
 
 ## Requirements
 
-- Shopware 6 storefront plugin installation.
+- Shopware 6 installation.
 - PHP `^8.2`, matching the Composer platform configuration.
 - Docker for the repository QA workflow.
 - Host PHP and Composer are optional for local development because QA runs in Docker.
