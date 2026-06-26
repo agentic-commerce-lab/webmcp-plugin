@@ -1,26 +1,19 @@
 # Shopware WebMCP Plugin
 
-A Shopware 6 plugin that publishes a WebMCP side-car document for a storefront
-and registers browser-side WebMCP tools through `document.modelContext` and,
-when available, native `navigator.modelContext` for product discovery, category
-discovery, and cart operations.
+This project is a Shopware 6 plugin that adds WebMCP support to storefronts. 
 
-The package follows the conventional Shopware plugin structure:
-
-- `composer.json` declares the Shopware plugin package and autoloading.
-- `src/SwagWebMcp.php` is the plugin class.
-- `src/Resources/config` contains Shopware service, route, and plugin configuration.
-- `src/WebMcp` contains the document controller, config reader, and cart payload builder.
-- `src/Resources/views` injects the storefront WebMCP configuration and fallback runtime.
-- `src/Resources/app/storefront/src` contains the Shopware storefront JavaScript plugin.
-- `src/Resources/public` contains the browser runtime used by both the storefront plugin and fallback script.
+It publishes a WebMCP side-car document and registers browser-side tools for agentic product discovery,
+category discovery, and cart operations. 
 
 ## Research Preview
 
-> **Status: Research preview.** This plugin is for experimenting with WebMCP in
-> Shopware storefronts. Treat it as an integration prototype: validate behavior
-> in your own storefront, review the exposed tool surface, and keep production
-> rollout decisions tied to your security and QA process.
+> **Status: Research preview.** This plugin is experimental and is not intended
+> for production use. It is designed to help developers explore and evaluate WebMCP
+> in Shopware storefronts while the technology is still new and evolving.
+>
+> Use it only in controlled test or development environments. Before considering any
+> production rollout, carefully validate the behavior in your own storefront, review
+> the exposed tool surface, and complete your normal security, privacy, and QA review.
 
 ## What Is WebMCP?
 
@@ -28,12 +21,7 @@ WebMCP is a browser-facing model context pattern that lets a website publish
 structured context and callable tools for AI-capable clients. Instead of forcing
 an assistant to infer product, category, and cart state from rendered HTML, a
 storefront can expose explicit tool contracts with validated inputs and
-structured outputs.
-
-In this plugin, the WebMCP document is available through `/webmcp.wmcp`, and
-the browser runtime exposes the same model context surface through
-`document.webMcp`, `document.modelContext`, `window.SwagWebMcp`, and native
-`navigator.modelContext` registration when supported by Chrome testing builds.
+structured outputs. Learn more in the official [WebMCP repository](https://github.com/webmachinelearning/webmcp).
 
 ## Why It Matters
 
@@ -98,26 +86,6 @@ This plugin deliberately does not:
 - Guarantee production readiness for every storefront, theme, or browser build.
 - Add a frontend package manager, bundler, or browser dependency.
 - Attempt to solve every possible merchant workflow through WebMCP tools.
-
-## Demo Video
-
-Demo video placeholder. A walkthrough video will be added here later.
-
-## Benchmark
-
-### DOM Scraping vs WebMCP Tools
-
-This repository is intended to support a comparison between browser automation
-that scrapes rendered DOM and browser automation that calls explicit WebMCP
-tools. A benchmark write-up can be added here once measurements are available.
-
-Suggested comparison points:
-
-- Product lookup accuracy from listing and detail pages.
-- Cart mutation reliability across theme changes.
-- Amount of prompt or automation code needed to complete the same task.
-- Error handling clarity when a product, SKU, category, or line item is missing.
-- Resistance to visual markup changes that do not change storefront behavior.
 
 ## Requirements
 
@@ -356,7 +324,7 @@ Known limitations:
 - If cart mutation tools update the session but the header cart does not refresh, the active theme may not register Shopware's `CartWidget` plugin. The runtime requests a best-effort cart widget refresh after successful mutations.
 - Browser-side native tool registration depends on Chrome's WebMCP testing support; `document.modelContext` remains available for manual console testing.
 
-## Local QA & Contributions
+## Local QA
 
 The local workflow does not require host PHP or Composer:
 
@@ -370,13 +338,16 @@ Build an installable zip:
 
     docker compose run --rm qa bin/build-zip.sh
 
-Contribution notes:
+## Contributions
 
-- Keep the package structure conventional for a Shopware platform plugin.
-- Preserve the public endpoints unless a task explicitly changes them.
-- Keep browser globals and `shopware_webmcp_*` tool names stable.
-- Prefer small, cohesive changes over new infrastructure or dependencies.
-- Validate runtime input from plugin config, routes, Store API payloads, and browser tool arguments.
+We welcome feedback and contributions from the community. If you test this plugin,
+please share what you learn with the Agentic Commerce Lab by opening a GitHub issue
+with your findings, questions, or suggested improvements.
+
+Pull requests are also welcome, especially for bug fixes, documentation improvements,
+storefront compatibility notes, and small enhancements that make the plugin easier
+to evaluate. For larger changes, please open an issue first so we can discuss the
+direction before implementation.
 
 ## License
 
