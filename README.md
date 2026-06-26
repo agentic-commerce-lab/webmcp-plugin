@@ -62,6 +62,10 @@ Alternatively, clone this repository into your Shopware installation under
 
 After installation, enable or configure the plugin in Shopware Admin.
 
+## Demo Video
+
+[Watch the Shopware WebMCP storefront demo](docs/shopware-webmcp-storefront-demo.mp4)
+
 ## Configuration
 
 Shopware renders these settings in the plugin configuration screen in the Admin
