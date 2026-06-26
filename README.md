@@ -1,6 +1,6 @@
 # Shopware WebMCP Plugin
 
-This project is a Shopware 6 plugin that adds WebMCP support to storefronts. 
+This repository contains a Shopware 6 plugin that adds WebMCP support to storefronts. 
 
 It publishes a WebMCP side-car document and registers browser-side tools for agentic product discovery,
 category discovery, and cart operations. 
