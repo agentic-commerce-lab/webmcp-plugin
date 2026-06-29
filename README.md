@@ -148,7 +148,7 @@ Known limitations:
 - The plugin depends on storefront context; `/webmcp/cart` returns `400` when a request does not receive a Shopware sales channel context. Test from a storefront route rather than an admin or CLI context.
 - If product tools fail with `401` or `403`, the storefront page may not include a valid sales channel Store API access key or the current sales channel may not allow Store API product access.
 - If `get_cart` returns `404`, the plugin or `getCartToolEnabled` may be disabled.
-- If cart mutation tools update the session but the storefront UI does not refresh, the active theme may not register Shopware's standard cart widget or offcanvas cart plugins, or may replace the standard checkout wrapper markup. The runtime requests best-effort header cart and open cart sidebar refreshes after successful mutations, and refreshes the rendered cart page fragment when the shopper is already on `/checkout/cart`.
+- If cart mutation tools update the session but the storefront UI does not refresh, the active theme may not register Shopware's standard cart widget or offcanvas cart plugins, or may replace the standard checkout wrapper markup. The runtime requests best-effort header cart refreshes, updates open cart sidebars in place, and refreshes the rendered cart page fragment when the shopper is already on `/checkout/cart`.
 - Browser-side native tool registration depends on Chrome's WebMCP testing support; `document.modelContext` remains available for manual console testing.
 
 ## Contributions

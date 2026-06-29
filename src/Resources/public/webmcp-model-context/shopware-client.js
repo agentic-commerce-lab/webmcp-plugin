@@ -694,7 +694,7 @@ function refreshCartSidebars(baseUrl) {
         return false;
     }
 
-    const refreshed = refreshOffCanvasCartPlugins(offCanvasCartUrl);
+    const refreshed = updateOpenOffCanvasCart(offCanvasCartUrl) || refreshOffCanvasCartPlugins(offCanvasCartUrl);
 
     if (refreshed) {
         document.dispatchEvent(new CustomEvent('webmcp:cart-sidebar-refresh-requested', {
@@ -707,12 +707,33 @@ function refreshCartSidebars(baseUrl) {
     return refreshed;
 }
 
-function refreshOffCanvasCartPlugins(offCanvasCartUrl) {
-    const instances = window.PluginManager?.getPluginInstances?.('OffCanvasCart');
+function updateOpenOffCanvasCart(offCanvasCartUrl) {
+    const instances = getOffCanvasCartInstances();
+    const instance = instances.find((candidate) => {
+        return typeof candidate._updateOffCanvasContent === 'function';
+    });
 
-    if (!instances || typeof instances.forEach !== 'function') {
+    if (!instance) {
         return false;
     }
+
+    updateOpenOffCanvasCartContent(instance, offCanvasCartUrl).catch(() => {});
+
+    return true;
+}
+
+async function updateOpenOffCanvasCartContent(instance, offCanvasCartUrl) {
+    const html = await fetchStorefrontHtml(new URL(offCanvasCartUrl), 'Cart sidebar refresh');
+
+    if (!findOpenCartSidebar() || typeof instance._updateOffCanvasContent !== 'function') {
+        return;
+    }
+
+    instance._updateOffCanvasContent(html);
+}
+
+function refreshOffCanvasCartPlugins(offCanvasCartUrl) {
+    const instances = getOffCanvasCartInstances();
 
     let refreshed = false;
 
@@ -730,6 +751,23 @@ function refreshOffCanvasCartPlugins(offCanvasCartUrl) {
     });
 
     return refreshed;
+}
+
+function getOffCanvasCartInstances() {
+    const instances = window.PluginManager?.getPluginInstances?.('OffCanvasCart');
+    const normalizedInstances = [];
+
+    if (!instances || typeof instances.forEach !== 'function') {
+        return normalizedInstances;
+    }
+
+    instances.forEach((instance) => {
+        if (instance) {
+            normalizedInstances.push(instance);
+        }
+    });
+
+    return normalizedInstances;
 }
 
 function findOpenCartSidebar() {
