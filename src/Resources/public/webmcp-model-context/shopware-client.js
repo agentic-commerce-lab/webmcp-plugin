@@ -12,6 +12,7 @@ import {
 const STORE_API_PATH = '/store-api';
 const WEBMCP_CART_PATH = '/webmcp/cart';
 const STOREFRONT_ADD_TO_CART_PATH = '/checkout/line-item/add';
+const STOREFRONT_OFFCANVAS_CART_PATH = '/checkout/offcanvas';
 const STOREFRONT_CART_PATH = '/checkout/cart';
 const STOREFRONT_CHANGE_LINE_ITEM_QUANTITY_PATH = '/checkout/line-item/change-quantity';
 const STOREFRONT_REMOVE_FROM_CART_PATH = '/checkout/line-item/delete';
@@ -299,7 +300,7 @@ export class ShopwareClient {
             productId,
             quantity,
             lineItemId,
-        });
+        }, this.baseUrl);
 
         return isPlainObject(payload)
             ? {
@@ -364,7 +365,7 @@ export class ShopwareClient {
             quantityDelta: Number.isFinite(quantityDelta) ? quantityDelta : quantity - previousQuantity,
             remainingQuantity: quantity,
             lineItemDeleted: false,
-        });
+        }, this.baseUrl);
 
         return isPlainObject(payload)
             ? {
@@ -430,7 +431,7 @@ export class ShopwareClient {
             quantityDelta: Number.isFinite(quantityDelta) ? quantityDelta : -previousQuantity,
             remainingQuantity: 0,
             lineItemDeleted: true,
-        });
+        }, this.baseUrl);
 
         return isPlainObject(payload)
             ? {
@@ -640,12 +641,17 @@ function normalizeCart(cart) {
     });
 }
 
-function publishCartMutation(detail) {
+function publishCartMutation(detail, baseUrl) {
     document.dispatchEvent(new CustomEvent('webmcp:cart-updated', {
         detail,
     }));
 
-    return refreshCartWidgets();
+    const cartWidgetRefreshed = refreshCartWidgets();
+
+    refreshCartSidebars(baseUrl);
+    refreshCartPages(baseUrl);
+
+    return cartWidgetRefreshed;
 }
 
 function refreshCartWidgets() {
@@ -675,6 +681,255 @@ function refreshCartWidgets() {
     });
 
     return refreshed;
+}
+
+function refreshCartSidebars(baseUrl) {
+    if (!findOpenCartSidebar()) {
+        return false;
+    }
+
+    refreshOpenCartSidebars(baseUrl).catch(() => {});
+
+    return true;
+}
+
+async function refreshOpenCartSidebars(baseUrl) {
+    const html = await fetchStorefrontHtml(new URL(STOREFRONT_OFFCANVAS_CART_PATH, baseUrl), 'Cart sidebar refresh');
+
+    if (!findOpenCartSidebar()) {
+        return;
+    }
+
+    const pluginRefreshed = refreshOffCanvasCartPlugin(html);
+    const domRefreshed = pluginRefreshed ? false : replaceOpenCartSidebar(html);
+
+    if (domRefreshed) {
+        initializeShopwarePlugins();
+    }
+
+    if (pluginRefreshed || domRefreshed) {
+        document.dispatchEvent(new CustomEvent('webmcp:cart-sidebar-refreshed', {
+            detail: {
+                pluginRefreshed,
+                domRefreshed,
+            },
+        }));
+    }
+}
+
+function refreshOffCanvasCartPlugin(html) {
+    const instances = window.PluginManager?.getPluginInstances?.('OffCanvasCart');
+
+    if (!instances || typeof instances.forEach !== 'function') {
+        return false;
+    }
+
+    let refreshed = false;
+
+    instances.forEach((instance) => {
+        if (refreshed || !instance || typeof instance._updateOffCanvasContent !== 'function') {
+            return;
+        }
+
+        try {
+            instance._updateOffCanvasContent(html);
+            refreshed = true;
+        } catch (error) {
+            // The manual DOM refresh below remains available for storefronts without the standard plugin method.
+        }
+    });
+
+    return refreshed;
+}
+
+function replaceOpenCartSidebar(html) {
+    const currentSidebar = findOpenCartSidebar();
+
+    if (!currentSidebar) {
+        return false;
+    }
+
+    const sidebarDocument = parseHtmlDocument(html, 'Cart sidebar refresh');
+    const freshSidebar = findFreshCartSidebar(sidebarDocument);
+
+    if (!freshSidebar) {
+        return false;
+    }
+
+    const currentContent = currentSidebar.matches?.('.offcanvas-cart')
+        ? currentSidebar
+        : currentSidebar.querySelector?.('.offcanvas-cart') || currentSidebar;
+    const replacement = freshSidebar.cloneNode(true);
+
+    currentContent.replaceWith(replacement);
+
+    return true;
+}
+
+function findOpenCartSidebar() {
+    const selectors = [
+        '.offcanvas.cart-offcanvas',
+        '.cart-offcanvas',
+        '.offcanvas .offcanvas-cart',
+        '.offcanvas .cart-offcanvas',
+    ];
+
+    const candidates = selectors.flatMap((selector) => {
+        return Array.from(document.querySelectorAll(selector));
+    });
+
+    return candidates.find((candidate) => {
+        return isVisibleElement(candidate);
+    }) || null;
+}
+
+function findFreshCartSidebar(sidebarDocument) {
+    const selectors = [
+        '.offcanvas-cart',
+        '.cart-offcanvas',
+        '.offcanvas .offcanvas-cart',
+        '.offcanvas .cart-offcanvas',
+    ];
+
+    for (const selector of selectors) {
+        const sidebar = sidebarDocument.querySelector(selector);
+
+        if (sidebar) {
+            return sidebar;
+        }
+    }
+
+    return sidebarDocument.body?.firstElementChild || null;
+}
+
+function refreshCartPages(baseUrl) {
+    if (!isCurrentCartPage()) {
+        return false;
+    }
+
+    refreshCurrentCartPage(baseUrl).catch(() => {});
+
+    return true;
+}
+
+async function refreshCurrentCartPage(baseUrl) {
+    const html = await fetchStorefrontHtml(new URL(STOREFRONT_CART_PATH, baseUrl), 'Cart page refresh');
+
+    if (!isCurrentCartPage()) {
+        return;
+    }
+
+    const cartDocument = parseHtmlDocument(html, 'Cart page refresh');
+
+    if (!replaceCartPageContent(cartDocument)) {
+        return;
+    }
+
+    initializeShopwarePlugins();
+
+    document.dispatchEvent(new CustomEvent('webmcp:cart-page-refreshed'));
+}
+
+function isCurrentCartPage() {
+    const path = window.location?.pathname || '';
+
+    if (/\/checkout\/cart\/?$/i.test(path)) {
+        return true;
+    }
+
+    const bodyClassList = document.body?.classList;
+
+    if (bodyClassList?.contains('is-ctl-checkout') && bodyClassList.contains('is-act-cart')) {
+        return true;
+    }
+
+    const mainContent = document.querySelector('main, .content-main');
+
+    if (!mainContent) {
+        return false;
+    }
+
+    return Boolean(mainContent.querySelector([
+        '[data-cart-page]',
+        '.checkout-cart',
+        '.cart-main',
+        'form[action*="/checkout/line-item/change-quantity/"]',
+        'form[action*="/checkout/line-item/delete/"]',
+    ].join(',')));
+}
+
+function replaceCartPageContent(cartDocument) {
+    if (replaceFirstMatchingElement(cartDocument, [
+        'main .checkout',
+        '.content-main .checkout',
+        '.checkout',
+    ])) {
+        return true;
+    }
+
+    return replaceMatchingElements(cartDocument, [
+        '.checkout-main',
+        '.checkout-aside',
+        '.cart-main',
+        '.cart-items',
+        '.checkout-aside-summary',
+        '.checkout-aside-products',
+    ]);
+}
+
+function replaceFirstMatchingElement(sourceDocument, selectors) {
+    for (const selector of selectors) {
+        const currentElement = document.querySelector(selector);
+        const freshElement = sourceDocument.querySelector(selector);
+
+        if (!currentElement || !freshElement) {
+            continue;
+        }
+
+        currentElement.replaceWith(freshElement.cloneNode(true));
+
+        return true;
+    }
+
+    return false;
+}
+
+function replaceMatchingElements(sourceDocument, selectors) {
+    let replaced = false;
+
+    selectors.forEach((selector) => {
+        const currentElement = document.querySelector(selector);
+        const freshElement = sourceDocument.querySelector(selector);
+
+        if (!currentElement || !freshElement) {
+            return;
+        }
+
+        currentElement.replaceWith(freshElement.cloneNode(true));
+        replaced = true;
+    });
+
+    return replaced;
+}
+
+function initializeShopwarePlugins() {
+    try {
+        const result = window.PluginManager?.initializePlugins?.();
+
+        if (result && typeof result.catch === 'function') {
+            result.catch(() => {});
+        }
+    } catch (error) {
+        // Dynamic fragment plugin initialization is best-effort after the rendered cart HTML is replaced.
+    }
+}
+
+function isVisibleElement(element) {
+    if (!element || element.closest?.('[aria-hidden="true"], [hidden]')) {
+        return false;
+    }
+
+    return Boolean(element.offsetParent || element.getClientRects?.().length);
 }
 
 function normalizeLineItems(collection) {

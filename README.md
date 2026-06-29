@@ -102,8 +102,9 @@ with values from your storefront.
 
 All tools return WebMCP-style results with `content` text and
 `structuredContent` data. Product lookup tools use the Shopware Store API with
-customer context. Cart mutation tools use storefront cart routes and publish a
-cart update event after successful mutations.
+customer context. Cart mutation tools use storefront cart routes, publish a cart
+update event, and request best-effort storefront cart UI refreshes after
+successful mutations.
 
 | Tool | Input | Structured output |
 | --- | --- | --- |
@@ -147,7 +148,7 @@ Known limitations:
 - The plugin depends on storefront context; `/webmcp/cart` returns `400` when a request does not receive a Shopware sales channel context. Test from a storefront route rather than an admin or CLI context.
 - If product tools fail with `401` or `403`, the storefront page may not include a valid sales channel Store API access key or the current sales channel may not allow Store API product access.
 - If `get_cart` returns `404`, the plugin or `getCartToolEnabled` may be disabled.
-- If cart mutation tools update the session but the header cart does not refresh, the active theme may not register Shopware's `CartWidget` plugin. The runtime requests a best-effort cart widget refresh after successful mutations.
+- If cart mutation tools update the session but the storefront UI does not refresh, the active theme may not register Shopware's standard cart widgets or cart page markup. The runtime requests best-effort header cart, open cart sidebar, and cart page refreshes after successful mutations.
 - Browser-side native tool registration depends on Chrome's WebMCP testing support; `document.modelContext` remains available for manual console testing.
 
 ## Contributions
