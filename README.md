@@ -56,12 +56,28 @@ Download the plugin here:
 
 https://github.com/agentic-commerce-lab/web-mcp-plugin/releases/download/latest-main/SwagWebMcp.zip
 
-Then upload the zip file in Shopware Admin.
+Then upload the zip file in Shopware Admin. Release ZIPs include the generated
+JavaScript runtime files, so Bun is not required for installation from a
+downloaded ZIP.
 
 Alternatively, clone this repository into your Shopware installation under
-`custom/plugins`.
+`custom/plugins`. When installing from a source checkout, make sure the
+generated JavaScript files are present before enabling the plugin:
+
+```sh
+bun install
+bun run build
+```
 
 After installation, enable or configure the plugin in Shopware Admin.
+
+To build an installable ZIP from a source checkout, rebuild the JavaScript first
+and then run the package check:
+
+```sh
+bun run build
+docker compose run --rm qa bin/build-zip.sh
+```
 
 ## Configuration
 
@@ -106,6 +122,12 @@ The browser runtime is maintained in TypeScript source files under
 JavaScript files stay committed in the same paths because Shopware and the
 public fallback script load those `.js` assets directly.
 
+Install the TypeScript development dependencies once with:
+
+```sh
+bun install
+```
+
 After changing the TypeScript source, rebuild the JavaScript with Bun:
 
 ```sh
@@ -125,6 +147,12 @@ For iterative development, use:
 
 ```sh
 bun run build:watch
+```
+
+To remove generated JavaScript files, use:
+
+```sh
+bun run clean
 ```
 
 The build uses Bun's TypeScript transpiler file-for-file so the emitted
