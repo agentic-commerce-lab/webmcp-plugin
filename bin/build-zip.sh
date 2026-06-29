@@ -7,6 +7,8 @@ DIST_DIR="dist"
 WORK_DIR="$DIST_DIR/package"
 ZIP_PATH="$DIST_DIR/$ZIP_NAME"
 
+bun run build
+
 rm -rf "$WORK_DIR" "$ZIP_PATH"
 mkdir -p "$WORK_DIR"
 mkdir "$WORK_DIR/$PLUGIN_NAME"

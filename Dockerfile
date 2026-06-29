@@ -1,6 +1,9 @@
+FROM oven/bun:1.3.14-alpine AS bun
+
 FROM php:8.3-cli-alpine
 
 RUN apk add --no-cache \
+        libstdc++ \
         icu-dev \
         libpng-dev \
         libzip-dev \
@@ -12,6 +15,7 @@ RUN apk add --no-cache \
         zip
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
