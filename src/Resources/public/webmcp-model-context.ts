@@ -15,6 +15,10 @@ import {
     GET_PRODUCT_TOOL_NAME,
 } from './webmcp-model-context/tools/get-product.tool';
 import {
+    createNavigateTool,
+    NAVIGATE_TOOL_NAME,
+} from './webmcp-model-context/tools/navigate.tool';
+import {
     createRemoveFromCartTool,
     REMOVE_FROM_CART_TOOL_NAME,
 } from './webmcp-model-context/tools/remove-from-cart.tool';
@@ -98,6 +102,7 @@ export function registerConfiguredTools(config: unknown = {}): void {
     registerSearchProductsTool(normalizedConfig);
     registerGetProductTool(normalizedConfig);
     registerGetProductCategoriesTool(normalizedConfig);
+    registerNavigateTool(normalizedConfig);
     registerGetCartTool(normalizedConfig);
     registerAddToCartTool(normalizedConfig);
     registerUpdateLineItemTool(normalizedConfig);
@@ -119,6 +124,10 @@ export function registerGetProductCategoriesTool(config: unknown = {}): ModelCon
         GET_PRODUCT_CATEGORIES_TOOL_NAME,
         createGetProductCategoriesTool,
     );
+}
+
+export function registerNavigateTool(config: unknown = {}): ModelContextTool | null {
+    return registerStorefrontTool(config, 'navigate', NAVIGATE_TOOL_NAME, createNavigateTool);
 }
 
 export function registerGetCartTool(config: unknown = {}): ModelContextTool | null {
@@ -190,6 +199,7 @@ function exposeGlobals(config: WebMcpRuntimeConfig, webMcpDocument: WebMcpDocume
         registerSearchProductsTool: () => registerSearchProductsTool(config),
         registerGetProductTool: () => registerGetProductTool(config),
         registerGetProductCategoriesTool: () => registerGetProductCategoriesTool(config),
+        registerNavigateTool: () => registerNavigateTool(config),
         registerGetCartTool: () => registerGetCartTool(config),
         registerAddToCartTool: () => registerAddToCartTool(config),
         registerUpdateLineItemTool: () => registerUpdateLineItemTool(config),
@@ -212,6 +222,7 @@ function normalizeConfig(options: unknown = {}): WebMcpRuntimeConfig {
             searchProducts: booleanOption(tools.searchProducts, true),
             getProduct: booleanOption(tools.getProduct, true),
             getProductCategories: booleanOption(tools.getProductCategories, true),
+            navigate: booleanOption(tools.navigate, true),
             getCart: booleanOption(tools.getCart, true),
             addToCart: booleanOption(tools.addToCart, true),
             updateLineItem: booleanOption(tools.updateLineItem, true),
@@ -880,6 +891,7 @@ window.SwagWebMcpRuntime = {
     registerSearchProductsTool,
     registerGetProductTool,
     registerGetProductCategoriesTool,
+    registerNavigateTool,
     registerGetCartTool,
     registerAddToCartTool,
     registerUpdateLineItemTool,

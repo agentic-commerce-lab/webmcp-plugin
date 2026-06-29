@@ -5,6 +5,7 @@
     {% set searchProductsToolEnabled = config('SwagWebMcp.config.searchProductsToolEnabled') %}
     {% set getProductToolEnabled = config('SwagWebMcp.config.getProductToolEnabled') %}
     {% set getProductCategoriesToolEnabled = config('SwagWebMcp.config.getProductCategoriesToolEnabled') %}
+    {% set navigateToolEnabled = config('SwagWebMcp.config.navigateToolEnabled') %}
     {% set getCartToolEnabled = config('SwagWebMcp.config.getCartToolEnabled') %}
     {% set addToCartToolEnabled = config('SwagWebMcp.config.addToCartToolEnabled') %}
     {% set updateLineItemToolEnabled = config('SwagWebMcp.config.updateLineItemToolEnabled') %}
@@ -18,6 +19,7 @@
             searchProducts: searchProductsToolEnabled,
             getProduct: getProductToolEnabled,
             getProductCategories: getProductCategoriesToolEnabled,
+            navigate: navigateToolEnabled,
             getCart: getCartToolEnabled,
             addToCart: addToCartToolEnabled,
             updateLineItem: updateLineItemToolEnabled,

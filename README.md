@@ -3,7 +3,7 @@
 This repository contains a Shopware 6 plugin that adds WebMCP support to storefronts. 
 
 It publishes a WebMCP side-car document and registers browser-side tools for agentic product discovery,
-category discovery, and cart operations. 
+category discovery, same-origin storefront navigation, and cart operations. 
 
 ## Research Preview
 
@@ -38,7 +38,7 @@ configuration, session, and Store API boundaries.
 
 When enabled, this plugin lets AI-capable browsers and assistants interact with a Shopware storefront through structured catalog and cart tools instead of scraping the rendered page.
 
-An agent can search products, inspect product details, browse categories, read the current cart, and prepare cart changes through bounded tool calls. 
+An agent can search products, inspect product details, browse categories, navigate the current storefront tab to same-origin pages, read the current cart, and prepare cart changes through bounded tool calls. 
 
 The plugin does not handle checkout, payment, private backend operations, or privileged merchant workflows.
 
@@ -90,6 +90,7 @@ panel:
 - `searchProductsToolEnabled`: enables the product search `document.modelContext` tool.
 - `getProductToolEnabled`: enables the product detail `document.modelContext` tool.
 - `getProductCategoriesToolEnabled`: enables the product category `document.modelContext` tool.
+- `navigateToolEnabled`: enables the storefront navigation `document.modelContext` tool.
 - `getCartToolEnabled`: enables the cart read `document.modelContext` tool.
 - `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
 - `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool.
@@ -171,6 +172,7 @@ successful mutations.
 | `shopware_webmcp_search_products` | Optional `query`; optional `limit` from `1` to `20`, default `5`. | `query`, `count`, `total`, `products`. |
 | `shopware_webmcp_get_product` | Exactly one of `id`, `sku`, or same-origin product `url`. | `lookup`, `product`. |
 | `shopware_webmcp_get_product_categories` | Optional `scope`: `tree` or `product`; optional `sku` or same-origin `url`. `sku` implies `product` scope. | `lookup`, `scope`, `source`, `sourceUrl`, `count`, `activeCategoryIds`, `categories`, `tree`. |
+| `shopware_webmcp_navigate` | Required same-origin storefront `url`. Use product tools to discover product URLs before navigating. | `lookup`, `target`, `navigated`. |
 | `shopware_webmcp_get_cart` | No input properties. | `cart`. |
 | `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`. | `added`, `cart`. |
 | `shopware_webmcp_update_line_item` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100`. Quantity `0` removes the line item. | `updated`, `cart`, or `skipped` with `reason`. |

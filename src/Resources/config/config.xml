@@ -47,6 +47,13 @@
         </input-field>
 
         <input-field type="bool">
+            <name>navigateToolEnabled</name>
+            <label>Enable navigate tool</label>
+            <label lang="de-DE">navigate-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
+
+        <input-field type="bool">
             <name>getCartToolEnabled</name>
             <label>Enable get_cart tool</label>
             <label lang="de-DE">get_cart-Tool aktivieren</label>

@@ -9,6 +9,7 @@ const sourceFiles = [
     'src/Resources/public/webmcp-model-context/tools/get-cart.tool.ts',
     'src/Resources/public/webmcp-model-context/tools/get-product.tool.ts',
     'src/Resources/public/webmcp-model-context/tools/get-product-categories.tool.ts',
+    'src/Resources/public/webmcp-model-context/tools/navigate.tool.ts',
     'src/Resources/public/webmcp-model-context/tools/remove-from-cart.tool.ts',
     'src/Resources/public/webmcp-model-context/tools/search-products.tool.ts',
     'src/Resources/public/webmcp-model-context/tools/storefront-tool.utils.ts',
