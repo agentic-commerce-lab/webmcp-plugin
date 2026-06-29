@@ -1,9 +1,10 @@
-import { ShopwareClient } from '../shopware-client.js';
+import { ShopwareClient } from '../shopware-client';
 import {
     isPlainObject,
     normalizeBaseUrl,
     normalizeOptionalStringField,
-} from './storefront-tool.utils.js';
+} from './storefront-tool.utils';
+import type { ProductLookupInput, ProductSummary, StorefrontToolOptions } from '../types';
 
 export const GET_PRODUCT_TOOL_NAME = 'shopware_webmcp_get_product';
 
@@ -11,7 +12,7 @@ const MAX_PRODUCT_ID_LENGTH = 64;
 const MAX_SKU_LENGTH = 120;
 const MAX_URL_LENGTH = 2048;
 
-export function createGetProductTool(options = {}) {
+export function createGetProductTool(options: StorefrontToolOptions = {}) {
     const baseUrl = normalizeBaseUrl(options.baseUrl);
     const shopwareClient = new ShopwareClient({
         baseUrl,
@@ -67,7 +68,7 @@ export function createGetProductTool(options = {}) {
     };
 }
 
-function normalizeInput(input) {
+function normalizeInput(input: unknown): ProductLookupInput {
     if (!isPlainObject(input)) {
         throw new Error('Get product input must be an object.');
     }
@@ -88,7 +89,7 @@ function normalizeInput(input) {
     };
 }
 
-function formatProductResult(product) {
+function formatProductResult(product: ProductSummary): string {
     const lines = [
         product.name,
         product.price ? `Price: ${product.price}${product.currency ? ` ${product.currency}` : ''}` : null,

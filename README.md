@@ -47,6 +47,7 @@ The plugin does not handle checkout, payment, private backend operations, or pri
 - Shopware 6 installation.
 - PHP `^8.2`, matching the Composer platform configuration.
 - Docker for the repository QA workflow.
+- Bun for TypeScript storefront runtime development.
 - Host PHP and Composer are optional for local development because QA runs in Docker.
 
 ## Installation
@@ -98,6 +99,38 @@ document.modelContext.getTools()
 Replace placeholder values such as `<product-sku>` and `<cart-line-item-id>`
 with values from your storefront.
 
+## TypeScript Build
+
+The browser runtime is maintained in TypeScript source files under
+`src/Resources/public` and `src/Resources/app/storefront/src`. The generated
+JavaScript files stay committed in the same paths because Shopware and the
+public fallback script load those `.js` assets directly.
+
+After changing the TypeScript source, rebuild the JavaScript with Bun:
+
+```sh
+bun run build
+```
+
+Use `bun run build`, not `bun build`. The latter invokes Bun's built-in
+bundler directly and requires explicit entrypoints.
+
+To type-check the TypeScript source without emitting files, run:
+
+```sh
+bun run check
+```
+
+For iterative development, use:
+
+```sh
+bun run build:watch
+```
+
+The build uses Bun's TypeScript transpiler file-for-file so the emitted
+JavaScript keeps the same module layout and public asset paths that the plugin
+currently exposes.
+
 ## Tool Reference
 
 All tools return WebMCP-style results with `content` text and
@@ -120,11 +153,12 @@ successful mutations.
 ## Extend
 
 To add or change browser tools, keep the public fallback runtime and storefront
-plugin import in sync. Changes to
+plugin import in sync. Make source changes in the TypeScript files and run
+`bun run build` to refresh the generated JavaScript. Changes that emit
 `src/Resources/public/webmcp-model-context.js` affect both the direct public
 fallback script and the Shopware storefront plugin import.
 
-Use the existing vanilla JavaScript module style in
+Use the existing vanilla TypeScript module style in
 `src/Resources/public/webmcp-model-context`. Keep tool inputs and outputs
 stable, especially `structuredContent`, unless the change intentionally updates
 the WebMCP contract.

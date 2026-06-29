@@ -1,9 +1,10 @@
-import { ShopwareClient } from '../shopware-client.js';
+import { ShopwareClient } from '../shopware-client';
 import {
     isPlainObject,
     normalizeBaseUrl,
     normalizeOptionalStringField,
-} from './storefront-tool.utils.js';
+} from './storefront-tool.utils';
+import type { CartQuantityInput, CartSummary, StorefrontToolOptions } from '../types';
 
 export const REMOVE_FROM_CART_TOOL_NAME = 'shopware_webmcp_remove_from_cart';
 
@@ -13,7 +14,7 @@ const MAX_SKU_LENGTH = 120;
 const MAX_URL_LENGTH = 2048;
 const MAX_QUANTITY = 100;
 
-export function createRemoveFromCartTool(options = {}) {
+export function createRemoveFromCartTool(options: StorefrontToolOptions = {}) {
     const baseUrl = normalizeBaseUrl(options.baseUrl);
     const shopwareClient = new ShopwareClient({
         baseUrl,
@@ -87,7 +88,7 @@ export function createRemoveFromCartTool(options = {}) {
     };
 }
 
-function normalizeInput(input) {
+function normalizeInput(input: unknown): CartQuantityInput {
     if (!isPlainObject(input)) {
         throw new Error('Remove from cart input must be an object.');
     }
@@ -112,7 +113,7 @@ function normalizeInput(input) {
     };
 }
 
-function normalizeQuantity(value) {
+function normalizeQuantity(value: unknown): number {
     if (typeof value === 'undefined' || value === null) {
         return 1;
     }
@@ -126,10 +127,11 @@ function normalizeQuantity(value) {
     return quantity;
 }
 
-function formatRemoveFromCartResult(input, cart) {
+function formatRemoveFromCartResult(input: CartQuantityInput, cart: CartSummary | null): string {
     const identifier = input.lineItemId || input.sku || input.id || input.url;
     const refreshSummary = cart?.cartWidgetRefreshed ? ' Cart widget refresh was requested.' : '';
-    const cartSummary = Number.isInteger(cart?.itemCount) ? ` Cart now has ${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}.` : '';
+    const itemCount = cart?.itemCount;
+    const cartSummary = Number.isInteger(itemCount) ? ` Cart now has ${itemCount} item${itemCount === 1 ? '' : 's'}.` : '';
 
     return `Removed quantity ${input.quantity} of ${identifier} from cart.${cartSummary}${refreshSummary}`;
 }

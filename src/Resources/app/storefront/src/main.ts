@@ -1,4 +1,6 @@
-const PluginManager = window.PluginManager;
+const PluginManager = window.PluginManager as {
+    register: (...args: any[]) => unknown;
+};
 
 PluginManager.register(
     'SwagWebMcpModelContext',

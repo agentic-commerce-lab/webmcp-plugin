@@ -1,4 +1,4 @@
-import { ShopwareClient } from '../shopware-client.js';
+import { ShopwareClient } from '../shopware-client';
 import {
     cleanText,
     fetchStorefrontHtml,
@@ -7,7 +7,8 @@ import {
     normalizeSameOriginUrl,
     normalizeUrl,
     parseHtmlDocument,
-} from './storefront-tool.utils.js';
+} from './storefront-tool.utils';
+import type { StorefrontToolOptions, UnknownRecord } from '../types';
 
 export const GET_PRODUCT_CATEGORIES_TOOL_NAME = 'shopware_webmcp_get_product_categories';
 
@@ -37,7 +38,19 @@ const PARENT_CATEGORY_ID_ATTRIBUTES = [
     'data-parent-navigation-id',
 ];
 
-export function createGetProductCategoriesTool(options = {}) {
+type CategoryScope = 'tree' | 'product';
+type CategoryEntry = UnknownRecord;
+type Category = UnknownRecord;
+type CategoryResult = UnknownRecord;
+
+interface CategoryInput {
+    scope: CategoryScope;
+    sku?: string;
+    url?: string;
+    useCurrentPage: boolean;
+}
+
+export function createGetProductCategoriesTool(options: StorefrontToolOptions = {}) {
     const baseUrl = normalizeBaseUrl(options.baseUrl);
     const shopwareClient = new ShopwareClient({
         baseUrl,
@@ -97,7 +110,7 @@ export function createGetProductCategoriesTool(options = {}) {
     };
 }
 
-function normalizeInput(input, baseUrl) {
+function normalizeInput(input: unknown, baseUrl: string): CategoryInput {
     if (!isPlainObject(input)) {
         throw new Error('Get product categories input must be an object.');
     }
@@ -111,7 +124,7 @@ function normalizeInput(input, baseUrl) {
     const rawUrl = typeof input.url === 'string' && input.url.trim() !== ''
         ? input.url.trim()
         : null;
-    const scope = rawScope || (rawSku || rawUrl ? 'product' : 'tree');
+    const scope = (rawScope || (rawSku || rawUrl ? 'product' : 'tree')) as CategoryScope;
 
     if (!VALID_SCOPES.includes(scope)) {
         throw new Error(`Category scope must be one of: ${VALID_SCOPES.join(', ')}.`);
@@ -133,33 +146,36 @@ function normalizeInput(input, baseUrl) {
     };
 }
 
-async function loadCategorySource(input, baseUrl, shopwareClient) {
+async function loadCategorySource(input: CategoryInput, baseUrl: string, shopwareClient: ShopwareClient): Promise<{
+    pageDocument: Document;
+    sourceUrl: string;
+}> {
     if (input.scope === 'tree' && input.useCurrentPage) {
         return {
             pageDocument: document,
-            sourceUrl: normalizeUrl(window.location.href, baseUrl),
+            sourceUrl: normalizeUrl(window.location.href, baseUrl) || baseUrl,
         };
     }
 
     if (input.scope === 'product' && input.useCurrentPage) {
         return {
             pageDocument: document,
-            sourceUrl: normalizeUrl(window.location.href, baseUrl),
+            sourceUrl: normalizeUrl(window.location.href, baseUrl) || baseUrl,
         };
     }
 
     const sourceUrl = input.sku
         ? await resolveProductUrlBySku(input.sku, shopwareClient)
         : input.url;
-    const html = await fetchStorefrontHtml(sourceUrl, 'Category lookup');
+    const html = await fetchStorefrontHtml(sourceUrl || baseUrl, 'Category lookup');
 
     return {
         pageDocument: parseHtmlDocument(html, 'Category lookup'),
-        sourceUrl,
+        sourceUrl: sourceUrl || baseUrl,
     };
 }
 
-async function resolveProductUrlBySku(sku, shopwareClient) {
+async function resolveProductUrlBySku(sku: string, shopwareClient: ShopwareClient): Promise<string> {
     const product = await shopwareClient.findProductBySku(sku);
 
     if (!product?.url) {
@@ -169,7 +185,7 @@ async function resolveProductUrlBySku(sku, shopwareClient) {
     return product.url;
 }
 
-function normalizeToolUrl(rawUrl, baseUrl) {
+function normalizeToolUrl(rawUrl: string, baseUrl: string): string {
     if (rawUrl.length > MAX_URL_LENGTH) {
         throw new Error(`Category source URL must be ${MAX_URL_LENGTH} characters or fewer.`);
     }
@@ -187,7 +203,7 @@ function normalizeToolUrl(rawUrl, baseUrl) {
     return url;
 }
 
-function normalizeSku(rawSku) {
+function normalizeSku(rawSku: string): string {
     if (rawSku.length > MAX_SKU_LENGTH) {
         throw new Error(`Product SKU must be ${MAX_SKU_LENGTH} characters or fewer.`);
     }
@@ -199,27 +215,27 @@ function normalizeSku(rawSku) {
     return rawSku;
 }
 
-function extractCategoryTreeResult(pageDocument, sourceUrl, baseUrl) {
+function extractCategoryTreeResult(pageDocument: Document, sourceUrl: string, baseUrl: string): CategoryResult {
     const rawEntries = collectCategoryLinkEntries(pageDocument, sourceUrl, baseUrl);
     const categories = buildNavigationCategories(rawEntries);
 
     return createCategoryResult('tree', 'navigation', sourceUrl, categories);
 }
 
-function extractProductCategoryResult(pageDocument, sourceUrl, baseUrl) {
+function extractProductCategoryResult(pageDocument: Document, sourceUrl: string, baseUrl: string): CategoryResult {
     const rawCategories = extractBreadcrumbCategories(pageDocument, sourceUrl, baseUrl);
     const categories = buildProductCategoryPath(rawCategories);
 
     return createCategoryResult('product', 'breadcrumbs', sourceUrl, categories);
 }
 
-function collectCategoryLinkEntries(pageDocument, sourceUrl, baseUrl) {
+function collectCategoryLinkEntries(pageDocument: Document, sourceUrl: string, baseUrl: string): CategoryEntry[] {
     return Array.from(pageDocument.querySelectorAll(CATEGORY_LINK_SELECTOR))
         .map((linkElement, index) => normalizeCategoryLinkEntry(linkElement, index, sourceUrl, baseUrl))
-        .filter(Boolean);
+        .filter((entry): entry is CategoryEntry => Boolean(entry));
 }
 
-function normalizeCategoryLinkEntry(linkElement, index, sourceUrl, baseUrl) {
+function normalizeCategoryLinkEntry(linkElement: Element, index: number, sourceUrl: string, baseUrl: string): CategoryEntry | null {
     const name = cleanText(linkElement.textContent)
         || cleanText(linkElement.getAttribute('title'))
         || cleanText(linkElement.getAttribute('aria-label'));
@@ -247,9 +263,9 @@ function normalizeCategoryLinkEntry(linkElement, index, sourceUrl, baseUrl) {
     };
 }
 
-function buildNavigationCategories(rawEntries) {
-    const categoriesById = new Map();
-    const idByShopwareId = new Map();
+function buildNavigationCategories(rawEntries: CategoryEntry[]): Category[] {
+    const categoriesById = new Map<string, Category>();
+    const idByShopwareId = new Map<string, string>();
 
     rawEntries.forEach((entry) => {
         entry.id = createCategoryId(entry);
@@ -276,8 +292,12 @@ function buildNavigationCategories(rawEntries) {
     return sortCategories(Array.from(categoriesById.values()));
 }
 
-function assignExplicitParents(rawEntries, categoriesById, idByShopwareId) {
-    const groupStacks = new Map();
+function assignExplicitParents(
+    rawEntries: CategoryEntry[],
+    categoriesById: Map<string, Category>,
+    idByShopwareId: Map<string, string>,
+): void {
+    const groupStacks = new Map<string, string[]>();
 
     rawEntries.forEach((entry) => {
         const category = categoriesById.get(entry.id);
@@ -307,7 +327,7 @@ function assignExplicitParents(rawEntries, categoriesById, idByShopwareId) {
     });
 }
 
-function inferUrlParents(categoriesById) {
+function inferUrlParents(categoriesById: Map<string, Category>): void {
     const categories = Array.from(categoriesById.values());
 
     categories.forEach((category) => {
@@ -324,7 +344,7 @@ function inferUrlParents(categoriesById) {
     });
 }
 
-function rebuildChildIds(categoriesById) {
+function rebuildChildIds(categoriesById: Map<string, Category>): void {
     categoriesById.forEach((category) => {
         category.childIds = [];
     });
@@ -336,19 +356,23 @@ function rebuildChildIds(categoriesById) {
         }
 
         const parent = categoriesById.get(category.parentId);
+        if (!parent) {
+            return;
+        }
+
         if (!parent.childIds.includes(category.id)) {
             parent.childIds.push(category.id);
         }
     });
 
     categoriesById.forEach((category) => {
-        category.childIds.sort((firstId, secondId) => {
-            return categoriesById.get(firstId).sortIndex - categoriesById.get(secondId).sortIndex;
+        category.childIds.sort((firstId: string, secondId: string) => {
+            return (categoriesById.get(firstId)?.sortIndex || 0) - (categoriesById.get(secondId)?.sortIndex || 0);
         });
     });
 }
 
-function propagateActiveState(categoriesById) {
+function propagateActiveState(categoriesById: Map<string, Category>): void {
     categoriesById.forEach((category) => {
         if (!category.active) {
             return;
@@ -359,6 +383,10 @@ function propagateActiveState(categoriesById) {
 
         while (parentId && categoriesById.has(parentId) && !visitedIds.has(parentId)) {
             const parent = categoriesById.get(parentId);
+            if (!parent) {
+                break;
+            }
+
             parent.active = true;
             visitedIds.add(parent.id);
             parentId = parent.parentId;
@@ -366,7 +394,7 @@ function propagateActiveState(categoriesById) {
     });
 }
 
-function extractBreadcrumbCategories(pageDocument, sourceUrl, baseUrl) {
+function extractBreadcrumbCategories(pageDocument: Document, sourceUrl: string, baseUrl: string): CategoryEntry[] {
     const productName = extractProductName(pageDocument);
     const categories = extractStructuredBreadcrumbCategories(pageDocument, sourceUrl)
         || extractDomBreadcrumbCategories(pageDocument, sourceUrl);
@@ -377,7 +405,7 @@ function extractBreadcrumbCategories(pageDocument, sourceUrl, baseUrl) {
     });
 }
 
-function extractStructuredBreadcrumbCategories(pageDocument, sourceUrl) {
+function extractStructuredBreadcrumbCategories(pageDocument: Document, sourceUrl: string): CategoryEntry[] | null {
     const breadcrumbSchema = findSchemaValue(pageDocument, 'BreadcrumbList');
 
     if (!breadcrumbSchema || !Array.isArray(breadcrumbSchema.itemListElement)) {
@@ -385,11 +413,11 @@ function extractStructuredBreadcrumbCategories(pageDocument, sourceUrl) {
     }
 
     return breadcrumbSchema.itemListElement
-        .map((item, index) => normalizeStructuredBreadcrumbItem(item, index, sourceUrl))
-        .filter(Boolean);
+        .map((item: unknown, index: number) => normalizeStructuredBreadcrumbItem(item, index, sourceUrl))
+        .filter((item: CategoryEntry | null): item is CategoryEntry => Boolean(item));
 }
 
-function normalizeStructuredBreadcrumbItem(item, index, sourceUrl) {
+function normalizeStructuredBreadcrumbItem(item: unknown, index: number, sourceUrl: string): CategoryEntry | null {
     if (!isPlainObject(item)) {
         return null;
     }
@@ -414,12 +442,12 @@ function normalizeStructuredBreadcrumbItem(item, index, sourceUrl) {
     };
 }
 
-function extractDomBreadcrumbCategories(pageDocument, sourceUrl) {
-    const breadcrumbLinks = Array.from(pageDocument.querySelectorAll(
+function extractDomBreadcrumbCategories(pageDocument: Document, sourceUrl: string): CategoryEntry[] {
+    const breadcrumbLinks: Element[] = Array.from(pageDocument.querySelectorAll(
         '.breadcrumb a[href], .breadcrumb-item a[href], nav[aria-label*="breadcrumb" i] a[href]',
     ));
 
-    return breadcrumbLinks.map((linkElement, index) => {
+    return breadcrumbLinks.map((linkElement, index): CategoryEntry | null => {
         const name = cleanText(linkElement.textContent)
             || cleanText(linkElement.getAttribute('title'))
             || cleanText(linkElement.getAttribute('aria-label'));
@@ -436,12 +464,12 @@ function extractDomBreadcrumbCategories(pageDocument, sourceUrl) {
             shopwareId: findElementCategoryId(linkElement),
             active: true,
         };
-    }).filter(Boolean);
+    }).filter((item: CategoryEntry | null): item is CategoryEntry => Boolean(item));
 }
 
-function buildProductCategoryPath(rawCategories) {
-    const categories = [];
-    const seenIds = new Set();
+function buildProductCategoryPath(rawCategories: CategoryEntry[]): Category[] {
+    const categories: Category[] = [];
+    const seenIds = new Set<string>();
 
     rawCategories.forEach((entry, index) => {
         const id = createCategoryId(entry);
@@ -464,7 +492,7 @@ function buildProductCategoryPath(rawCategories) {
     return categories;
 }
 
-function createCategoryResult(scope, source, sourceUrl, categories) {
+function createCategoryResult(scope: CategoryScope, source: string, sourceUrl: string, categories: Category[]): CategoryResult {
     return {
         scope,
         source,
@@ -476,7 +504,7 @@ function createCategoryResult(scope, source, sourceUrl, categories) {
     };
 }
 
-function createCategory(entry, parentId) {
+function createCategory(entry: CategoryEntry, parentId: string | null): Category {
     return {
         id: entry.id || createCategoryId(entry),
         idSource: entry.shopwareId ? 'shopware' : entry.url ? 'url' : 'name',
@@ -490,7 +518,7 @@ function createCategory(entry, parentId) {
     };
 }
 
-function createCategoryId(entry) {
+function createCategoryId(entry: CategoryEntry): string {
     if (entry.shopwareId) {
         return entry.shopwareId;
     }
@@ -502,7 +530,7 @@ function createCategoryId(entry) {
     return `name:${entry.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
 }
 
-function setParent(categoriesById, childId, parentId) {
+function setParent(categoriesById: Map<string, Category>, childId: string, parentId: string | null | undefined): void {
     if (!parentId || childId === parentId || !categoriesById.has(childId) || !categoriesById.has(parentId)) {
         return;
     }
@@ -511,12 +539,16 @@ function setParent(categoriesById, childId, parentId) {
         return;
     }
 
-    categoriesById.get(childId).parentId = parentId;
+    const child = categoriesById.get(childId);
+
+    if (child) {
+        child.parentId = parentId;
+    }
 }
 
-function wouldCreateCycle(categoriesById, childId, parentId) {
+function wouldCreateCycle(categoriesById: Map<string, Category>, childId: string, parentId: string): boolean {
     let currentParentId = parentId;
-    const visitedIds = new Set();
+    const visitedIds = new Set<string>();
 
     while (currentParentId && categoriesById.has(currentParentId)) {
         if (currentParentId === childId || visitedIds.has(currentParentId)) {
@@ -524,35 +556,35 @@ function wouldCreateCycle(categoriesById, childId, parentId) {
         }
 
         visitedIds.add(currentParentId);
-        currentParentId = categoriesById.get(currentParentId).parentId;
+        currentParentId = categoriesById.get(currentParentId)?.parentId;
     }
 
     return false;
 }
 
-function buildTree(categories) {
-    const categoriesById = new Map(categories.map((category) => [category.id, category]));
+function buildTree(categories: Category[]): Category[] {
+    const categoriesById = new Map<string, Category>(categories.map((category) => [category.id, category]));
     const roots = categories.filter((category) => !category.parentId || !categoriesById.has(category.parentId));
 
-    return sortCategories(roots).map((category) => buildTreeNode(category, categoriesById, new Set()));
+    return sortCategories(roots).map((category) => buildTreeNode(category, categoriesById, new Set<string>()));
 }
 
-function buildTreeNode(category, categoriesById, visitedIds) {
+function buildTreeNode(category: Category, categoriesById: Map<string, Category>, visitedIds: Set<string>): Category {
     const nextVisitedIds = new Set(visitedIds);
     nextVisitedIds.add(category.id);
 
     return {
         ...stripInternalCategoryFields(category),
         children: category.childIds
-            .map((childId) => categoriesById.get(childId))
-            .filter((child) => child && !nextVisitedIds.has(child.id))
-            .sort((first, second) => first.sortIndex - second.sortIndex)
-            .map((child) => buildTreeNode(child, categoriesById, nextVisitedIds)),
+            .map((childId: string) => categoriesById.get(childId))
+            .filter((child: Category | undefined): child is Category => child !== undefined && !nextVisitedIds.has(child.id))
+            .sort((first: Category, second: Category) => first.sortIndex - second.sortIndex)
+            .map((child: Category) => buildTreeNode(child, categoriesById, nextVisitedIds)),
     };
 }
 
-function stripInternalCategoryFields(category) {
-    const normalizedCategory = {
+function stripInternalCategoryFields(category: Category): Category {
+    const normalizedCategory: Category = {
         id: category.id,
         idSource: category.idSource,
         name: category.name,
@@ -572,14 +604,14 @@ function stripInternalCategoryFields(category) {
     return normalizedCategory;
 }
 
-function sortCategories(categories) {
+function sortCategories(categories: Category[]): Category[] {
     return categories.slice().sort((first, second) => {
         return first.sortIndex - second.sortIndex || first.name.localeCompare(second.name);
     });
 }
 
-function findSchemaValue(pageDocument, expectedType) {
-    const scriptElements = Array.from(pageDocument.querySelectorAll('script[type="application/ld+json"]'));
+function findSchemaValue(pageDocument: Document, expectedType: string): UnknownRecord | null {
+    const scriptElements: Element[] = Array.from(pageDocument.querySelectorAll('script[type="application/ld+json"]'));
 
     for (const scriptElement of scriptElements) {
         const schema = parseJson(scriptElement.textContent);
@@ -593,7 +625,7 @@ function findSchemaValue(pageDocument, expectedType) {
     return null;
 }
 
-function findSchemaTypeValue(value, expectedType) {
+function findSchemaTypeValue(value: unknown, expectedType: string): UnknownRecord | null {
     if (Array.isArray(value)) {
         for (const item of value) {
             const schemaValue = findSchemaTypeValue(item, expectedType);
@@ -621,7 +653,7 @@ function findSchemaTypeValue(value, expectedType) {
     return null;
 }
 
-function schemaTypeMatches(type, expectedType) {
+function schemaTypeMatches(type: unknown, expectedType: string): boolean {
     if (Array.isArray(type)) {
         return type.some((item) => schemaTypeMatches(item, expectedType));
     }
@@ -629,12 +661,12 @@ function schemaTypeMatches(type, expectedType) {
     return typeof type === 'string' && type.toLowerCase() === expectedType.toLowerCase();
 }
 
-function extractProductName(pageDocument) {
+function extractProductName(pageDocument: Document): string | null {
     return cleanText(pageDocument.querySelector('.product-detail-name, h1')?.textContent)
         || cleanText(pageDocument.querySelector('meta[property="og:title"]')?.getAttribute('content'));
 }
 
-function findElementCategoryId(element) {
+function findElementCategoryId(element: Element): string | null {
     const directId = readAttributes(element, DIRECT_CATEGORY_ID_ATTRIBUTES);
     const body = element.ownerDocument?.body;
 
@@ -642,7 +674,7 @@ function findElementCategoryId(element) {
         return directId;
     }
 
-    let currentElement = element.parentElement;
+    let currentElement: Element | null = element.parentElement;
     while (currentElement && currentElement !== body) {
         const ancestorId = readAttributes(currentElement, ANCESTOR_CATEGORY_ID_ATTRIBUTES);
 
@@ -656,8 +688,8 @@ function findElementCategoryId(element) {
     return null;
 }
 
-function findParentCategoryId(element) {
-    let currentElement = element;
+function findParentCategoryId(element: Element): string | null {
+    let currentElement: Element | null = element;
     const body = element.ownerDocument?.body;
 
     while (currentElement && currentElement !== body) {
@@ -673,7 +705,7 @@ function findParentCategoryId(element) {
     return null;
 }
 
-function readAttributes(element, attributes) {
+function readAttributes(element: Element | null, attributes: string[]): string | null {
     if (!element) {
         return null;
     }
@@ -689,8 +721,8 @@ function readAttributes(element, attributes) {
     return null;
 }
 
-function extractCategoryLevel(element) {
-    let currentElement = element;
+function extractCategoryLevel(element: Element): number | null {
+    let currentElement: Element | null = element;
     let depth = 0;
 
     while (currentElement && depth < 4) {
@@ -712,7 +744,7 @@ function extractCategoryLevel(element) {
     return null;
 }
 
-function getCategoryGroupKey(element, index) {
+function getCategoryGroupKey(element: Element, index: number): string {
     const groupElement = element.closest(
         '.navigation-flyout, .category-navigation, .offcanvas-navigation, .main-navigation, nav',
     );
@@ -727,21 +759,21 @@ function getCategoryGroupKey(element, index) {
         || 'document';
 }
 
-function isActiveCategoryElement(element) {
+function isActiveCategoryElement(element: Element): boolean {
     return Boolean(
         element.matches('.active, .is-active, [aria-current]')
             || element.closest('.active, .is-active, [aria-current]'),
     );
 }
 
-function isHomeCategory(category, baseUrl) {
+function isHomeCategory(category: CategoryEntry, baseUrl: string): boolean {
     const urlPath = category.url ? normalizedPath(category.url) : null;
 
     return urlPath === '/'
         || (['home', 'startseite'].includes(category.name.toLowerCase()) && isSameOriginUrl(category.url, baseUrl));
 }
 
-function isProductBreadcrumb(category, productName, sourceUrl) {
+function isProductBreadcrumb(category: CategoryEntry, productName: string | null, sourceUrl: string): boolean {
     if (category.url && urlsMatch(category.url, sourceUrl)) {
         return true;
     }
@@ -749,8 +781,8 @@ function isProductBreadcrumb(category, productName, sourceUrl) {
     return Boolean(productName && category.name.toLowerCase() === productName.toLowerCase());
 }
 
-function isIgnoredCategoryUrl(url) {
-    let path;
+function isIgnoredCategoryUrl(url: string): boolean {
+    let path: string;
 
     try {
         path = new URL(url).pathname.toLowerCase();
@@ -763,7 +795,7 @@ function isIgnoredCategoryUrl(url) {
     });
 }
 
-function isSameOriginUrl(url, baseUrl) {
+function isSameOriginUrl(url: string | null | undefined, baseUrl: string): boolean {
     if (!url || !baseUrl) {
         return false;
     }
@@ -775,7 +807,7 @@ function isSameOriginUrl(url, baseUrl) {
     }
 }
 
-function urlsMatch(firstUrl, secondUrl) {
+function urlsMatch(firstUrl: string | null | undefined, secondUrl: string | null | undefined): boolean {
     if (!firstUrl || !secondUrl) {
         return false;
     }
@@ -791,7 +823,7 @@ function urlsMatch(firstUrl, secondUrl) {
     }
 }
 
-function isUrlParent(parentUrl, childUrl) {
+function isUrlParent(parentUrl: string, childUrl: string): boolean {
     const parentPath = normalizedPath(parentUrl);
     const childPath = normalizedPath(childUrl);
 
@@ -800,7 +832,7 @@ function isUrlParent(parentUrl, childUrl) {
         && childPath.startsWith(`${parentPath}/`);
 }
 
-function normalizedPath(url) {
+function normalizedPath(url: string): string {
     try {
         const path = new URL(url).pathname.replace(/\/+$/, '');
 
@@ -810,14 +842,14 @@ function normalizedPath(url) {
     }
 }
 
-function formatCategoryResult(result) {
+function formatCategoryResult(result: CategoryResult): string {
     if (result.count === 0) {
         return result.scope === 'product'
             ? 'No product categories found.'
             : 'No storefront categories found.';
     }
 
-    const lines = result.categories.map((category) => {
+    const lines = result.categories.map((category: Category) => {
         const details = [
             category.id,
             category.parentId ? `parent: ${category.parentId}` : null,
@@ -831,7 +863,7 @@ function formatCategoryResult(result) {
     return `${result.count} ${result.scope === 'product' ? 'product' : 'storefront'} categor${result.count === 1 ? 'y' : 'ies'}:\n${lines.join('\n')}`;
 }
 
-function parseJson(value) {
+function parseJson(value: unknown): any {
     if (typeof value !== 'string' || value.trim() === '') {
         return null;
     }

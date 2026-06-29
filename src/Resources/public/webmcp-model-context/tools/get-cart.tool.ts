@@ -1,12 +1,13 @@
-import { ShopwareClient } from '../shopware-client.js';
+import { ShopwareClient } from '../shopware-client';
 import {
     isPlainObject,
     normalizeBaseUrl,
-} from './storefront-tool.utils.js';
+} from './storefront-tool.utils';
+import type { CartSummary, StorefrontToolOptions } from '../types';
 
 export const GET_CART_TOOL_NAME = 'shopware_webmcp_get_cart';
 
-export function createGetCartTool(options = {}) {
+export function createGetCartTool(options: StorefrontToolOptions = {}) {
     const baseUrl = normalizeBaseUrl(options.baseUrl);
     const shopwareClient = new ShopwareClient({
         baseUrl,
@@ -46,7 +47,7 @@ export function createGetCartTool(options = {}) {
     };
 }
 
-function normalizeInput(input) {
+function normalizeInput(input: unknown): void {
     if (!isPlainObject(input)) {
         throw new Error('Get cart input must be an object.');
     }
@@ -56,7 +57,7 @@ function normalizeInput(input) {
     }
 }
 
-function formatCartResult(cart) {
+function formatCartResult(cart: CartSummary): string {
     const lineItems = Array.isArray(cart?.lineItems) ? cart.lineItems : [];
     const total = formatMoney(cart?.totals?.total || cart?.totalPrice);
     const checkoutUrl = cart?.checkoutUrl ? ` Checkout: ${cart.checkoutUrl}` : '';
@@ -79,7 +80,7 @@ function formatCartResult(cart) {
     return `Cart has ${cart.itemCount ?? lineItems.length} item${cart.itemCount === 1 ? '' : 's'}${total ? `, total ${total}` : ''}.${checkoutUrl}\n${itemLines.join('\n')}${remaining}`;
 }
 
-function formatMoney(value) {
+function formatMoney(value: unknown): string | null {
     if (!isPlainObject(value) || !Number.isFinite(value.value)) {
         return null;
     }
