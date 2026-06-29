@@ -688,36 +688,26 @@ function refreshCartSidebars(baseUrl) {
         return false;
     }
 
-    refreshOpenCartSidebars(baseUrl).catch(() => {});
+    const offCanvasCartUrl = readOffCanvasCartUrl(baseUrl);
 
-    return true;
-}
-
-async function refreshOpenCartSidebars(baseUrl) {
-    const html = await fetchStorefrontHtml(new URL(STOREFRONT_OFFCANVAS_CART_PATH, baseUrl), 'Cart sidebar refresh');
-
-    if (!findOpenCartSidebar()) {
-        return;
+    if (!offCanvasCartUrl) {
+        return false;
     }
 
-    const pluginRefreshed = refreshOffCanvasCartPlugin(html);
-    const domRefreshed = pluginRefreshed ? false : replaceOpenCartSidebar(html);
+    const refreshed = refreshOffCanvasCartPlugins(offCanvasCartUrl);
 
-    if (domRefreshed) {
-        initializeShopwarePlugins();
-    }
-
-    if (pluginRefreshed || domRefreshed) {
-        document.dispatchEvent(new CustomEvent('webmcp:cart-sidebar-refreshed', {
+    if (refreshed) {
+        document.dispatchEvent(new CustomEvent('webmcp:cart-sidebar-refresh-requested', {
             detail: {
-                pluginRefreshed,
-                domRefreshed,
+                url: offCanvasCartUrl,
             },
         }));
     }
+
+    return refreshed;
 }
 
-function refreshOffCanvasCartPlugin(html) {
+function refreshOffCanvasCartPlugins(offCanvasCartUrl) {
     const instances = window.PluginManager?.getPluginInstances?.('OffCanvasCart');
 
     if (!instances || typeof instances.forEach !== 'function') {
@@ -727,79 +717,32 @@ function refreshOffCanvasCartPlugin(html) {
     let refreshed = false;
 
     instances.forEach((instance) => {
-        if (refreshed || !instance || typeof instance._updateOffCanvasContent !== 'function') {
+        if (refreshed || !instance || typeof instance.openOffCanvas !== 'function') {
             return;
         }
 
         try {
-            instance._updateOffCanvasContent(html);
+            instance.openOffCanvas(offCanvasCartUrl, false);
             refreshed = true;
         } catch (error) {
-            // The manual DOM refresh below remains available for storefronts without the standard plugin method.
+            // Cart sidebar refresh is best-effort after the cart mutation succeeds.
         }
     });
 
     return refreshed;
 }
 
-function replaceOpenCartSidebar(html) {
-    const currentSidebar = findOpenCartSidebar();
-
-    if (!currentSidebar) {
-        return false;
-    }
-
-    const sidebarDocument = parseHtmlDocument(html, 'Cart sidebar refresh');
-    const freshSidebar = findFreshCartSidebar(sidebarDocument);
-
-    if (!freshSidebar) {
-        return false;
-    }
-
-    const currentContent = currentSidebar.matches?.('.offcanvas-cart')
-        ? currentSidebar
-        : currentSidebar.querySelector?.('.offcanvas-cart') || currentSidebar;
-    const replacement = freshSidebar.cloneNode(true);
-
-    currentContent.replaceWith(replacement);
-
-    return true;
-}
-
 function findOpenCartSidebar() {
-    const selectors = [
-        '.offcanvas.cart-offcanvas',
-        '.cart-offcanvas',
-        '.offcanvas .offcanvas-cart',
-        '.offcanvas .cart-offcanvas',
-    ];
+    const sidebar = document.querySelector('.offcanvas.cart-offcanvas, .cart-offcanvas');
 
-    const candidates = selectors.flatMap((selector) => {
-        return Array.from(document.querySelectorAll(selector));
-    });
-
-    return candidates.find((candidate) => {
-        return isVisibleElement(candidate);
-    }) || null;
+    return sidebar && isVisibleElement(sidebar) ? sidebar : null;
 }
 
-function findFreshCartSidebar(sidebarDocument) {
-    const selectors = [
-        '.offcanvas-cart',
-        '.cart-offcanvas',
-        '.offcanvas .offcanvas-cart',
-        '.offcanvas .cart-offcanvas',
-    ];
+function readOffCanvasCartUrl(baseUrl) {
+    const configuredUrl = cleanText(window.router?.['frontend.cart.offcanvas']);
+    const url = normalizeSameOriginUrl(configuredUrl || STOREFRONT_OFFCANVAS_CART_PATH, baseUrl);
 
-    for (const selector of selectors) {
-        const sidebar = sidebarDocument.querySelector(selector);
-
-        if (sidebar) {
-            return sidebar;
-        }
-    }
-
-    return sidebarDocument.body?.firstElementChild || null;
+    return url || normalizeUrl(STOREFRONT_OFFCANVAS_CART_PATH, baseUrl);
 }
 
 function refreshCartPages(baseUrl) {
@@ -807,12 +750,24 @@ function refreshCartPages(baseUrl) {
         return false;
     }
 
-    refreshCurrentCartPage(baseUrl).catch(() => {});
+    const refreshEvent = new CustomEvent('webmcp:cart-page-refresh-requested', {
+        cancelable: true,
+        detail: {
+            url: normalizeUrl(STOREFRONT_CART_PATH, baseUrl),
+            targetSelector: '.checkout',
+        },
+    });
+
+    if (!document.dispatchEvent(refreshEvent)) {
+        return false;
+    }
+
+    refreshCartPage(baseUrl).catch(() => {});
 
     return true;
 }
 
-async function refreshCurrentCartPage(baseUrl) {
+async function refreshCartPage(baseUrl) {
     const html = await fetchStorefrontHtml(new URL(STOREFRONT_CART_PATH, baseUrl), 'Cart page refresh');
 
     if (!isCurrentCartPage()) {
@@ -820,14 +775,19 @@ async function refreshCurrentCartPage(baseUrl) {
     }
 
     const cartDocument = parseHtmlDocument(html, 'Cart page refresh');
+    const refreshedElement = replaceCartPageElement(cartDocument);
 
-    if (!replaceCartPageContent(cartDocument)) {
+    if (!refreshedElement) {
         return;
     }
 
-    initializeShopwarePlugins();
+    initializeShopwarePlugins(refreshedElement);
 
-    document.dispatchEvent(new CustomEvent('webmcp:cart-page-refreshed'));
+    document.dispatchEvent(new CustomEvent('webmcp:cart-page-refreshed', {
+        detail: {
+            element: refreshedElement,
+        },
+    }));
 }
 
 function isCurrentCartPage() {
@@ -843,84 +803,45 @@ function isCurrentCartPage() {
         return true;
     }
 
-    const mainContent = document.querySelector('main, .content-main');
-
-    if (!mainContent) {
-        return false;
-    }
-
-    return Boolean(mainContent.querySelector([
-        '[data-cart-page]',
-        '.checkout-cart',
-        '.cart-main',
-        'form[action*="/checkout/line-item/change-quantity/"]',
-        'form[action*="/checkout/line-item/delete/"]',
-    ].join(',')));
-}
-
-function replaceCartPageContent(cartDocument) {
-    if (replaceFirstMatchingElement(cartDocument, [
-        'main .checkout',
-        '.content-main .checkout',
-        '.checkout',
-    ])) {
-        return true;
-    }
-
-    return replaceMatchingElements(cartDocument, [
-        '.checkout-main',
-        '.checkout-aside',
-        '.cart-main',
-        '.cart-items',
-        '.checkout-aside-summary',
-        '.checkout-aside-products',
-    ]);
-}
-
-function replaceFirstMatchingElement(sourceDocument, selectors) {
-    for (const selector of selectors) {
-        const currentElement = document.querySelector(selector);
-        const freshElement = sourceDocument.querySelector(selector);
-
-        if (!currentElement || !freshElement) {
-            continue;
-        }
-
-        currentElement.replaceWith(freshElement.cloneNode(true));
-
-        return true;
-    }
-
     return false;
 }
 
-function replaceMatchingElements(sourceDocument, selectors) {
-    let replaced = false;
+function replaceCartPageElement(cartDocument) {
+    const currentElement = document.querySelector('.checkout');
+    const freshElement = cartDocument.querySelector('.checkout');
 
-    selectors.forEach((selector) => {
-        const currentElement = document.querySelector(selector);
-        const freshElement = sourceDocument.querySelector(selector);
+    if (!currentElement || !freshElement) {
+        return null;
+    }
 
-        if (!currentElement || !freshElement) {
+    const replacement = freshElement.cloneNode(true);
+
+    currentElement.replaceWith(replacement);
+
+    return replacement;
+}
+
+function initializeShopwarePlugins(parentElement) {
+    const pluginManager = window.PluginManager;
+
+    try {
+        if (parentElement && typeof pluginManager?.initializePluginsInParentElement === 'function') {
+            const result = pluginManager.initializePluginsInParentElement(parentElement);
+
+            if (result && typeof result.catch === 'function') {
+                result.catch(() => {});
+            }
+
             return;
         }
 
-        currentElement.replaceWith(freshElement.cloneNode(true));
-        replaced = true;
-    });
-
-    return replaced;
-}
-
-function initializeShopwarePlugins() {
-    try {
-        const result = window.PluginManager?.initializePlugins?.();
+        const result = pluginManager?.initializePlugins?.();
 
         if (result && typeof result.catch === 'function') {
             result.catch(() => {});
         }
     } catch (error) {
-        // Dynamic fragment plugin initialization is best-effort after the rendered cart HTML is replaced.
+        // Cart page fragment plugin initialization is best-effort after the rendered HTML is replaced.
     }
 }
 
