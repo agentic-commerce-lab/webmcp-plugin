@@ -7,6 +7,8 @@ DIST_DIR="dist"
 WORK_DIR="$DIST_DIR/package"
 ZIP_PATH="$DIST_DIR/$ZIP_NAME"
 
+bun install --frozen-lockfile
+bun run check
 bun run build
 
 rm -rf "$WORK_DIR" "$ZIP_PATH"

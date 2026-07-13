@@ -3,10 +3,8 @@
     "type": "module",
     "packageManager": "bun@1.3.14",
     "scripts": {
-        "build": "bun run bin/build-webmcp.ts",
-        "build:watch": "bun run bin/build-webmcp.ts --watch",
-        "clean": "bun run bin/build-webmcp.ts --clean",
-        "check": "bunx tsc --noEmit --pretty false"
+        "build": "bun run bin/build-storefront-dist.ts",
+        "check": "tsc --noEmit --pretty false"
     },
     "devDependencies": {
         "@types/node": "^26.0.1",

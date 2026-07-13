@@ -30,6 +30,7 @@ declare global {
             initializePlugins?: () => unknown;
         };
         PluginBaseClass?: new (...args: any[]) => {
+            el?: Element;
             options?: UnknownRecord;
             init?: () => void;
         };

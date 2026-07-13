@@ -1,31 +1,31 @@
 import {
     ADD_TO_CART_TOOL_NAME,
     createAddToCartTool,
-} from './webmcp-model-context/tools/add-to-cart.tool';
+} from './runtime/tools/add-to-cart.tool';
 import {
     createGetCartTool,
     GET_CART_TOOL_NAME,
-} from './webmcp-model-context/tools/get-cart.tool';
+} from './runtime/tools/get-cart.tool';
 import {
     createGetProductCategoriesTool,
     GET_PRODUCT_CATEGORIES_TOOL_NAME,
-} from './webmcp-model-context/tools/get-product-categories.tool';
+} from './runtime/tools/get-product-categories.tool';
 import {
     createGetProductTool,
     GET_PRODUCT_TOOL_NAME,
-} from './webmcp-model-context/tools/get-product.tool';
+} from './runtime/tools/get-product.tool';
 import {
     createRemoveFromCartTool,
     REMOVE_FROM_CART_TOOL_NAME,
-} from './webmcp-model-context/tools/remove-from-cart.tool';
+} from './runtime/tools/remove-from-cart.tool';
 import {
     createSearchProductsTool,
     SEARCH_PRODUCTS_TOOL_NAME,
-} from './webmcp-model-context/tools/search-products.tool';
+} from './runtime/tools/search-products.tool';
 import {
     createUpdateLineItemTool,
     UPDATE_LINE_ITEM_TOOL_NAME,
-} from './webmcp-model-context/tools/update-line-item.tool';
+} from './runtime/tools/update-line-item.tool';
 import type {
     ModelContext,
     ModelContextTool,
@@ -37,7 +37,7 @@ import type {
     WebMcpDocument,
     WebMcpRuntimeConfig,
     WebMcpToolKey,
-} from './webmcp-model-context/types';
+} from './runtime/types';
 
 const CONFIG_SELECTOR = '[data-swag-web-mcp-model-context]';
 const CONFIG_OPTIONS_ATTRIBUTE = 'data-swag-web-mcp-model-context-options';
