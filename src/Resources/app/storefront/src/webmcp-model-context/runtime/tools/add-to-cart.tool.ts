@@ -1,9 +1,10 @@
-import { ShopwareClient } from '../shopware-client.js';
+import { ShopwareClient } from '../shopware-client';
 import {
     isPlainObject,
     normalizeBaseUrl,
     normalizeOptionalStringField,
-} from './storefront-tool.utils.js';
+} from './storefront-tool.utils';
+import type { CartSummary, QuantityInput, StorefrontToolOptions } from '../types';
 
 export const ADD_TO_CART_TOOL_NAME = 'shopware_webmcp_add_to_cart';
 
@@ -12,7 +13,7 @@ const MAX_SKU_LENGTH = 120;
 const MAX_URL_LENGTH = 2048;
 const MAX_QUANTITY = 100;
 
-export function createAddToCartTool(options = {}) {
+export function createAddToCartTool(options: StorefrontToolOptions = {}) {
     const baseUrl = normalizeBaseUrl(options.baseUrl);
     const shopwareClient = new ShopwareClient({
         baseUrl,
@@ -80,7 +81,7 @@ export function createAddToCartTool(options = {}) {
     };
 }
 
-function normalizeInput(input) {
+function normalizeInput(input: unknown): QuantityInput {
     if (!isPlainObject(input)) {
         throw new Error('Add to cart input must be an object.');
     }
@@ -103,7 +104,7 @@ function normalizeInput(input) {
     };
 }
 
-function normalizeQuantity(value) {
+function normalizeQuantity(value: unknown): number {
     if (typeof value === 'undefined' || value === null) {
         return 1;
     }
@@ -117,7 +118,7 @@ function normalizeQuantity(value) {
     return quantity;
 }
 
-function formatAddToCartResult(input, cart) {
+function formatAddToCartResult(input: QuantityInput, cart: CartSummary | null): string {
     const identifier = input.sku || input.id || input.url;
     const cartSummary = cart?.itemCount ? ` Cart now has ${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}.` : '';
 

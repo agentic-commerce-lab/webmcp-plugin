@@ -1,31 +1,43 @@
 import {
     ADD_TO_CART_TOOL_NAME,
     createAddToCartTool,
-} from './webmcp-model-context/tools/add-to-cart.tool.js';
+} from './runtime/tools/add-to-cart.tool';
 import {
     createGetCartTool,
     GET_CART_TOOL_NAME,
-} from './webmcp-model-context/tools/get-cart.tool.js';
+} from './runtime/tools/get-cart.tool';
 import {
     createGetProductCategoriesTool,
     GET_PRODUCT_CATEGORIES_TOOL_NAME,
-} from './webmcp-model-context/tools/get-product-categories.tool.js';
+} from './runtime/tools/get-product-categories.tool';
 import {
     createGetProductTool,
     GET_PRODUCT_TOOL_NAME,
-} from './webmcp-model-context/tools/get-product.tool.js';
+} from './runtime/tools/get-product.tool';
 import {
     createRemoveFromCartTool,
     REMOVE_FROM_CART_TOOL_NAME,
-} from './webmcp-model-context/tools/remove-from-cart.tool.js';
+} from './runtime/tools/remove-from-cart.tool';
 import {
     createSearchProductsTool,
     SEARCH_PRODUCTS_TOOL_NAME,
-} from './webmcp-model-context/tools/search-products.tool.js';
+} from './runtime/tools/search-products.tool';
 import {
     createUpdateLineItemTool,
     UPDATE_LINE_ITEM_TOOL_NAME,
-} from './webmcp-model-context/tools/update-line-item.tool.js';
+} from './runtime/tools/update-line-item.tool';
+import type {
+    ModelContext,
+    ModelContextTool,
+    NativeModelContext,
+    NativeModelContextTool,
+    StorefrontToolOptions,
+    ToolInput,
+    UnknownRecord,
+    WebMcpDocument,
+    WebMcpRuntimeConfig,
+    WebMcpToolKey,
+} from './runtime/types';
 
 const CONFIG_SELECTOR = '[data-swag-web-mcp-model-context]';
 const CONFIG_OPTIONS_ATTRIBUTE = 'data-swag-web-mcp-model-context-options';
@@ -37,7 +49,10 @@ const ORIGINAL_CALL_TOOL_KEY = '__swagWebMcpOriginalCallTool';
 const WRAPPED_HELPER_KEY = '__swagWebMcpWrapped';
 const NATIVE_TOOL_REGISTRY_KEY = '__swagWebMcpNativeToolRegistry';
 
-export function bootstrapWebMcpModelContext(configOrElement = document.querySelector(CONFIG_SELECTOR)) {
+export function bootstrapWebMcpModelContext(configOrElement: unknown = document.querySelector(CONFIG_SELECTOR)): {
+    config: WebMcpRuntimeConfig;
+    document: WebMcpDocument | null;
+} {
     const config = normalizeConfig(readConfig(configOrElement));
     const webMcpDocument = config.enabled ? buildWebMcpDocument(config) : null;
 
@@ -60,7 +75,7 @@ export function bootstrapWebMcpModelContext(configOrElement = document.querySele
     };
 }
 
-export function buildWebMcpDocument(config = {}) {
+export function buildWebMcpDocument(config: unknown = {}): WebMcpDocument {
     const normalizedConfig = normalizeConfig(config);
     const baseUrl = currentBaseUrl(normalizedConfig.baseUrl);
 
@@ -75,7 +90,7 @@ export function buildWebMcpDocument(config = {}) {
     };
 }
 
-export function registerConfiguredTools(config = {}) {
+export function registerConfiguredTools(config: unknown = {}): void {
     const normalizedConfig = normalizeConfig(config);
 
     addModelContextHelpers(getModelContext());
@@ -89,15 +104,15 @@ export function registerConfiguredTools(config = {}) {
     registerRemoveFromCartTool(normalizedConfig);
 }
 
-export function registerSearchProductsTool(config = {}) {
+export function registerSearchProductsTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(config, 'searchProducts', SEARCH_PRODUCTS_TOOL_NAME, createSearchProductsTool);
 }
 
-export function registerGetProductTool(config = {}) {
+export function registerGetProductTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(config, 'getProduct', GET_PRODUCT_TOOL_NAME, createGetProductTool);
 }
 
-export function registerGetProductCategoriesTool(config = {}) {
+export function registerGetProductCategoriesTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(
         config,
         'getProductCategories',
@@ -106,23 +121,23 @@ export function registerGetProductCategoriesTool(config = {}) {
     );
 }
 
-export function registerGetCartTool(config = {}) {
+export function registerGetCartTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(config, 'getCart', GET_CART_TOOL_NAME, createGetCartTool);
 }
 
-export function registerAddToCartTool(config = {}) {
+export function registerAddToCartTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(config, 'addToCart', ADD_TO_CART_TOOL_NAME, createAddToCartTool);
 }
 
-export function registerUpdateLineItemTool(config = {}) {
+export function registerUpdateLineItemTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(config, 'updateLineItem', UPDATE_LINE_ITEM_TOOL_NAME, createUpdateLineItemTool);
 }
 
-export function registerRemoveFromCartTool(config = {}) {
+export function registerRemoveFromCartTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(config, 'removeFromCart', REMOVE_FROM_CART_TOOL_NAME, createRemoveFromCartTool);
 }
 
-function bootstrapFromDocument() {
+function bootstrapFromDocument(): void {
     const configElement = document.querySelector(CONFIG_SELECTOR);
 
     if (configElement) {
@@ -130,7 +145,7 @@ function bootstrapFromDocument() {
     }
 }
 
-function readConfig(configOrElement) {
+function readConfig(configOrElement: unknown): UnknownRecord {
     if (isElement(configOrElement)) {
         const encodedOptions = configOrElement.getAttribute(CONFIG_OPTIONS_ATTRIBUTE);
         const inlineOptions = configOrElement.textContent;
@@ -149,7 +164,7 @@ function readConfig(configOrElement) {
     return isPlainObject(configOrElement) ? configOrElement : {};
 }
 
-function exposeGlobals(config, webMcpDocument) {
+function exposeGlobals(config: WebMcpRuntimeConfig, webMcpDocument: WebMcpDocument | null): void {
     const getDocument = () => (config.enabled ? buildWebMcpDocument(config) : null);
     const getElements = () => {
         const currentDocument = getDocument();
@@ -182,7 +197,7 @@ function exposeGlobals(config, webMcpDocument) {
     };
 }
 
-function normalizeConfig(options = {}) {
+function normalizeConfig(options: unknown = {}): WebMcpRuntimeConfig {
     const source = isPlainObject(options) ? options : {};
     const tools = isPlainObject(source.tools) ? source.tools : {};
 
@@ -205,7 +220,7 @@ function normalizeConfig(options = {}) {
     };
 }
 
-function createCoreShopwareElements(baseUrl) {
+function createCoreShopwareElements(baseUrl: string): UnknownRecord[] {
     return [
         {
             selector: 'form[action*="/search"] input[name="search"]',
@@ -246,13 +261,13 @@ function createCoreShopwareElements(baseUrl) {
     ];
 }
 
-function createStaticElements(config, baseUrl) {
+function createStaticElements(config: WebMcpRuntimeConfig, baseUrl: string): UnknownRecord[] {
     const source = config.staticElements || parseJson(config.staticElementsJson);
     const elements = Array.isArray(source)
         ? source
         : isPlainObject(source) && Array.isArray(source.elements) ? source.elements : [];
 
-    return elements.reduce((normalizedElements, element) => {
+    return elements.reduce((normalizedElements: UnknownRecord[], element: unknown) => {
         const normalizedElement = normalizeElement(element, baseUrl);
 
         if (normalizedElement) {
@@ -263,7 +278,7 @@ function createStaticElements(config, baseUrl) {
     }, []);
 }
 
-function normalizeElement(element, baseUrl) {
+function normalizeElement(element: unknown, baseUrl: string): UnknownRecord | null {
     if (!isPlainObject(element)) {
         return null;
     }
@@ -276,7 +291,7 @@ function normalizeElement(element, baseUrl) {
         return null;
     }
 
-    const normalizedElement = {
+    const normalizedElement: UnknownRecord = {
         selector,
         role,
         name,
@@ -299,7 +314,7 @@ function normalizeElement(element, baseUrl) {
     return normalizedElement;
 }
 
-function normalizeAction(action, baseUrl) {
+function normalizeAction(action: unknown, baseUrl: string): UnknownRecord | null {
     if (!isPlainObject(action)) {
         return null;
     }
@@ -307,11 +322,11 @@ function normalizeAction(action, baseUrl) {
     const kind = safeString(action.kind)?.toUpperCase();
     const endpoint = normalizeEndpoint(action.endpoint, baseUrl);
 
-    if (!HTTP_METHODS.includes(kind) || !endpoint) {
+    if (!kind || !HTTP_METHODS.includes(kind) || !endpoint) {
         return null;
     }
 
-    const normalizedAction = {
+    const normalizedAction: UnknownRecord = {
         kind,
         endpoint,
     };
@@ -331,7 +346,7 @@ function normalizeAction(action, baseUrl) {
     return normalizedAction;
 }
 
-function normalizeEndpoint(endpoint, baseUrl) {
+function normalizeEndpoint(endpoint: unknown, baseUrl: string): string | null {
     const value = safeString(endpoint);
 
     if (!value) {
@@ -357,7 +372,7 @@ function normalizeEndpoint(endpoint, baseUrl) {
     }
 }
 
-function createSecurityDefinition() {
+function createSecurityDefinition(): UnknownRecord {
     return {
         endpoints: {
             '@ADD_TO_CART': {
@@ -374,9 +389,11 @@ function createSecurityDefinition() {
     };
 }
 
-function getModelContext() {
+function getModelContext(): ModelContext {
     if (!isPlainObject(document.modelContext)) {
-        document.modelContext = {};
+        document.modelContext = {
+            tools: [],
+        };
     }
 
     if (!Array.isArray(document.modelContext.tools)) {
@@ -386,7 +403,7 @@ function getModelContext() {
     return document.modelContext;
 }
 
-function getExistingModelContext() {
+function getExistingModelContext(): ModelContext | null {
     if (!isPlainObject(document.modelContext) || !Array.isArray(document.modelContext.tools)) {
         return null;
     }
@@ -394,7 +411,12 @@ function getExistingModelContext() {
     return document.modelContext;
 }
 
-function registerStorefrontTool(config, toolKey, toolName, createTool) {
+function registerStorefrontTool(
+    config: unknown,
+    toolKey: WebMcpToolKey,
+    toolName: string,
+    createTool: (options: StorefrontToolOptions) => ModelContextTool,
+): ModelContextTool | null {
     const normalizedConfig = normalizeConfig(config);
 
     if (!normalizedConfig.enabled || !normalizedConfig.tools[toolKey]) {
@@ -409,7 +431,7 @@ function registerStorefrontTool(config, toolKey, toolName, createTool) {
     }));
 }
 
-function registerModelContextTool(tool) {
+function registerModelContextTool(tool: ModelContextTool): ModelContextTool {
     const modelContext = getModelContext();
 
     upsertTool(modelContext, tool);
@@ -427,7 +449,7 @@ function registerModelContextTool(tool) {
     return tool;
 }
 
-function unregisterModelContextTool(toolName) {
+function unregisterModelContextTool(toolName: string): boolean {
     const modelContext = getExistingModelContext();
 
     if (!modelContext) {
@@ -454,7 +476,7 @@ function unregisterModelContextTool(toolName) {
     return modelContext.tools.length !== previousLength || nativeToolRemoved;
 }
 
-function upsertTool(modelContext, tool) {
+function upsertTool(modelContext: ModelContext, tool: ModelContextTool): void {
     const existingIndex = modelContext.tools.findIndex((candidate) => {
         return candidate && candidate.name === tool.name;
     });
@@ -474,10 +496,10 @@ function upsertTool(modelContext, tool) {
     }
 }
 
-function addModelContextHelpers(modelContext) {
+function addModelContextHelpers(modelContext: ModelContext): void {
     if (
         typeof modelContext.getTools === 'function'
-        && !modelContext.getTools[WRAPPED_HELPER_KEY]
+        && !(modelContext.getTools as UnknownRecord)[WRAPPED_HELPER_KEY]
         && typeof modelContext[ORIGINAL_GET_TOOLS_KEY] !== 'function'
     ) {
         modelContext[ORIGINAL_GET_TOOLS_KEY] = modelContext.getTools.bind(modelContext);
@@ -485,23 +507,23 @@ function addModelContextHelpers(modelContext) {
 
     if (
         typeof modelContext.callTool === 'function'
-        && !modelContext.callTool[WRAPPED_HELPER_KEY]
+        && !(modelContext.callTool as UnknownRecord)[WRAPPED_HELPER_KEY]
         && typeof modelContext[ORIGINAL_CALL_TOOL_KEY] !== 'function'
     ) {
         modelContext[ORIGINAL_CALL_TOOL_KEY] = modelContext.callTool.bind(modelContext);
     }
 
     const getTools = () => getVisibleModelContextTools(modelContext);
-    getTools[WRAPPED_HELPER_KEY] = true;
+    (getTools as UnknownRecord)[WRAPPED_HELPER_KEY] = true;
     modelContext.getTools = getTools;
 
-    const callTool = async (name, input = {}) => callVisibleModelContextTool(modelContext, name, input);
-    callTool[WRAPPED_HELPER_KEY] = true;
+    const callTool = async (name: string, input: ToolInput = {}) => callVisibleModelContextTool(modelContext, name, input);
+    (callTool as UnknownRecord)[WRAPPED_HELPER_KEY] = true;
     modelContext.callTool = callTool;
 }
 
-function getVisibleModelContextTools(modelContext) {
-    const visibleTools = [];
+function getVisibleModelContextTools(modelContext: ModelContext): ModelContextTool[] {
+    const visibleTools: ModelContextTool[] = [];
 
     appendOriginalModelContextTools(modelContext, visibleTools);
 
@@ -512,7 +534,7 @@ function getVisibleModelContextTools(modelContext) {
     return visibleTools;
 }
 
-function appendOriginalModelContextTools(modelContext, visibleTools) {
+function appendOriginalModelContextTools(modelContext: ModelContext, visibleTools: ModelContextTool[]): void {
     const originalGetTools = modelContext[ORIGINAL_GET_TOOLS_KEY];
 
     if (typeof originalGetTools !== 'function') {
@@ -536,23 +558,29 @@ function appendOriginalModelContextTools(modelContext, visibleTools) {
     });
 }
 
-function appendVisibleModelContextTool(visibleTools, tool, includeSwagWebMcpTools) {
-    if (!tool || typeof tool.name !== 'string') {
+function appendVisibleModelContextTool(
+    visibleTools: ModelContextTool[],
+    tool: unknown,
+    includeSwagWebMcpTools: boolean,
+): void {
+    const candidate = tool as Partial<ModelContextTool> | null;
+
+    if (!candidate || typeof candidate.name !== 'string') {
         return;
     }
 
-    if (!includeSwagWebMcpTools && isSwagWebMcpToolName(tool.name)) {
+    if (!includeSwagWebMcpTools && isSwagWebMcpToolName(candidate.name)) {
         return;
     }
 
-    if (visibleTools.some((candidate) => candidate && candidate.name === tool.name)) {
+    if (visibleTools.some((existingTool) => existingTool && existingTool.name === candidate.name)) {
         return;
     }
 
-    visibleTools.push(tool);
+    visibleTools.push(candidate as ModelContextTool);
 }
 
-async function callVisibleModelContextTool(modelContext, name, input) {
+async function callVisibleModelContextTool(modelContext: ModelContext, name: string, input: ToolInput): Promise<unknown> {
     const tool = getVisibleModelContextTools(modelContext).find((candidate) => {
         return candidate && candidate.name === name;
     });
@@ -578,7 +606,7 @@ async function callVisibleModelContextTool(modelContext, name, input) {
     return tool.execute(input);
 }
 
-function registerNativeModelContextTool(tool) {
+function registerNativeModelContextTool(tool: ModelContextTool): string | null {
     const nativeModelContext = getNativeModelContext();
 
     if (!nativeModelContext) {
@@ -603,7 +631,7 @@ function registerNativeModelContextTool(tool) {
     return null;
 }
 
-function unregisterNativeModelContextTool(toolName) {
+function unregisterNativeModelContextTool(toolName: string): boolean {
     const nativeModelContext = getNativeModelContext();
     const registry = getNativeToolRegistry();
     const registeredNativeToolName = registry.get(toolName);
@@ -629,23 +657,23 @@ function unregisterNativeModelContextTool(toolName) {
     return removed;
 }
 
-function getNativeModelContext() {
+function getNativeModelContext(): NativeModelContext | null {
     const candidates = [
         typeof navigator !== 'undefined' ? navigator.modelContext : null,
         typeof document !== 'undefined' ? document.modelContext : null,
         typeof navigator !== 'undefined' ? navigator.modelContextTesting : null,
     ];
 
-    return candidates.find((candidate) => {
+    return (candidates.find((candidate) => {
         return Boolean(candidate)
             && typeof candidate === 'object'
-            && typeof candidate.registerTool === 'function';
-    }) || null;
+            && typeof (candidate as UnknownRecord).registerTool === 'function';
+    }) as NativeModelContext | undefined) || null;
 }
 
-function createNativeModelContextTool(tool) {
-    const execute = async (input = {}) => {
-        const result = await tool.execute(normalizeNativeToolInput(input));
+function createNativeModelContextTool(tool: ModelContextTool): NativeModelContextTool {
+    const execute = async (input: unknown = {}) => {
+        const result = await tool.execute(normalizeNativeToolInput(input) as ToolInput);
 
         return serializeNativeToolResult(result);
     };
@@ -658,10 +686,10 @@ function createNativeModelContextTool(tool) {
         annotations: tool.annotations,
         execute,
         handler: execute,
-    });
+    }) as NativeModelContextTool;
 }
 
-function tryRegisterNativeModelContextTool(nativeModelContext, nativeTool) {
+function tryRegisterNativeModelContextTool(nativeModelContext: NativeModelContext, nativeTool: NativeModelContextTool): boolean {
     const registerTool = nativeModelContext.registerTool.bind(nativeModelContext);
     const attempts = [
         () => registerTool(nativeTool),
@@ -678,8 +706,8 @@ function tryRegisterNativeModelContextTool(nativeModelContext, nativeTool) {
         try {
             const result = attempt();
 
-            if (result && typeof result.catch === 'function') {
-                result.catch(() => {
+            if (result && typeof (result as Promise<unknown>).catch === 'function') {
+                (result as Promise<unknown>).catch(() => {
                     unregisterNativeModelContextTool(nativeTool.name);
                 });
             }
@@ -693,7 +721,7 @@ function tryRegisterNativeModelContextTool(nativeModelContext, nativeTool) {
     return false;
 }
 
-function normalizeNativeToolInput(input) {
+function normalizeNativeToolInput(input: unknown): unknown {
     if (typeof input !== 'string') {
         return input ?? {};
     }
@@ -711,7 +739,7 @@ function normalizeNativeToolInput(input) {
     }
 }
 
-function serializeNativeToolResult(result) {
+function serializeNativeToolResult(result: unknown): string {
     if (typeof result === 'string') {
         return result;
     }
@@ -723,7 +751,7 @@ function serializeNativeToolResult(result) {
     }
 }
 
-function getNativeToolRegistry() {
+function getNativeToolRegistry(): Map<string, string> {
     if (!(window[NATIVE_TOOL_REGISTRY_KEY] instanceof Map)) {
         window[NATIVE_TOOL_REGISTRY_KEY] = new Map();
     }
@@ -731,14 +759,18 @@ function getNativeToolRegistry() {
     return window[NATIVE_TOOL_REGISTRY_KEY];
 }
 
-function isSwagWebMcpToolName(name) {
+function isSwagWebMcpToolName(name: unknown): boolean {
     return typeof name === 'string' && name.startsWith(SWAG_WEB_MCP_TOOL_NAME_PREFIX);
 }
 
-function currentBaseUrl(configuredBaseUrl) {
+function currentBaseUrl(configuredBaseUrl: unknown): string {
     const fallbackBaseUrl = window.location.origin.replace(/\/+$/, '');
 
     if (!configuredBaseUrl) {
+        return fallbackBaseUrl;
+    }
+
+    if (typeof configuredBaseUrl !== 'string') {
         return fallbackBaseUrl;
     }
 
@@ -749,19 +781,21 @@ function currentBaseUrl(configuredBaseUrl) {
     }
 }
 
-function parseJson(value) {
-    if (!nonEmptyString(value)) {
+function parseJson(value: unknown): any {
+    const json = nonEmptyString(value);
+
+    if (!json) {
         return null;
     }
 
     try {
-        return JSON.parse(value);
+        return JSON.parse(json);
     } catch (error) {
         return null;
     }
 }
 
-function booleanOption(value, fallback) {
+function booleanOption(value: unknown, fallback: boolean): boolean {
     if (typeof value === 'boolean') {
         return value;
     }
@@ -790,7 +824,7 @@ function booleanOption(value, fallback) {
     return fallback;
 }
 
-function safeString(value) {
+function safeString(value: unknown): string | null {
     if (typeof value !== 'string') {
         return null;
     }
@@ -804,7 +838,7 @@ function safeString(value) {
     return trimmed;
 }
 
-function nonEmptyString(value) {
+function nonEmptyString(value: unknown): string | null {
     if (typeof value !== 'string') {
         return null;
     }
@@ -814,7 +848,7 @@ function nonEmptyString(value) {
     return trimmed || null;
 }
 
-function removeEmptyValues(value) {
+function removeEmptyValues(value: UnknownRecord): UnknownRecord {
     return Object.entries(value).reduce((normalizedValue, [key, item]) => {
         if (item === null || typeof item === 'undefined' || item === '') {
             return normalizedValue;
@@ -823,15 +857,19 @@ function removeEmptyValues(value) {
         normalizedValue[key] = item;
 
         return normalizedValue;
-    }, {});
+    }, {} as UnknownRecord);
 }
 
-function isPlainObject(value) {
+function isPlainObject(value: unknown): value is UnknownRecord {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function isElement(value) {
-    return Boolean(value) && value.nodeType === Node.ELEMENT_NODE;
+function isElement(value: unknown): value is Element {
+    return Boolean(value)
+        && typeof value === 'object'
+        && value !== null
+        && 'nodeType' in value
+        && (value as Node).nodeType === Node.ELEMENT_NODE;
 }
 
 window.SwagWebMcpRuntime = {

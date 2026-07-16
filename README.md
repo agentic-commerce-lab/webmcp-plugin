@@ -46,7 +46,8 @@ The plugin does not handle checkout, payment, private backend operations, or pri
 
 - Shopware 6 installation.
 - PHP `^8.2`, matching the Composer platform configuration.
-- Docker for the repository QA workflow.
+- Docker for the repository QA and installable ZIP workflows.
+- Bun for local TypeScript checks and release storefront asset builds.
 - Host PHP and Composer are optional for local development because QA runs in Docker.
 
 ## Installation
@@ -55,12 +56,56 @@ Download the plugin here:
 
 https://github.com/agentic-commerce-lab/web-mcp-plugin/releases/download/latest-main/SwagWebMcp.zip
 
-Then upload the zip file in Shopware Admin.
+Then upload the zip file in Shopware Admin. Release ZIPs must include compiled
+storefront assets so the plugin works immediately after Admin upload.
 
 Alternatively, clone this repository into your Shopware installation under
-`custom/plugins`.
+`custom/plugins`. For local development, install the JavaScript development
+dependencies once and build the plugin storefront asset:
+
+```sh
+bun install
+bun run build
+```
+
+Install and activate the plugin before compiling storefront assets so Shopware
+includes the plugin entrypoint:
+
+```sh
+bin/console plugin:refresh
+bin/console plugin:install --activate SwagWebMcp
+bin/console cache:clear
+sudo bin/build-storefront.sh
+bin/console assets:install
+bin/console theme:refresh
+bin/console theme:compile
+bin/console cache:clear
+```
+
+For an already-installed source checkout, update the plugin instead of running
+`plugin:install`, which skips installed plugins:
+
+```sh
+bin/console plugin:refresh
+bin/console plugin:update SwagWebMcp
+bin/console cache:clear
+bin/build-storefront.sh
+bin/console assets:install
+bin/console theme:refresh
+bin/console theme:compile
+bin/console cache:clear
+```
 
 After installation, enable or configure the plugin in Shopware Admin.
+
+To build an installable ZIP from a source checkout, run the package command.
+The package command type-checks the storefront TypeScript and rebuilds the
+plugin storefront asset before creating the ZIP, so the generated
+`src/Resources/app/storefront/dist` files are included for Admin upload.
+
+```sh
+docker compose run --rm qa bin/build-zip.sh
+```
 
 ## Configuration
 
@@ -98,6 +143,20 @@ document.modelContext.getTools()
 Replace placeholder values such as `<product-sku>` and `<cart-line-item-id>`
 with values from your storefront.
 
+## Storefront TypeScript
+
+The browser runtime is maintained in TypeScript source files under
+`src/Resources/app/storefront/src/webmcp-model-context/runtime`. The storefront
+entrypoint remains `src/Resources/app/storefront/src/main.js` because Shopware
+automatically discovers that file as the storefront JavaScript entrypoint. That
+small JavaScript shim imports the TypeScript runtime modules, which Shopware's
+native storefront JavaScript build compiles.
+
+This repository does not keep generated JavaScript beside the TypeScript
+sources. `bun run build` emits only the Shopware storefront distribution asset
+under `src/Resources/app/storefront/dist`, which is required for ZIP releases.
+Use `bun run check` to type-check local TypeScript changes.
+
 ## Tool Reference
 
 All tools return WebMCP-style results with `content` text and
@@ -119,15 +178,16 @@ successful mutations.
 
 ## Extend
 
-To add or change browser tools, keep the public fallback runtime and storefront
-plugin import in sync. Changes to
-`src/Resources/public/webmcp-model-context.js` affect both the direct public
-fallback script and the Shopware storefront plugin import.
+To add or change browser tools, keep the runtime source and storefront plugin
+import in sync. Make source changes in the TypeScript files, run
+`bun run build` to refresh the release storefront asset, and rebuild the
+storefront through Shopware's normal asset pipeline when testing from a source
+checkout.
 
-Use the existing vanilla JavaScript module style in
-`src/Resources/public/webmcp-model-context`. Keep tool inputs and outputs
-stable, especially `structuredContent`, unless the change intentionally updates
-the WebMCP contract.
+Use the existing vanilla TypeScript module style in
+`src/Resources/app/storefront/src/webmcp-model-context/runtime`. Keep tool
+inputs and outputs stable, especially `structuredContent`, unless the change
+intentionally updates the WebMCP contract.
 
 When extending configuration, update the Shopware Admin configuration,
 service wiring, routes, Twig data attributes, storefront runtime behavior, and

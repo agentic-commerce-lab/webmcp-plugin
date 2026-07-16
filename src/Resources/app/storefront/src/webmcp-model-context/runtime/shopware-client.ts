@@ -7,7 +7,16 @@ import {
     normalizeUrl,
     parseHtmlDocument,
     uniqueStrings,
-} from './tools/storefront-tool.utils.js';
+} from './tools/storefront-tool.utils';
+import type {
+    CartQuantityInput,
+    CartSummary,
+    ProductLookupInput,
+    ProductSummary,
+    QuantityInput,
+    StorefrontToolOptions,
+    UnknownRecord,
+} from './types';
 
 const STORE_API_PATH = '/store-api';
 const WEBMCP_CART_PATH = '/webmcp/cart';
@@ -21,13 +30,20 @@ const ACCESS_KEY_HEADER = 'sw-access-key';
 const CONTEXT_TOKEN_STORAGE_KEY = 'sw-context-token';
 
 export class ShopwareClient {
-    constructor(options = {}) {
+    private baseUrl: string;
+    private contextToken: string | null;
+    private accessKey: string | null;
+
+    constructor(options: StorefrontToolOptions = {}) {
         this.baseUrl = normalizeBaseUrl(options.baseUrl);
         this.contextToken = cleanText(options.contextToken) || readContextToken();
         this.accessKey = cleanText(options.accessKey) || readAccessKey();
     }
 
-    async searchProducts({ query, limit }) {
+    async searchProducts({ query, limit }: { query?: string | null; limit: number }): Promise<{
+        products: ProductSummary[];
+        total: number;
+    }> {
         const result = await this.storeApiRequest('/search', createProductCriteria({
             search: query,
             limit,
@@ -40,7 +56,7 @@ export class ShopwareClient {
         };
     }
 
-    async findProductBySku(sku) {
+    async findProductBySku(sku: string): Promise<ProductSummary | null> {
         const result = await this.storeApiRequest('/search', createProductCriteria({
             limit: 1,
             filter: [
@@ -62,7 +78,7 @@ export class ShopwareClient {
         return fallbackResult.products[0] || null;
     }
 
-    async getProduct(input = {}) {
+    async getProduct(input: ProductLookupInput = {}): Promise<ProductSummary> {
         const productId = await this.resolveProductId(input);
         const result = await this.storeApiRequest(`/product/${encodeURIComponent(productId)}`, createProductCriteria({
             limit: 1,
@@ -76,7 +92,7 @@ export class ShopwareClient {
         return product;
     }
 
-    async getCart() {
+    async getCart(): Promise<CartSummary> {
         const cart = await this.webMcpCartRequest();
 
         if (!isPlainObject(cart)) {
@@ -86,7 +102,7 @@ export class ShopwareClient {
         return cart;
     }
 
-    async addProductToCart(input = {}) {
+    async addProductToCart(input: QuantityInput): Promise<CartSummary | null> {
         const productId = await this.resolveProductId(input);
         const cart = await this.storefrontAddProductToCart({
             productId,
@@ -97,7 +113,7 @@ export class ShopwareClient {
         return normalizeCart(cart);
     }
 
-    async removeProductFromCart(input = {}) {
+    async removeProductFromCart(input: CartQuantityInput): Promise<CartSummary | null> {
         const lineItemId = cleanText(input.lineItemId) || await this.resolveProductId(input);
         const cartLineItem = await this.findStorefrontCartLineItem(lineItemId);
 
@@ -122,7 +138,7 @@ export class ShopwareClient {
         return normalizeCart(cart);
     }
 
-    async updateLineItem(input = {}) {
+    async updateLineItem(input: CartQuantityInput): Promise<CartSummary | null> {
         const lineItemIdInput = cleanText(input.lineItemId);
         const lineItemLookup = lineItemIdInput || await this.resolveProductId(input);
         const cartLineItem = await this.findStorefrontCartLineItem(lineItemLookup);
@@ -157,13 +173,17 @@ export class ShopwareClient {
         return normalizeCart(cart);
     }
 
-    async resolveProductId(input = {}) {
-        if (cleanText(input.id)) {
-            return cleanText(input.id);
+    async resolveProductId(input: ProductLookupInput): Promise<string> {
+        const id = cleanText(input.id);
+        const sku = cleanText(input.sku);
+        const productUrl = cleanText(input.url);
+
+        if (id) {
+            return id;
         }
 
-        if (cleanText(input.sku)) {
-            const product = await this.findProductBySku(cleanText(input.sku));
+        if (sku) {
+            const product = await this.findProductBySku(sku);
 
             if (!product?.id) {
                 throw new Error(`No product found for SKU ${input.sku}.`);
@@ -172,8 +192,8 @@ export class ShopwareClient {
             return product.id;
         }
 
-        if (cleanText(input.url)) {
-            const productId = productIdFromUrl(input.url, this.baseUrl);
+        if (productUrl) {
+            const productId = productIdFromUrl(productUrl, this.baseUrl);
 
             if (productId) {
                 return productId;
@@ -183,9 +203,9 @@ export class ShopwareClient {
         throw new Error('Product lookup requires a Shopware product id, SKU/product number, or /detail/{id} URL.');
     }
 
-    async storeApiRequest(path, body = {}) {
+    async storeApiRequest(path: string, body: UnknownRecord = {}): Promise<any> {
         const url = new URL(`${STORE_API_PATH}${path}`, this.baseUrl);
-        const headers = {
+        const headers: Record<string, string> = {
             Accept: 'application/json',
             'Content-Type': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
@@ -221,7 +241,7 @@ export class ShopwareClient {
         return payload;
     }
 
-    async webMcpCartRequest() {
+    async webMcpCartRequest(): Promise<any> {
         const url = new URL(WEBMCP_CART_PATH, this.baseUrl);
         const response = await fetch(url.toString(), {
             method: 'GET',
@@ -240,7 +260,7 @@ export class ShopwareClient {
         return payload;
     }
 
-    async findStorefrontCartLineItem(lineItemId) {
+    async findStorefrontCartLineItem(lineItemId: string): Promise<{ id: string; quantity: number } | null> {
         const currentDocumentLineItem = findCartLineItemInDocument(document, lineItemId, this.baseUrl);
 
         if (currentDocumentLineItem) {
@@ -264,7 +284,11 @@ export class ShopwareClient {
         return findCartLineItemInDocument(cartDocument, lineItemId, this.baseUrl);
     }
 
-    async storefrontAddProductToCart({ productId, quantity, lineItemId }) {
+    async storefrontAddProductToCart({ productId, quantity, lineItemId }: {
+        productId: string;
+        quantity: number;
+        lineItemId: string;
+    }): Promise<UnknownRecord> {
         const url = new URL(STOREFRONT_ADD_TO_CART_PATH, this.baseUrl);
         const body = createAddToCartFormBody({
             productId,
@@ -272,7 +296,7 @@ export class ShopwareClient {
             quantity,
         });
         const csrfToken = readCsrfToken();
-        const headers = {
+        const headers: Record<string, string> = {
             Accept: 'application/json, text/html, */*',
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'X-Requested-With': 'XMLHttpRequest',
@@ -328,11 +352,18 @@ export class ShopwareClient {
         removedQuantity,
         quantityDelta,
         action = 'update',
-    }) {
+    }: {
+        lineItemId: string;
+        quantity: number;
+        previousQuantity: number;
+        removedQuantity: number;
+        quantityDelta?: number;
+        action?: string;
+    }): Promise<UnknownRecord> {
         const url = new URL(`${STOREFRONT_CHANGE_LINE_ITEM_QUANTITY_PATH}/${encodeURIComponent(lineItemId)}`, this.baseUrl);
         const body = new URLSearchParams();
         const csrfToken = readCsrfToken();
-        const headers = {
+        const headers: Record<string, string> = {
             Accept: 'application/json, text/html, */*',
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'X-Requested-With': 'XMLHttpRequest',
@@ -396,11 +427,17 @@ export class ShopwareClient {
         removedQuantity,
         quantityDelta,
         action = 'remove',
-    }) {
+    }: {
+        lineItemId: string;
+        previousQuantity: number;
+        removedQuantity: number;
+        quantityDelta?: number;
+        action?: string;
+    }): Promise<UnknownRecord> {
         const url = new URL(`${STOREFRONT_REMOVE_FROM_CART_PATH}/${encodeURIComponent(lineItemId)}`, this.baseUrl);
         const body = new URLSearchParams();
         const csrfToken = readCsrfToken();
-        const headers = {
+        const headers: Record<string, string> = {
             Accept: 'application/json, text/html, */*',
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'X-Requested-With': 'XMLHttpRequest',
@@ -446,7 +483,7 @@ export class ShopwareClient {
     }
 }
 
-function findCartLineItemInPayload(cart, lineItemId) {
+function findCartLineItemInPayload(cart: any, lineItemId: string): { id: string; quantity: number } | null {
     const lineItems = Array.isArray(cart?.lineItems) ? cart.lineItems : [];
 
     for (const lineItem of lineItems) {
@@ -460,7 +497,7 @@ function findCartLineItemInPayload(cart, lineItemId) {
     return null;
 }
 
-function findNestedCartLineItem(lineItem, lineItemId) {
+function findNestedCartLineItem(lineItem: any, lineItemId: string): { id: string; quantity: number } | null {
     if (!isPlainObject(lineItem)) {
         return null;
     }
@@ -493,7 +530,7 @@ function findNestedCartLineItem(lineItem, lineItemId) {
     return null;
 }
 
-function findCartLineItemInDocument(root, lineItemId, baseUrl) {
+function findCartLineItemInDocument(root: Document | Element, lineItemId: string, baseUrl: string): { id: string; quantity: number } | null {
     if (!root || typeof root.querySelectorAll !== 'function') {
         return null;
     }
@@ -523,7 +560,7 @@ function findCartLineItemInDocument(root, lineItemId, baseUrl) {
     return null;
 }
 
-function lineItemIdFromFormAction(form, baseUrl) {
+function lineItemIdFromFormAction(form: Element, baseUrl: string): string | null {
     const action = cleanText(form.getAttribute?.('action'));
     const url = action ? normalizeSameOriginUrl(action, baseUrl) : null;
 
@@ -537,7 +574,7 @@ function lineItemIdFromFormAction(form, baseUrl) {
     return lineItemMatch ? decodeURIComponent(lineItemMatch[1]) : null;
 }
 
-function readLineItemQuantity(form) {
+function readLineItemQuantity(form: Element): number | null {
     const formQuantity = readQuantityFromElement(form);
 
     if (formQuantity) {
@@ -554,7 +591,7 @@ function readLineItemQuantity(form) {
     return container ? readQuantityFromElement(container) : null;
 }
 
-function readQuantityFromElement(element) {
+function readQuantityFromElement(element: Element): number | null {
     const quantityField = element.querySelector?.([
         'input[name="quantity"]',
         'select[name="quantity"]',
@@ -562,7 +599,7 @@ function readQuantityFromElement(element) {
         'select[name$="[quantity]"]',
         '[data-quantity]',
     ].join(','));
-    const rawQuantity = quantityField?.value
+    const rawQuantity = (quantityField as HTMLInputElement | HTMLSelectElement | null)?.value
         ?? quantityField?.getAttribute?.('value')
         ?? quantityField?.getAttribute?.('data-quantity');
     const quantity = Number(rawQuantity);
@@ -570,8 +607,8 @@ function readQuantityFromElement(element) {
     return Number.isInteger(quantity) && quantity > 0 ? quantity : null;
 }
 
-function createProductCriteria(options = {}) {
-    const criteria = {
+function createProductCriteria(options: UnknownRecord = {}): UnknownRecord {
+    const criteria: UnknownRecord = {
         associations: {
             cover: {
                 associations: {
@@ -614,17 +651,17 @@ function createProductCriteria(options = {}) {
     return criteria;
 }
 
-function normalizeProductCollection(result, baseUrl) {
+function normalizeProductCollection(result: any, baseUrl: string): ProductSummary[] {
     const elements = Array.isArray(result?.elements)
         ? result.elements
         : isPlainObject(result?.elements) ? Object.values(result.elements) : [];
 
     return elements
-        .map((product) => normalizeProduct(product, baseUrl))
-        .filter(Boolean);
+        .map((product: any) => normalizeProduct(product, baseUrl))
+        .filter((product: ProductSummary | null): product is ProductSummary => Boolean(product));
 }
 
-function normalizeCart(cart) {
+function normalizeCart(cart: any): CartSummary | null {
     if (!isPlainObject(cart)) {
         return null;
     }
@@ -638,10 +675,10 @@ function normalizeCart(cart) {
         itemCount: lineItems.reduce((count, item) => count + (item.quantity || 0), 0),
         totalPrice: normalizeCartPrice(cart.price),
         lineItems,
-    });
+    }) as CartSummary;
 }
 
-function publishCartMutation(detail, baseUrl) {
+function publishCartMutation(detail: UnknownRecord, baseUrl: string): boolean {
     document.dispatchEvent(new CustomEvent('webmcp:cart-updated', {
         detail,
     }));
@@ -654,7 +691,7 @@ function publishCartMutation(detail, baseUrl) {
     return cartWidgetRefreshed;
 }
 
-function refreshCartWidgets() {
+function refreshCartWidgets(): boolean {
     const instances = window.PluginManager?.getPluginInstances?.('CartWidget');
     let refreshed = false;
 
@@ -683,7 +720,7 @@ function refreshCartWidgets() {
     return refreshed;
 }
 
-function refreshCartSidebars(baseUrl) {
+function refreshCartSidebars(baseUrl: string): boolean {
     if (!findOpenCartSidebar()) {
         return false;
     }
@@ -707,7 +744,7 @@ function refreshCartSidebars(baseUrl) {
     return refreshed;
 }
 
-function updateOpenOffCanvasCart(offCanvasCartUrl) {
+function updateOpenOffCanvasCart(offCanvasCartUrl: string): boolean {
     const instances = getOffCanvasCartInstances();
     const instance = instances.find((candidate) => {
         return typeof candidate._updateOffCanvasContent === 'function';
@@ -722,7 +759,7 @@ function updateOpenOffCanvasCart(offCanvasCartUrl) {
     return true;
 }
 
-async function updateOpenOffCanvasCartContent(instance, offCanvasCartUrl) {
+async function updateOpenOffCanvasCartContent(instance: any, offCanvasCartUrl: string): Promise<void> {
     const html = await fetchStorefrontHtml(new URL(offCanvasCartUrl), 'Cart sidebar refresh');
 
     if (!findOpenCartSidebar() || typeof instance._updateOffCanvasContent !== 'function') {
@@ -732,7 +769,7 @@ async function updateOpenOffCanvasCartContent(instance, offCanvasCartUrl) {
     instance._updateOffCanvasContent(html);
 }
 
-function refreshOffCanvasCartPlugins(offCanvasCartUrl) {
+function refreshOffCanvasCartPlugins(offCanvasCartUrl: string): boolean {
     const instances = getOffCanvasCartInstances();
 
     let refreshed = false;
@@ -753,9 +790,9 @@ function refreshOffCanvasCartPlugins(offCanvasCartUrl) {
     return refreshed;
 }
 
-function getOffCanvasCartInstances() {
+function getOffCanvasCartInstances(): any[] {
     const instances = window.PluginManager?.getPluginInstances?.('OffCanvasCart');
-    const normalizedInstances = [];
+    const normalizedInstances: any[] = [];
 
     if (!instances || typeof instances.forEach !== 'function') {
         return normalizedInstances;
@@ -770,20 +807,20 @@ function getOffCanvasCartInstances() {
     return normalizedInstances;
 }
 
-function findOpenCartSidebar() {
+function findOpenCartSidebar(): Element | null {
     const sidebar = document.querySelector('.offcanvas.cart-offcanvas, .cart-offcanvas');
 
     return sidebar && isVisibleElement(sidebar) ? sidebar : null;
 }
 
-function readOffCanvasCartUrl(baseUrl) {
+function readOffCanvasCartUrl(baseUrl: string): string | null {
     const configuredUrl = cleanText(window.router?.['frontend.cart.offcanvas']);
     const url = normalizeSameOriginUrl(configuredUrl || STOREFRONT_OFFCANVAS_CART_PATH, baseUrl);
 
     return url || normalizeUrl(STOREFRONT_OFFCANVAS_CART_PATH, baseUrl);
 }
 
-function refreshCartPages(baseUrl) {
+function refreshCartPages(baseUrl: string): boolean {
     if (!isCurrentCartPage()) {
         return false;
     }
@@ -805,7 +842,7 @@ function refreshCartPages(baseUrl) {
     return true;
 }
 
-async function refreshCartPage(baseUrl) {
+async function refreshCartPage(baseUrl: string): Promise<void> {
     const html = await fetchStorefrontHtml(new URL(STOREFRONT_CART_PATH, baseUrl), 'Cart page refresh');
 
     if (!isCurrentCartPage()) {
@@ -828,7 +865,7 @@ async function refreshCartPage(baseUrl) {
     }));
 }
 
-function isCurrentCartPage() {
+function isCurrentCartPage(): boolean {
     const path = window.location?.pathname || '';
 
     if (/\/checkout\/cart\/?$/i.test(path)) {
@@ -844,7 +881,7 @@ function isCurrentCartPage() {
     return false;
 }
 
-function replaceCartPageElement(cartDocument) {
+function replaceCartPageElement(cartDocument: Document): Element | null {
     const currentElement = document.querySelector('.checkout');
     const freshElement = cartDocument.querySelector('.checkout');
 
@@ -852,22 +889,22 @@ function replaceCartPageElement(cartDocument) {
         return null;
     }
 
-    const replacement = freshElement.cloneNode(true);
+    const replacement = freshElement.cloneNode(true) as Element;
 
     currentElement.replaceWith(replacement);
 
     return replacement;
 }
 
-function initializeShopwarePlugins(parentElement) {
+function initializeShopwarePlugins(parentElement: Element): void {
     const pluginManager = window.PluginManager;
 
     try {
         if (parentElement && typeof pluginManager?.initializePluginsInParentElement === 'function') {
             const result = pluginManager.initializePluginsInParentElement(parentElement);
 
-            if (result && typeof result.catch === 'function') {
-                result.catch(() => {});
+            if (result && typeof (result as Promise<unknown>).catch === 'function') {
+                (result as Promise<unknown>).catch(() => {});
             }
 
             return;
@@ -875,23 +912,23 @@ function initializeShopwarePlugins(parentElement) {
 
         const result = pluginManager?.initializePlugins?.();
 
-        if (result && typeof result.catch === 'function') {
-            result.catch(() => {});
+        if (result && typeof (result as Promise<unknown>).catch === 'function') {
+            (result as Promise<unknown>).catch(() => {});
         }
     } catch (error) {
         // Cart page fragment plugin initialization is best-effort after the rendered HTML is replaced.
     }
 }
 
-function isVisibleElement(element) {
+function isVisibleElement(element: Element | null): boolean {
     if (!element || element.closest?.('[aria-hidden="true"], [hidden]')) {
         return false;
     }
 
-    return Boolean(element.offsetParent || element.getClientRects?.().length);
+    return Boolean((element as HTMLElement).offsetParent || element.getClientRects?.().length);
 }
 
-function normalizeLineItems(collection) {
+function normalizeLineItems(collection: any): UnknownRecord[] {
     const items = Array.isArray(collection)
         ? collection
         : isPlainObject(collection?.elements) ? Object.values(collection.elements)
@@ -910,7 +947,7 @@ function normalizeLineItems(collection) {
     }).filter((item) => item.id || item.label);
 }
 
-function normalizeCartPrice(price) {
+function normalizeCartPrice(price: any): UnknownRecord | null {
     if (!isPlainObject(price)) {
         return null;
     }
@@ -920,10 +957,10 @@ function normalizeCartPrice(price) {
         totalPrice: Number.isFinite(price.totalPrice) ? price.totalPrice : null,
         positionPrice: Number.isFinite(price.positionPrice) ? price.positionPrice : null,
         netPrice: Number.isFinite(price.netPrice) ? price.netPrice : null,
-    });
+    }) as UnknownRecord;
 }
 
-function normalizeLineItemPayload(payload) {
+function normalizeLineItemPayload(payload: any): UnknownRecord | null {
     if (!isPlainObject(payload)) {
         return null;
     }
@@ -931,11 +968,11 @@ function normalizeLineItemPayload(payload) {
     return removeEmptyValues({
         productNumber: cleanText(payload.productNumber),
         parentId: cleanText(payload.parentId),
-        optionIds: Array.isArray(payload.optionIds) ? payload.optionIds.filter((value) => cleanText(value)) : null,
-    });
+        optionIds: Array.isArray(payload.optionIds) ? payload.optionIds.filter((value: unknown) => cleanText(value)) : null,
+    }) as UnknownRecord;
 }
 
-function normalizeProduct(product, baseUrl) {
+function normalizeProduct(product: any, baseUrl: string): ProductSummary | null {
     if (!isPlainObject(product)) {
         return null;
     }
@@ -971,12 +1008,12 @@ function normalizeProduct(product, baseUrl) {
         options: normalizeOptionValues(product.options),
         properties: normalizeOptionValues(product.properties),
         categories: normalizeCategories(product.categories, baseUrl),
-    });
+    }) as ProductSummary;
 }
 
-function normalizeProductUrl(product, baseUrl) {
+function normalizeProductUrl(product: any, baseUrl: string): string | null {
     const seoUrl = Array.isArray(product.seoUrls)
-        ? product.seoUrls.find((candidate) => candidate?.isCanonical) || product.seoUrls[0]
+        ? product.seoUrls.find((candidate: any) => candidate?.isCanonical) || product.seoUrls[0]
         : null;
     const seoPath = cleanText(seoUrl?.seoPathInfo || seoUrl?.pathInfo);
 
@@ -987,7 +1024,7 @@ function normalizeProductUrl(product, baseUrl) {
     return normalizeUrl(`/detail/${product.id}`, baseUrl);
 }
 
-function normalizePrice(price) {
+function normalizePrice(price: any): { value?: number | null; currency?: string | null; formatted?: string | null } {
     if (!isPlainObject(price)) {
         return {};
     }
@@ -1003,21 +1040,21 @@ function normalizePrice(price) {
     };
 }
 
-function normalizeProductImage(cover, baseUrl) {
+function normalizeProductImage(cover: any, baseUrl: string): string | null {
     const media = cover?.media || cover;
 
     return normalizeUrl(media?.url, baseUrl);
 }
 
-function normalizeMediaImages(mediaCollection, baseUrl) {
+function normalizeMediaImages(mediaCollection: any, baseUrl: string): string[] {
     const mediaItems = Array.isArray(mediaCollection)
         ? mediaCollection
         : isPlainObject(mediaCollection?.elements) ? Object.values(mediaCollection.elements) : [];
 
-    return mediaItems.map((item) => normalizeProductImage(item.media || item, baseUrl)).filter(Boolean);
+    return mediaItems.map((item) => normalizeProductImage(item.media || item, baseUrl)).filter((url): url is string => Boolean(url));
 }
 
-function normalizeManufacturer(manufacturer) {
+function normalizeManufacturer(manufacturer: any): string | null {
     if (!isPlainObject(manufacturer)) {
         return null;
     }
@@ -1027,7 +1064,7 @@ function normalizeManufacturer(manufacturer) {
     return cleanText(translated.name) || cleanText(manufacturer.name);
 }
 
-function normalizeOptionValues(collection) {
+function normalizeOptionValues(collection: any): UnknownRecord[] {
     const items = Array.isArray(collection)
         ? collection
         : isPlainObject(collection?.elements) ? Object.values(collection.elements) : [];
@@ -1044,7 +1081,7 @@ function normalizeOptionValues(collection) {
     }).filter((item) => item.name);
 }
 
-function normalizeCategories(collection, baseUrl) {
+function normalizeCategories(collection: any, baseUrl: string): UnknownRecord[] {
     const items = Array.isArray(collection)
         ? collection
         : isPlainObject(collection?.elements) ? Object.values(collection.elements) : [];
@@ -1062,16 +1099,16 @@ function normalizeCategories(collection, baseUrl) {
     }).filter((category) => category.id && category.name);
 }
 
-function normalizeCategoryUrl(category, baseUrl) {
+function normalizeCategoryUrl(category: any, baseUrl: string): string | null {
     const seoUrl = Array.isArray(category.seoUrls)
-        ? category.seoUrls.find((candidate) => candidate?.isCanonical) || category.seoUrls[0]
+        ? category.seoUrls.find((candidate: any) => candidate?.isCanonical) || category.seoUrls[0]
         : null;
     const seoPath = cleanText(seoUrl?.seoPathInfo || seoUrl?.pathInfo);
 
     return seoPath ? normalizeUrl(seoPath, baseUrl) : null;
 }
 
-function productIdFromUrl(value, baseUrl) {
+function productIdFromUrl(value: unknown, baseUrl: string): string | null {
     const url = normalizeSameOriginUrl(value, baseUrl);
 
     if (!url) {
@@ -1084,7 +1121,7 @@ function productIdFromUrl(value, baseUrl) {
     return detailMatch?.[1]?.replace(/-/g, '') || null;
 }
 
-async function parseJsonResponse(response) {
+async function parseJsonResponse(response: Response): Promise<any> {
     const text = await response.text();
 
     if (!text) {
@@ -1100,7 +1137,7 @@ async function parseJsonResponse(response) {
     }
 }
 
-async function parseFlexibleResponse(response) {
+async function parseFlexibleResponse(response: Response): Promise<any> {
     const contentType = response.headers.get('content-type') || '';
     const text = await response.text();
 
@@ -1123,9 +1160,9 @@ async function parseFlexibleResponse(response) {
     };
 }
 
-function storeApiErrorMessage(response, payload) {
+function storeApiErrorMessage(response: Response, payload: any): string {
     const errorDetail = Array.isArray(payload?.errors)
-        ? payload.errors.map((error) => error.detail || error.title).filter(Boolean).join(' ')
+        ? payload.errors.map((error: any) => error.detail || error.title).filter(Boolean).join(' ')
         : null;
 
     if (response.status === 401 || response.status === 403) {
@@ -1135,9 +1172,9 @@ function storeApiErrorMessage(response, payload) {
     return errorDetail || `Shopware Store API request failed with status ${response.status}.`;
 }
 
-function storefrontErrorMessage(response, payload) {
+function storefrontErrorMessage(response: Response, payload: any): string {
     if (Array.isArray(payload?.errors)) {
-        const errorDetail = payload.errors.map((error) => error.detail || error.title).filter(Boolean).join(' ');
+        const errorDetail = payload.errors.map((error: any) => error.detail || error.title).filter(Boolean).join(' ');
 
         if (errorDetail) {
             return errorDetail;
@@ -1147,7 +1184,7 @@ function storefrontErrorMessage(response, payload) {
     return `Shopware storefront cart request failed with status ${response.status}.`;
 }
 
-function webMcpCartErrorMessage(response, payload) {
+function webMcpCartErrorMessage(response: Response, payload: any): string {
     if (typeof payload?.message === 'string' && payload.message.trim()) {
         return payload.message.trim();
     }
@@ -1155,7 +1192,11 @@ function webMcpCartErrorMessage(response, payload) {
     return `Shopware WebMCP cart request failed with status ${response.status}.`;
 }
 
-function createAddToCartFormBody({ productId, lineItemId, quantity }) {
+function createAddToCartFormBody({ productId, lineItemId, quantity }: {
+    productId: string;
+    lineItemId: string;
+    quantity: number;
+}): URLSearchParams {
     const body = new URLSearchParams();
     const lineItemPrefix = `lineItems[${lineItemId}]`;
 
@@ -1169,7 +1210,7 @@ function createAddToCartFormBody({ productId, lineItemId, quantity }) {
     return body;
 }
 
-function readContextToken() {
+function readContextToken(): string | null {
     return readKnownValue([
         () => readMetaContent('sw-context-token'),
         () => readStorageValue(CONTEXT_TOKEN_STORAGE_KEY),
@@ -1179,10 +1220,10 @@ function readContextToken() {
     ]);
 }
 
-function readCsrfToken() {
+function readCsrfToken(): string | null {
     return readKnownValue([
-        () => document.querySelector('form[action*="/checkout/line-item/add"] input[name="_csrf_token"]')?.value,
-        () => document.querySelector('input[name="_csrf_token"]')?.value,
+        () => (document.querySelector('form[action*="/checkout/line-item/add"] input[name="_csrf_token"]') as HTMLInputElement | null)?.value,
+        () => (document.querySelector('input[name="_csrf_token"]') as HTMLInputElement | null)?.value,
         () => readMetaContent('csrf-token'),
         () => readMetaContent('csrf_token'),
         () => window?.csrf?.token,
@@ -1190,7 +1231,7 @@ function readCsrfToken() {
     ]);
 }
 
-function readAccessKey() {
+function readAccessKey(): string | null {
     return readKnownValue([
         () => readMetaContent('sw-access-key'),
         () => readMetaContent('shopware-store-api-access-key'),
@@ -1202,7 +1243,7 @@ function readAccessKey() {
     ]);
 }
 
-function readKnownValue(readers) {
+function readKnownValue(readers: Array<() => unknown>): string | null {
     for (const reader of readers) {
         try {
             const value = cleanText(reader());
@@ -1218,15 +1259,15 @@ function readKnownValue(readers) {
     return null;
 }
 
-function readMetaContent(name) {
-    return document.querySelector(`meta[name="${name}"]`)?.getAttribute('content');
+function readMetaContent(name: string): string | null {
+    return document.querySelector(`meta[name="${name}"]`)?.getAttribute('content') ?? null;
 }
 
-function readStorageValue(key) {
-    return window.localStorage?.getItem(key) || window.sessionStorage?.getItem(key);
+function readStorageValue(key: string): string | null {
+    return window.localStorage?.getItem(key) || window.sessionStorage?.getItem(key) || null;
 }
 
-function readCookieValue(name) {
+function readCookieValue(name: string): string | null {
     const encodedName = `${encodeURIComponent(name)}=`;
     const cookie = document.cookie
         .split(';')
@@ -1236,7 +1277,7 @@ function readCookieValue(name) {
     return cookie ? decodeURIComponent(cookie.slice(encodedName.length)) : null;
 }
 
-function persistContextToken(contextToken) {
+function persistContextToken(contextToken: string): void {
     try {
         window.localStorage?.setItem(CONTEXT_TOKEN_STORAGE_KEY, contextToken);
     } catch (error) {
@@ -1244,7 +1285,7 @@ function persistContextToken(contextToken) {
     }
 }
 
-function removeEmptyValues(value) {
+function removeEmptyValues(value: UnknownRecord): UnknownRecord {
     return Object.entries(value).reduce((normalizedValue, [key, item]) => {
         if (item === null || typeof item === 'undefined' || item === '') {
             return normalizedValue;
@@ -1257,5 +1298,5 @@ function removeEmptyValues(value) {
         normalizedValue[key] = item;
 
         return normalizedValue;
-    }, {});
+    }, {} as UnknownRecord);
 }

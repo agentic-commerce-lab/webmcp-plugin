@@ -1,4 +1,6 @@
-export function normalizeBaseUrl(value) {
+import type { UnknownRecord } from '../types';
+
+export function normalizeBaseUrl(value: unknown): string {
     const fallbackBaseUrl = window.location.origin.replace(/\/+$/, '');
 
     if (typeof value !== 'string' || value.trim() === '') {
@@ -12,7 +14,7 @@ export function normalizeBaseUrl(value) {
     }
 }
 
-export function normalizeUrl(value, baseUrl) {
+export function normalizeUrl(value: unknown, baseUrl: string): string | null {
     if (typeof value !== 'string' || value.trim() === '') {
         return null;
     }
@@ -24,7 +26,7 @@ export function normalizeUrl(value, baseUrl) {
     }
 }
 
-export function normalizeSameOriginUrl(value, baseUrl) {
+export function normalizeSameOriginUrl(value: unknown, baseUrl: string): string | null {
     const url = normalizeUrl(value, baseUrl);
 
     if (!url) {
@@ -41,7 +43,7 @@ export function normalizeSameOriginUrl(value, baseUrl) {
     }
 }
 
-export async function fetchStorefrontHtml(url, label = 'Storefront request') {
+export async function fetchStorefrontHtml(url: URL | string, label = 'Storefront request'): Promise<string> {
     if (typeof fetch !== 'function') {
         throw new Error(`${label} requires the browser fetch API.`);
     }
@@ -61,7 +63,7 @@ export async function fetchStorefrontHtml(url, label = 'Storefront request') {
     return response.text();
 }
 
-export function parseHtmlDocument(html, label = 'HTML parsing') {
+export function parseHtmlDocument(html: string, label = 'HTML parsing'): Document {
     if (typeof DOMParser !== 'function') {
         throw new Error(`${label} requires the browser DOMParser API.`);
     }
@@ -69,7 +71,7 @@ export function parseHtmlDocument(html, label = 'HTML parsing') {
     return new DOMParser().parseFromString(html, 'text/html');
 }
 
-export function cleanText(value) {
+export function cleanText(value: unknown): string | null {
     if (typeof value !== 'string') {
         return null;
     }
@@ -79,7 +81,7 @@ export function cleanText(value) {
     return text || null;
 }
 
-export function normalizeOptionalStringField(value, maxLength, label) {
+export function normalizeOptionalStringField(value: unknown, maxLength: number, label: string): string | null {
     if (typeof value === 'undefined' || value === null || value === '') {
         return null;
     }
@@ -105,9 +107,9 @@ export function normalizeOptionalStringField(value, maxLength, label) {
     return text;
 }
 
-export function uniqueStrings(values) {
+export function uniqueStrings(values: unknown[]): string[] {
     const seenValues = new Set();
-    const normalizedValues = [];
+    const normalizedValues: string[] = [];
 
     values.forEach((value) => {
         const normalizedValue = cleanText(value);
@@ -123,6 +125,6 @@ export function uniqueStrings(values) {
     return normalizedValues;
 }
 
-export function isPlainObject(value) {
+export function isPlainObject(value: unknown): value is UnknownRecord {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }

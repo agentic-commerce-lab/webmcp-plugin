@@ -1,8 +1,9 @@
-import { ShopwareClient } from '../shopware-client.js';
+import { ShopwareClient } from '../shopware-client';
 import {
     isPlainObject,
     normalizeBaseUrl,
-} from './storefront-tool.utils.js';
+} from './storefront-tool.utils';
+import type { ProductSummary, StorefrontToolOptions, ToolInput } from '../types';
 
 export const SEARCH_PRODUCTS_TOOL_NAME = 'shopware_webmcp_search_products';
 
@@ -10,7 +11,12 @@ const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 20;
 const MAX_QUERY_LENGTH = 120;
 
-export function createSearchProductsTool(options = {}) {
+interface SearchProductsInput extends ToolInput {
+    query: string | null;
+    limit: number;
+}
+
+export function createSearchProductsTool(options: StorefrontToolOptions = {}) {
     const baseUrl = normalizeBaseUrl(options.baseUrl);
     const shopwareClient = new ShopwareClient({
         baseUrl,
@@ -65,7 +71,7 @@ export function createSearchProductsTool(options = {}) {
     };
 }
 
-function formatProductSearchResult(query, products) {
+function formatProductSearchResult(query: string | null, products: ProductSummary[]): string {
     const resultLabel = query ? `for "${query}"` : 'without a search term';
 
     if (products.length === 0) {
@@ -81,7 +87,7 @@ function formatProductSearchResult(query, products) {
     return `Found ${products.length} product${products.length === 1 ? '' : 's'} ${resultLabel}:\n${lines.join('\n')}`;
 }
 
-function normalizeInput(input) {
+function normalizeInput(input: unknown): SearchProductsInput {
     if (!isPlainObject(input)) {
         throw new Error('Product search input must be an object.');
     }
@@ -92,7 +98,7 @@ function normalizeInput(input) {
     };
 }
 
-function normalizeQuery(value) {
+function normalizeQuery(value: unknown): string | null {
     if (typeof value === 'undefined' || value === null) {
         return null;
     }
@@ -118,7 +124,7 @@ function normalizeQuery(value) {
     return query;
 }
 
-function normalizeLimit(value) {
+function normalizeLimit(value: unknown): number {
     if (typeof value === 'undefined' || value === null) {
         return DEFAULT_LIMIT;
     }

@@ -1,9 +1,10 @@
-import { ShopwareClient } from '../shopware-client.js';
+import { ShopwareClient } from '../shopware-client';
 import {
     isPlainObject,
     normalizeBaseUrl,
     normalizeOptionalStringField,
-} from './storefront-tool.utils.js';
+} from './storefront-tool.utils';
+import type { CartQuantityInput, CartSummary, StorefrontToolOptions } from '../types';
 
 export const UPDATE_LINE_ITEM_TOOL_NAME = 'shopware_webmcp_update_line_item';
 
@@ -13,7 +14,7 @@ const MAX_SKU_LENGTH = 120;
 const MAX_URL_LENGTH = 2048;
 const MAX_QUANTITY = 100;
 
-export function createUpdateLineItemTool(options = {}) {
+export function createUpdateLineItemTool(options: StorefrontToolOptions = {}) {
     const baseUrl = normalizeBaseUrl(options.baseUrl);
     const shopwareClient = new ShopwareClient({
         baseUrl,
@@ -108,7 +109,7 @@ export function createUpdateLineItemTool(options = {}) {
     };
 }
 
-function normalizeInput(input) {
+function normalizeInput(input: unknown): CartQuantityInput {
     if (!isPlainObject(input)) {
         throw new Error('Update line item input must be an object.');
     }
@@ -132,7 +133,7 @@ function normalizeInput(input) {
     };
 }
 
-function normalizeQuantity(value) {
+function normalizeQuantity(value: unknown): number {
     if (typeof value === 'undefined' || value === null || value === '') {
         throw new Error('Update line item quantity is required.');
     }
@@ -146,23 +147,24 @@ function normalizeQuantity(value) {
     return quantity;
 }
 
-function formatUpdateLineItemResult(input, cart) {
+function formatUpdateLineItemResult(input: CartQuantityInput, cart: CartSummary | null): string {
     const identifier = input.lineItemId || input.sku || input.id || input.url;
     const actionSummary = input.quantity === 0
         ? `Removed ${identifier} from cart.`
         : `Set ${identifier} quantity to ${input.quantity}.`;
     const refreshSummary = cart?.cartWidgetRefreshed ? ' Cart widget refresh was requested.' : '';
-    const cartSummary = Number.isInteger(cart?.itemCount) ? ` Cart now has ${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}.` : '';
+    const itemCount = cart?.itemCount;
+    const cartSummary = Number.isInteger(itemCount) ? ` Cart now has ${itemCount} item${itemCount === 1 ? '' : 's'}.` : '';
 
     return `${actionSummary}${cartSummary}${refreshSummary}`;
 }
 
-function formatLineItemNotFoundResult(input) {
+function formatLineItemNotFoundResult(input: CartQuantityInput): string {
     const identifier = input.lineItemId || input.sku || input.id || input.url;
 
     return `${identifier} is not currently in the cart, so no cart line item was updated. Use a product id, SKU, or URL with quantity greater than 0 to add it.`;
 }
 
-function isCartLineItemNotFoundError(error) {
+function isCartLineItemNotFoundError(error: unknown): boolean {
     return error instanceof Error && error.message.startsWith('No cart line item found for ');
 }
