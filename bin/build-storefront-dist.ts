@@ -2,7 +2,7 @@ import { rm } from 'node:fs/promises';
 
 declare const Bun: any;
 
-const entrypoint = 'src/Resources/app/storefront/src/main.js';
+const entrypoint = 'src/Resources/app/storefront/src/main.ts';
 const outputDirectory = 'src/Resources/app/storefront/dist/storefront/js/swag-web-mcp';
 
 await rm('src/Resources/app/storefront/dist', { recursive: true, force: true });
