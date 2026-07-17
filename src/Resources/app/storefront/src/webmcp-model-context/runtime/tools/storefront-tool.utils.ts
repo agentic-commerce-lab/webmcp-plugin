@@ -109,3 +109,19 @@ export function uniqueStrings(values: unknown[]): string[] {
 export function isPlainObject(value: unknown): value is UnknownRecord {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
+
+export function removeEmptyValues(value: UnknownRecord): UnknownRecord {
+    return Object.entries(value).reduce((normalizedValue, [key, item]) => {
+        if (item === null || typeof item === 'undefined' || item === '') {
+            return normalizedValue;
+        }
+
+        if (Array.isArray(item) && item.length === 0) {
+            return normalizedValue;
+        }
+
+        normalizedValue[key] = item;
+
+        return normalizedValue;
+    }, {} as UnknownRecord);
+}
