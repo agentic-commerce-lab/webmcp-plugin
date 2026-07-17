@@ -33,11 +33,17 @@ export class ShopwareClient {
     private baseUrl: string;
     private contextToken: string | null;
     private accessKey: string | null;
+    private navigationCategoryId: string | null;
+    private activeCategoryId: string | null;
+    private currentProductId: string | null;
 
     constructor(options: StorefrontToolOptions = {}) {
         this.baseUrl = normalizeBaseUrl(options.baseUrl);
         this.contextToken = cleanText(options.contextToken) || readContextToken();
         this.accessKey = cleanText(options.accessKey) || readAccessKey();
+        this.navigationCategoryId = cleanText(options.navigationCategoryId);
+        this.activeCategoryId = cleanText(options.activeCategoryId);
+        this.currentProductId = cleanText(options.currentProductId);
     }
 
     async searchProducts({ query, limit }: { query?: string | null; limit: number }): Promise<{
@@ -90,6 +96,53 @@ export class ShopwareClient {
         }
 
         return product;
+    }
+
+    async getNavigationCategories(depth = 2): Promise<UnknownRecord[]> {
+        const rootId = cleanText(this.navigationCategoryId);
+
+        if (!rootId) {
+            throw new Error('Category tree lookup requires a sales channel navigation category id. The storefront did not expose one.');
+        }
+
+        const result = await this.storeApiRequest(
+            `/navigation/${encodeURIComponent(rootId)}/${encodeURIComponent(rootId)}`,
+            { depth, buildTree: true, associations: { seoUrls: {} } },
+        );
+        const elements = Array.isArray(result)
+            ? result
+            : Array.isArray(result?.elements) ? result.elements
+                : isPlainObject(result?.elements) ? Object.values(result.elements) : [];
+        const tree = elements
+            .map((category: any) => normalizeCategoryNode(category, this.baseUrl, null))
+            .filter((category: UnknownRecord | null): category is UnknownRecord => category !== null);
+
+        markActiveCategoryTrail(tree, this.activeCategoryId);
+
+        return tree;
+    }
+
+    async getProductCategories(input: ProductLookupInput = {}): Promise<UnknownRecord[]> {
+        const hasLookup = Boolean(cleanText(input.id) || cleanText(input.sku) || cleanText(input.url));
+        const productId = hasLookup
+            ? await this.resolveProductId(input)
+            : cleanText(this.currentProductId);
+
+        if (!productId) {
+            throw new Error('Product category scope requires a product id, SKU, or URL, or an active product page.');
+        }
+
+        const result = await this.storeApiRequest(`/product/${encodeURIComponent(productId)}`, createProductCriteria({
+            limit: 1,
+        }));
+        const product = result?.product || result;
+
+        return normalizeCategories(product?.categories, this.baseUrl).map((category) => ({
+            ...category,
+            url: category.url || `${this.baseUrl}/navigation/${category.id}`,
+            active: true,
+            children: [],
+        }));
     }
 
     async getCart(): Promise<CartSummary> {
@@ -1106,6 +1159,68 @@ function normalizeCategoryUrl(category: any, baseUrl: string): string | null {
     const seoPath = cleanText(seoUrl?.seoPathInfo || seoUrl?.pathInfo);
 
     return seoPath ? normalizeUrl(seoPath, baseUrl) : null;
+}
+
+function normalizeCategoryNode(category: any, baseUrl: string, parentId: string | null): UnknownRecord | null {
+    if (!isPlainObject(category)) {
+        return null;
+    }
+
+    const id = cleanText(category.id);
+    const translated = isPlainObject(category.translated) ? category.translated : {};
+    const name = cleanText(translated.name) || cleanText(category.name);
+
+    if (!id || !name) {
+        return null;
+    }
+
+    const children = Array.isArray(category.children)
+        ? category.children
+            .map((child: any) => normalizeCategoryNode(child, baseUrl, id))
+            .filter((child: UnknownRecord | null): child is UnknownRecord => child !== null)
+        : [];
+
+    return {
+        id,
+        name,
+        parentId: cleanText(category.parentId) || parentId,
+        active: false,
+        url: normalizeCategoryUrl(category, baseUrl) || `${baseUrl}/navigation/${id}`,
+        children,
+    };
+}
+
+// Marks the currently viewed category and its ancestors as active, so consumers
+// can tell where in the tree the shopper is. The Store API navigation tree has no
+// "selected" flag; the active category id is injected server-side from the page.
+function markActiveCategoryTrail(tree: UnknownRecord[], activeCategoryId: string | null): void {
+    const activeId = cleanText(activeCategoryId);
+
+    if (!activeId) {
+        return;
+    }
+
+    const nodeById = new Map<string, UnknownRecord>();
+
+    const index = (nodes: UnknownRecord[]): void => {
+        nodes.forEach((node) => {
+            nodeById.set(node.id as string, node);
+
+            if (Array.isArray(node.children)) {
+                index(node.children as UnknownRecord[]);
+            }
+        });
+    };
+
+    index(tree);
+
+    let node = nodeById.get(activeId);
+
+    while (node) {
+        node.active = true;
+        const parentId = cleanText(node.parentId);
+        node = parentId ? nodeById.get(parentId) : undefined;
+    }
 }
 
 function productIdFromUrl(value: unknown, baseUrl: string): string | null {
