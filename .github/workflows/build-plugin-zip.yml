@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -14,8 +15,81 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    name: WebMCP Integration Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Dockware ships a fully installed Shopware incl. demo data; pin the tag so
+      # the catalog is identical on every run (see docs/adr/2026-07-17-testing-strategy.md).
+      DOCKWARE_TAG: "6.7.12.1"
+      SHOPWARE_BASE_URL: "http://localhost"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build storefront asset
+        run: bun run build
+
+      - name: Start Shopware (Dockware)
+        run: docker run -d --name shop -p 80:80 "dockware/shopware:${DOCKWARE_TAG}"
+
+      - name: Wait for storefront
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sfo /dev/null "${SHOPWARE_BASE_URL}/"; then
+              echo "Storefront is up."
+              exit 0
+            fi
+            echo "Waiting for storefront ($i)..."
+            sleep 5
+          done
+          echo "Storefront did not become ready in time." >&2
+          docker logs shop || true
+          exit 1
+
+      - name: Install & activate the plugin
+        run: |
+          docker exec shop mkdir -p /var/www/html/custom/plugins/SwagWebMcp
+          docker cp composer.json shop:/var/www/html/custom/plugins/SwagWebMcp/composer.json
+          docker cp src shop:/var/www/html/custom/plugins/SwagWebMcp/src
+          docker exec shop chown -R www-data:www-data /var/www/html/custom/plugins/SwagWebMcp
+          docker exec -u www-data shop bash -lc "cd /var/www/html && \
+            php bin/console plugin:refresh && \
+            php bin/console plugin:install --activate SwagWebMcp && \
+            php bin/console assets:install && \
+            php bin/console theme:compile && \
+            php bin/console cache:clear"
+
+      - name: Install Playwright browser
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run WebMCP integration test
+        run: bun run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
   build-plugin-zip:
     name: Build Plugin Zip
+    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

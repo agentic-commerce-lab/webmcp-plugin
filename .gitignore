@@ -1,6 +1,11 @@
 node_modules/
+package-lock.json
 .tools/
 dist/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
 .worktrees/
 .claude
 .superpowers
