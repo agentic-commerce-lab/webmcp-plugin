@@ -1,23 +1,23 @@
 services:
-  qa:
-    build:
-      context: .
-    working_dir: /app
-    volumes:
-      - .:/app
-      - composer-cache:/tmp/composer-cache
-    command: sh -lc "composer install --no-interaction --no-progress && composer qa"
+    qa:
+        build:
+            context: .
+        working_dir: /app
+        volumes:
+            - .:/app
+            - composer-cache:/tmp/composer-cache
+        command: sh -lc "composer install --no-interaction --no-progress && composer qa"
 
-  shell:
-    build:
-      context: .
-    working_dir: /app
-    volumes:
-      - .:/app
-      - composer-cache:/tmp/composer-cache
-    command: sh
-    profiles:
-      - dev
+    shell:
+        build:
+            context: .
+        working_dir: /app
+        volumes:
+            - .:/app
+            - composer-cache:/tmp/composer-cache
+        command: sh
+        profiles:
+            - dev
 
 volumes:
-  composer-cache:
+    composer-cache:

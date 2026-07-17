@@ -50,10 +50,13 @@ export class ShopwareClient {
         products: ProductSummary[];
         total: number;
     }> {
-        const result = await this.storeApiRequest('/search', createProductCriteria({
-            search: query,
-            limit,
-        }));
+        const result = await this.storeApiRequest(
+            '/search',
+            createProductCriteria({
+                search: query,
+                limit,
+            }),
+        );
         const products = normalizeProductCollection(result, this.baseUrl);
 
         return {
@@ -63,16 +66,19 @@ export class ShopwareClient {
     }
 
     async findProductBySku(sku: string): Promise<ProductSummary | null> {
-        const result = await this.storeApiRequest('/search', createProductCriteria({
-            limit: 1,
-            filter: [
-                {
-                    type: 'equals',
-                    field: 'productNumber',
-                    value: sku,
-                },
-            ],
-        }));
+        const result = await this.storeApiRequest(
+            '/search',
+            createProductCriteria({
+                limit: 1,
+                filter: [
+                    {
+                        type: 'equals',
+                        field: 'productNumber',
+                        value: sku,
+                    },
+                ],
+            }),
+        );
         const products = normalizeProductCollection(result, this.baseUrl);
 
         if (products.length > 0) {
@@ -86,9 +92,12 @@ export class ShopwareClient {
 
     async getProduct(input: ProductLookupInput = {}): Promise<ProductSummary> {
         const productId = await this.resolveProductId(input);
-        const result = await this.storeApiRequest(`/product/${encodeURIComponent(productId)}`, createProductCriteria({
-            limit: 1,
-        }));
+        const result = await this.storeApiRequest(
+            `/product/${encodeURIComponent(productId)}`,
+            createProductCriteria({
+                limit: 1,
+            }),
+        );
         const product = normalizeProduct(result?.product || result, this.baseUrl);
 
         if (!product) {
@@ -102,7 +111,9 @@ export class ShopwareClient {
         const rootId = cleanText(this.navigationCategoryId);
 
         if (!rootId) {
-            throw new Error('Category tree lookup requires a sales channel navigation category id. The storefront did not expose one.');
+            throw new Error(
+                'Category tree lookup requires a sales channel navigation category id. The storefront did not expose one.',
+            );
         }
 
         const result = await this.storeApiRequest(
@@ -111,8 +122,11 @@ export class ShopwareClient {
         );
         const elements = Array.isArray(result)
             ? result
-            : Array.isArray(result?.elements) ? result.elements
-                : isPlainObject(result?.elements) ? Object.values(result.elements) : [];
+            : Array.isArray(result?.elements)
+              ? result.elements
+              : isPlainObject(result?.elements)
+                ? Object.values(result.elements)
+                : [];
         const tree = elements
             .map((category: any) => normalizeCategoryNode(category, this.baseUrl, null))
             .filter((category: UnknownRecord | null): category is UnknownRecord => category !== null);
@@ -124,17 +138,18 @@ export class ShopwareClient {
 
     async getProductCategories(input: ProductLookupInput = {}): Promise<UnknownRecord[]> {
         const hasLookup = Boolean(cleanText(input.id) || cleanText(input.sku) || cleanText(input.url));
-        const productId = hasLookup
-            ? await this.resolveProductId(input)
-            : cleanText(this.currentProductId);
+        const productId = hasLookup ? await this.resolveProductId(input) : cleanText(this.currentProductId);
 
         if (!productId) {
             throw new Error('Product category scope requires a product id, SKU, or URL, or an active product page.');
         }
 
-        const result = await this.storeApiRequest(`/product/${encodeURIComponent(productId)}`, createProductCriteria({
-            limit: 1,
-        }));
+        const result = await this.storeApiRequest(
+            `/product/${encodeURIComponent(productId)}`,
+            createProductCriteria({
+                limit: 1,
+            }),
+        );
         const product = result?.product || result;
 
         return normalizeCategories(product?.categories, this.baseUrl).map((category) => ({
@@ -167,7 +182,7 @@ export class ShopwareClient {
     }
 
     async removeProductFromCart(input: CartQuantityInput): Promise<CartSummary | null> {
-        const lineItemId = cleanText(input.lineItemId) || await this.resolveProductId(input);
+        const lineItemId = cleanText(input.lineItemId) || (await this.resolveProductId(input));
         const cartLineItem = await this.findStorefrontCartLineItem(lineItemId);
 
         if (!cartLineItem) {
@@ -175,25 +190,26 @@ export class ShopwareClient {
         }
 
         const remainingQuantity = cartLineItem.quantity - input.quantity;
-        const cart = remainingQuantity > 0
-            ? await this.storefrontChangeLineItemQuantity({
-                lineItemId,
-                quantity: remainingQuantity,
-                previousQuantity: cartLineItem.quantity,
-                removedQuantity: input.quantity,
-            })
-            : await this.storefrontRemoveLineItemFromCart({
-                lineItemId,
-                previousQuantity: cartLineItem.quantity,
-                removedQuantity: cartLineItem.quantity,
-            });
+        const cart =
+            remainingQuantity > 0
+                ? await this.storefrontChangeLineItemQuantity({
+                      lineItemId,
+                      quantity: remainingQuantity,
+                      previousQuantity: cartLineItem.quantity,
+                      removedQuantity: input.quantity,
+                  })
+                : await this.storefrontRemoveLineItemFromCart({
+                      lineItemId,
+                      previousQuantity: cartLineItem.quantity,
+                      removedQuantity: cartLineItem.quantity,
+                  });
 
         return normalizeCart(cart);
     }
 
     async updateLineItem(input: CartQuantityInput): Promise<CartSummary | null> {
         const lineItemIdInput = cleanText(input.lineItemId);
-        const lineItemLookup = lineItemIdInput || await this.resolveProductId(input);
+        const lineItemLookup = lineItemIdInput || (await this.resolveProductId(input));
         const cartLineItem = await this.findStorefrontCartLineItem(lineItemLookup);
 
         if (!cartLineItem) {
@@ -206,22 +222,23 @@ export class ShopwareClient {
 
         const lineItemId = cartLineItem.id;
         const quantityDelta = input.quantity - cartLineItem.quantity;
-        const cart = input.quantity > 0
-            ? await this.storefrontChangeLineItemQuantity({
-                lineItemId,
-                quantity: input.quantity,
-                previousQuantity: cartLineItem.quantity,
-                removedQuantity: Math.max(cartLineItem.quantity - input.quantity, 0),
-                quantityDelta,
-                action: 'update',
-            })
-            : await this.storefrontRemoveLineItemFromCart({
-                lineItemId,
-                previousQuantity: cartLineItem.quantity,
-                removedQuantity: cartLineItem.quantity,
-                quantityDelta,
-                action: 'update',
-            });
+        const cart =
+            input.quantity > 0
+                ? await this.storefrontChangeLineItemQuantity({
+                      lineItemId,
+                      quantity: input.quantity,
+                      previousQuantity: cartLineItem.quantity,
+                      removedQuantity: Math.max(cartLineItem.quantity - input.quantity, 0),
+                      quantityDelta,
+                      action: 'update',
+                  })
+                : await this.storefrontRemoveLineItemFromCart({
+                      lineItemId,
+                      previousQuantity: cartLineItem.quantity,
+                      removedQuantity: cartLineItem.quantity,
+                      quantityDelta,
+                      action: 'update',
+                  });
 
         return normalizeCart(cart);
     }
@@ -337,7 +354,11 @@ export class ShopwareClient {
         return findCartLineItemInDocument(cartDocument, lineItemId, this.baseUrl);
     }
 
-    async storefrontAddProductToCart({ productId, quantity, lineItemId }: {
+    async storefrontAddProductToCart({
+        productId,
+        quantity,
+        lineItemId,
+    }: {
         productId: string;
         quantity: number;
         lineItemId: string;
@@ -372,30 +393,33 @@ export class ShopwareClient {
             throw new Error(storefrontErrorMessage(response, payload));
         }
 
-        const cartWidgetRefreshed = publishCartMutation({
-            action: 'add',
-            productId,
-            quantity,
-            lineItemId,
-        }, this.baseUrl);
+        const cartWidgetRefreshed = publishCartMutation(
+            {
+                action: 'add',
+                productId,
+                quantity,
+                lineItemId,
+            },
+            this.baseUrl,
+        );
 
         return isPlainObject(payload)
             ? {
-                ...payload,
-                cartWidgetRefreshed,
-            }
+                  ...payload,
+                  cartWidgetRefreshed,
+              }
             : {
-                sessionCartUpdated: true,
-                cartWidgetRefreshed,
-                lineItems: [
-                    {
-                        id: lineItemId,
-                        referencedId: productId,
-                        type: 'product',
-                        quantity,
-                    },
-                ],
-            };
+                  sessionCartUpdated: true,
+                  cartWidgetRefreshed,
+                  lineItems: [
+                      {
+                          id: lineItemId,
+                          referencedId: productId,
+                          type: 'product',
+                          quantity,
+                      },
+                  ],
+              };
     }
 
     async storefrontChangeLineItemQuantity({
@@ -413,7 +437,10 @@ export class ShopwareClient {
         quantityDelta?: number;
         action?: string;
     }): Promise<UnknownRecord> {
-        const url = new URL(`${STOREFRONT_CHANGE_LINE_ITEM_QUANTITY_PATH}/${encodeURIComponent(lineItemId)}`, this.baseUrl);
+        const url = new URL(
+            `${STOREFRONT_CHANGE_LINE_ITEM_QUANTITY_PATH}/${encodeURIComponent(lineItemId)}`,
+            this.baseUrl,
+        );
         const body = new URLSearchParams();
         const csrfToken = readCsrfToken();
         const headers: Record<string, string> = {
@@ -441,37 +468,43 @@ export class ShopwareClient {
             throw new Error(storefrontErrorMessage(response, payload));
         }
 
-        const cartWidgetRefreshed = publishCartMutation({
-            action,
-            lineItemId,
-            previousQuantity,
-            removedQuantity,
-            quantityDelta: Number.isFinite(quantityDelta) ? quantityDelta : quantity - previousQuantity,
-            remainingQuantity: quantity,
-            lineItemDeleted: false,
-        }, this.baseUrl);
+        const cartWidgetRefreshed = publishCartMutation(
+            {
+                action,
+                lineItemId,
+                previousQuantity,
+                removedQuantity,
+                quantityDelta: Number.isFinite(quantityDelta) ? quantityDelta : quantity - previousQuantity,
+                remainingQuantity: quantity,
+                lineItemDeleted: false,
+            },
+            this.baseUrl,
+        );
 
         return isPlainObject(payload)
             ? {
-                ...payload,
-                cartWidgetRefreshed,
-                lineItems: normalizeLineItems(payload.lineItems).length > 0 ? payload.lineItems : [
-                    {
-                        id: lineItemId,
-                        quantity,
-                    },
-                ],
-            }
+                  ...payload,
+                  cartWidgetRefreshed,
+                  lineItems:
+                      normalizeLineItems(payload.lineItems).length > 0
+                          ? payload.lineItems
+                          : [
+                                {
+                                    id: lineItemId,
+                                    quantity,
+                                },
+                            ],
+              }
             : {
-                sessionCartUpdated: true,
-                cartWidgetRefreshed,
-                lineItems: [
-                    {
-                        id: lineItemId,
-                        quantity,
-                    },
-                ],
-            };
+                  sessionCartUpdated: true,
+                  cartWidgetRefreshed,
+                  lineItems: [
+                      {
+                          id: lineItemId,
+                          quantity,
+                      },
+                  ],
+              };
     }
 
     async storefrontRemoveLineItemFromCart({
@@ -513,26 +546,29 @@ export class ShopwareClient {
             throw new Error(storefrontErrorMessage(response, payload));
         }
 
-        const cartWidgetRefreshed = publishCartMutation({
-            action,
-            lineItemId,
-            previousQuantity,
-            removedQuantity,
-            quantityDelta: Number.isFinite(quantityDelta) ? quantityDelta : -previousQuantity,
-            remainingQuantity: 0,
-            lineItemDeleted: true,
-        }, this.baseUrl);
+        const cartWidgetRefreshed = publishCartMutation(
+            {
+                action,
+                lineItemId,
+                previousQuantity,
+                removedQuantity,
+                quantityDelta: Number.isFinite(quantityDelta) ? quantityDelta : -previousQuantity,
+                remainingQuantity: 0,
+                lineItemDeleted: true,
+            },
+            this.baseUrl,
+        );
 
         return isPlainObject(payload)
             ? {
-                ...payload,
-                cartWidgetRefreshed,
-            }
+                  ...payload,
+                  cartWidgetRefreshed,
+              }
             : {
-                sessionCartUpdated: true,
-                cartWidgetRefreshed,
-                lineItems: [],
-            };
+                  sessionCartUpdated: true,
+                  cartWidgetRefreshed,
+                  lineItems: [],
+              };
     }
 }
 
@@ -559,10 +595,10 @@ function findNestedCartLineItem(lineItem: any, lineItemId: string): { id: string
     const candidateReferencedId = cleanText(lineItem.referencedId);
 
     if (
-        (candidateId === lineItemId || candidateReferencedId === lineItemId)
-        && candidateId
-        && Number.isInteger(lineItem.quantity)
-        && lineItem.quantity > 0
+        (candidateId === lineItemId || candidateReferencedId === lineItemId) &&
+        candidateId &&
+        Number.isInteger(lineItem.quantity) &&
+        lineItem.quantity > 0
     ) {
         return {
             id: candidateId,
@@ -583,15 +619,20 @@ function findNestedCartLineItem(lineItem: any, lineItemId: string): { id: string
     return null;
 }
 
-function findCartLineItemInDocument(root: Document | Element, lineItemId: string, baseUrl: string): { id: string; quantity: number } | null {
+function findCartLineItemInDocument(
+    root: Document | Element,
+    lineItemId: string,
+    baseUrl: string,
+): { id: string; quantity: number } | null {
     if (!root || typeof root.querySelectorAll !== 'function') {
         return null;
     }
 
-    const forms = root.querySelectorAll([
-        'form[action*="/checkout/line-item/change-quantity/"]',
-        'form[action*="/checkout/line-item/delete/"]',
-    ].join(','));
+    const forms = root.querySelectorAll(
+        ['form[action*="/checkout/line-item/change-quantity/"]', 'form[action*="/checkout/line-item/delete/"]'].join(
+            ',',
+        ),
+    );
 
     for (const form of forms) {
         const candidateId = lineItemIdFromFormAction(form, baseUrl);
@@ -634,27 +675,27 @@ function readLineItemQuantity(form: Element): number | null {
         return formQuantity;
     }
 
-    const container = form.closest?.([
-        '[data-line-item-id]',
-        '.cart-item',
-        '.line-item',
-        '.checkout-aside-item',
-    ].join(','));
+    const container = form.closest?.(
+        ['[data-line-item-id]', '.cart-item', '.line-item', '.checkout-aside-item'].join(','),
+    );
 
     return container ? readQuantityFromElement(container) : null;
 }
 
 function readQuantityFromElement(element: Element): number | null {
-    const quantityField = element.querySelector?.([
-        'input[name="quantity"]',
-        'select[name="quantity"]',
-        'input[name$="[quantity]"]',
-        'select[name$="[quantity]"]',
-        '[data-quantity]',
-    ].join(','));
-    const rawQuantity = (quantityField as HTMLInputElement | HTMLSelectElement | null)?.value
-        ?? quantityField?.getAttribute?.('value')
-        ?? quantityField?.getAttribute?.('data-quantity');
+    const quantityField = element.querySelector?.(
+        [
+            'input[name="quantity"]',
+            'select[name="quantity"]',
+            'input[name$="[quantity]"]',
+            'select[name$="[quantity]"]',
+            '[data-quantity]',
+        ].join(','),
+    );
+    const rawQuantity =
+        (quantityField as HTMLInputElement | HTMLSelectElement | null)?.value ??
+        quantityField?.getAttribute?.('value') ??
+        quantityField?.getAttribute?.('data-quantity');
     const quantity = Number(rawQuantity);
 
     return Number.isInteger(quantity) && quantity > 0 ? quantity : null;
@@ -707,7 +748,9 @@ function createProductCriteria(options: UnknownRecord = {}): UnknownRecord {
 function normalizeProductCollection(result: any, baseUrl: string): ProductSummary[] {
     const elements = Array.isArray(result?.elements)
         ? result.elements
-        : isPlainObject(result?.elements) ? Object.values(result.elements) : [];
+        : isPlainObject(result?.elements)
+          ? Object.values(result.elements)
+          : [];
 
     return elements
         .map((product: any) => normalizeProduct(product, baseUrl))
@@ -732,9 +775,11 @@ function normalizeCart(cart: any): CartSummary | null {
 }
 
 function publishCartMutation(detail: UnknownRecord, baseUrl: string): boolean {
-    document.dispatchEvent(new CustomEvent('webmcp:cart-updated', {
-        detail,
-    }));
+    document.dispatchEvent(
+        new CustomEvent('webmcp:cart-updated', {
+            detail,
+        }),
+    );
 
     const cartWidgetRefreshed = refreshCartWidgets();
 
@@ -787,11 +832,13 @@ function refreshCartSidebars(baseUrl: string): boolean {
     const refreshed = updateOpenOffCanvasCart(offCanvasCartUrl) || refreshOffCanvasCartPlugins(offCanvasCartUrl);
 
     if (refreshed) {
-        document.dispatchEvent(new CustomEvent('webmcp:cart-sidebar-refresh-requested', {
-            detail: {
-                url: offCanvasCartUrl,
-            },
-        }));
+        document.dispatchEvent(
+            new CustomEvent('webmcp:cart-sidebar-refresh-requested', {
+                detail: {
+                    url: offCanvasCartUrl,
+                },
+            }),
+        );
     }
 
     return refreshed;
@@ -911,11 +958,13 @@ async function refreshCartPage(baseUrl: string): Promise<void> {
 
     initializeShopwarePlugins(refreshedElement);
 
-    document.dispatchEvent(new CustomEvent('webmcp:cart-page-refreshed', {
-        detail: {
-            element: refreshedElement,
-        },
-    }));
+    document.dispatchEvent(
+        new CustomEvent('webmcp:cart-page-refreshed', {
+            detail: {
+                element: refreshedElement,
+            },
+        }),
+    );
 }
 
 function isCurrentCartPage(): boolean {
@@ -984,20 +1033,25 @@ function isVisibleElement(element: Element | null): boolean {
 function normalizeLineItems(collection: any): UnknownRecord[] {
     const items = Array.isArray(collection)
         ? collection
-        : isPlainObject(collection?.elements) ? Object.values(collection.elements)
-            : isPlainObject(collection) ? Object.values(collection) : [];
+        : isPlainObject(collection?.elements)
+          ? Object.values(collection.elements)
+          : isPlainObject(collection)
+            ? Object.values(collection)
+            : [];
 
-    return items.map((item) => {
-        return removeEmptyValues({
-            id: cleanText(item.id),
-            referencedId: cleanText(item.referencedId),
-            type: cleanText(item.type),
-            label: cleanText(item.label),
-            quantity: Number.isFinite(item.quantity) ? item.quantity : null,
-            price: normalizeCartPrice(item.price),
-            payload: normalizeLineItemPayload(item.payload),
-        });
-    }).filter((item) => item.id || item.label);
+    return items
+        .map((item) => {
+            return removeEmptyValues({
+                id: cleanText(item.id),
+                referencedId: cleanText(item.referencedId),
+                type: cleanText(item.type),
+                label: cleanText(item.label),
+                quantity: Number.isFinite(item.quantity) ? item.quantity : null,
+                price: normalizeCartPrice(item.price),
+                payload: normalizeLineItemPayload(item.payload),
+            });
+        })
+        .filter((item) => item.id || item.label);
 }
 
 function normalizeCartPrice(price: any): UnknownRecord | null {
@@ -1021,7 +1075,9 @@ function normalizeLineItemPayload(payload: any): UnknownRecord | null {
     return removeEmptyValues({
         productNumber: cleanText(payload.productNumber),
         parentId: cleanText(payload.parentId),
-        optionIds: Array.isArray(payload.optionIds) ? payload.optionIds.filter((value: unknown) => cleanText(value)) : null,
+        optionIds: Array.isArray(payload.optionIds)
+            ? payload.optionIds.filter((value: unknown) => cleanText(value))
+            : null,
     }) as UnknownRecord;
 }
 
@@ -1082,9 +1138,12 @@ function normalizePrice(price: any): { value?: number | null; currency?: string 
         return {};
     }
 
-    const value = typeof price.unitPrice === 'number'
-        ? price.unitPrice
-        : typeof price.totalPrice === 'number' ? price.totalPrice : null;
+    const value =
+        typeof price.unitPrice === 'number'
+            ? price.unitPrice
+            : typeof price.totalPrice === 'number'
+              ? price.totalPrice
+              : null;
 
     return {
         value,
@@ -1102,9 +1161,13 @@ function normalizeProductImage(cover: any, baseUrl: string): string | null {
 function normalizeMediaImages(mediaCollection: any, baseUrl: string): string[] {
     const mediaItems = Array.isArray(mediaCollection)
         ? mediaCollection
-        : isPlainObject(mediaCollection?.elements) ? Object.values(mediaCollection.elements) : [];
+        : isPlainObject(mediaCollection?.elements)
+          ? Object.values(mediaCollection.elements)
+          : [];
 
-    return mediaItems.map((item) => normalizeProductImage(item.media || item, baseUrl)).filter((url): url is string => Boolean(url));
+    return mediaItems
+        .map((item) => normalizeProductImage(item.media || item, baseUrl))
+        .filter((url): url is string => Boolean(url));
 }
 
 function normalizeManufacturer(manufacturer: any): string | null {
@@ -1120,36 +1183,44 @@ function normalizeManufacturer(manufacturer: any): string | null {
 function normalizeOptionValues(collection: any): UnknownRecord[] {
     const items = Array.isArray(collection)
         ? collection
-        : isPlainObject(collection?.elements) ? Object.values(collection.elements) : [];
+        : isPlainObject(collection?.elements)
+          ? Object.values(collection.elements)
+          : [];
 
-    return items.map((item) => {
-        const translated = isPlainObject(item.translated) ? item.translated : {};
-        const groupTranslated = isPlainObject(item.group?.translated) ? item.group.translated : {};
+    return items
+        .map((item) => {
+            const translated = isPlainObject(item.translated) ? item.translated : {};
+            const groupTranslated = isPlainObject(item.group?.translated) ? item.group.translated : {};
 
-        return removeEmptyValues({
-            id: item.id,
-            name: cleanText(translated.name) || cleanText(item.name),
-            group: cleanText(groupTranslated.name) || cleanText(item.group?.name),
-        });
-    }).filter((item) => item.name);
+            return removeEmptyValues({
+                id: item.id,
+                name: cleanText(translated.name) || cleanText(item.name),
+                group: cleanText(groupTranslated.name) || cleanText(item.group?.name),
+            });
+        })
+        .filter((item) => item.name);
 }
 
 function normalizeCategories(collection: any, baseUrl: string): UnknownRecord[] {
     const items = Array.isArray(collection)
         ? collection
-        : isPlainObject(collection?.elements) ? Object.values(collection.elements) : [];
+        : isPlainObject(collection?.elements)
+          ? Object.values(collection.elements)
+          : [];
 
-    return items.map((category) => {
-        const translated = isPlainObject(category.translated) ? category.translated : {};
+    return items
+        .map((category) => {
+            const translated = isPlainObject(category.translated) ? category.translated : {};
 
-        return removeEmptyValues({
-            id: category.id,
-            name: cleanText(translated.name) || cleanText(category.name),
-            parentId: cleanText(category.parentId),
-            active: category.active,
-            url: normalizeCategoryUrl(category, baseUrl),
-        });
-    }).filter((category) => category.id && category.name);
+            return removeEmptyValues({
+                id: category.id,
+                name: cleanText(translated.name) || cleanText(category.name),
+                parentId: cleanText(category.parentId),
+                active: category.active,
+                url: normalizeCategoryUrl(category, baseUrl),
+            });
+        })
+        .filter((category) => category.id && category.name);
 }
 
 function normalizeCategoryUrl(category: any, baseUrl: string): string | null {
@@ -1176,8 +1247,8 @@ function normalizeCategoryNode(category: any, baseUrl: string, parentId: string 
 
     const children = Array.isArray(category.children)
         ? category.children
-            .map((child: any) => normalizeCategoryNode(child, baseUrl, id))
-            .filter((child: UnknownRecord | null): child is UnknownRecord => child !== null)
+              .map((child: any) => normalizeCategoryNode(child, baseUrl, id))
+              .filter((child: UnknownRecord | null): child is UnknownRecord => child !== null)
         : [];
 
     return {
@@ -1277,11 +1348,17 @@ async function parseFlexibleResponse(response: Response): Promise<any> {
 
 function storeApiErrorMessage(response: Response, payload: any): string {
     const errorDetail = Array.isArray(payload?.errors)
-        ? payload.errors.map((error: any) => error.detail || error.title).filter(Boolean).join(' ')
+        ? payload.errors
+              .map((error: any) => error.detail || error.title)
+              .filter(Boolean)
+              .join(' ')
         : null;
 
     if (response.status === 401 || response.status === 403) {
-        return errorDetail || 'Shopware Store API request was rejected. The storefront may need an exposed sw-access-key or valid context token.';
+        return (
+            errorDetail ||
+            'Shopware Store API request was rejected. The storefront may need an exposed sw-access-key or valid context token.'
+        );
     }
 
     return errorDetail || `Shopware Store API request failed with status ${response.status}.`;
@@ -1289,7 +1366,10 @@ function storeApiErrorMessage(response: Response, payload: any): string {
 
 function storefrontErrorMessage(response: Response, payload: any): string {
     if (Array.isArray(payload?.errors)) {
-        const errorDetail = payload.errors.map((error: any) => error.detail || error.title).filter(Boolean).join(' ');
+        const errorDetail = payload.errors
+            .map((error: any) => error.detail || error.title)
+            .filter(Boolean)
+            .join(' ');
 
         if (errorDetail) {
             return errorDetail;
@@ -1307,7 +1387,11 @@ function webMcpCartErrorMessage(response: Response, payload: any): string {
     return `Shopware WebMCP cart request failed with status ${response.status}.`;
 }
 
-function createAddToCartFormBody({ productId, lineItemId, quantity }: {
+function createAddToCartFormBody({
+    productId,
+    lineItemId,
+    quantity,
+}: {
     productId: string;
     lineItemId: string;
     quantity: number;
@@ -1337,7 +1421,12 @@ function readContextToken(): string | null {
 
 function readCsrfToken(): string | null {
     return readKnownValue([
-        () => (document.querySelector('form[action*="/checkout/line-item/add"] input[name="_csrf_token"]') as HTMLInputElement | null)?.value,
+        () =>
+            (
+                document.querySelector(
+                    'form[action*="/checkout/line-item/add"] input[name="_csrf_token"]',
+                ) as HTMLInputElement | null
+            )?.value,
         () => (document.querySelector('input[name="_csrf_token"]') as HTMLInputElement | null)?.value,
         () => readMetaContent('csrf-token'),
         () => readMetaContent('csrf_token'),

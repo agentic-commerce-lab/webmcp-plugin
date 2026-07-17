@@ -100,11 +100,18 @@ export function normalizeOptionalStringField(value: unknown, maxLength: number, 
         throw new Error(`${label} must be ${maxLength} characters or fewer.`);
     }
 
-    if (/[\x00-\x1F\x7F]/.test(text)) {
+    if (hasControlCharacters(text)) {
         throw new Error(`${label} must not contain control characters.`);
     }
 
     return text;
+}
+
+// eslint-disable-next-line no-control-regex -- deliberately matches ASCII control characters (C0 range + DEL)
+const CONTROL_CHARACTERS = /[\x00-\x1F\x7F]/;
+
+export function hasControlCharacters(value: string): boolean {
+    return CONTROL_CHARACTERS.test(value);
 }
 
 export function uniqueStrings(values: unknown[]): string[] {

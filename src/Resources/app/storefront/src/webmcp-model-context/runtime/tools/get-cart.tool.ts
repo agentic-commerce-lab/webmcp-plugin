@@ -1,8 +1,5 @@
 import { ShopwareClient } from '../shopware-client';
-import {
-    isPlainObject,
-    normalizeBaseUrl,
-} from './storefront-tool.utils';
+import { isPlainObject, normalizeBaseUrl } from './storefront-tool.utils';
 import type { CartSummary, StorefrontToolOptions } from '../types';
 
 export const GET_CART_TOOL_NAME = 'shopware_webmcp_get_cart';
@@ -73,9 +70,10 @@ function formatCartResult(cart: CartSummary): string {
 
         return `${index + 1}. ${label}${quantity}${price ? ` - ${price}` : ''}`;
     });
-    const remaining = lineItems.length > itemLines.length
-        ? `\n...and ${lineItems.length - itemLines.length} more line item${lineItems.length - itemLines.length === 1 ? '' : 's'}.`
-        : '';
+    const remaining =
+        lineItems.length > itemLines.length
+            ? `\n...and ${lineItems.length - itemLines.length} more line item${lineItems.length - itemLines.length === 1 ? '' : 's'}.`
+            : '';
 
     return `Cart has ${cart.itemCount ?? lineItems.length} item${cart.itemCount === 1 ? '' : 's'}${total ? `, total ${total}` : ''}.${checkoutUrl}\n${itemLines.join('\n')}${remaining}`;
 }

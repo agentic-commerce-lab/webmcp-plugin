@@ -1,9 +1,5 @@
 import { ShopwareClient } from '../shopware-client';
-import {
-    isPlainObject,
-    normalizeBaseUrl,
-    normalizeOptionalStringField,
-} from './storefront-tool.utils';
+import { isPlainObject, normalizeBaseUrl, normalizeOptionalStringField } from './storefront-tool.utils';
 import type { CartSummary, QuantityInput, StorefrontToolOptions } from '../types';
 
 export const ADD_TO_CART_TOOL_NAME = 'shopware_webmcp_add_to_cart';
@@ -115,7 +111,9 @@ function normalizeQuantity(value: unknown): number {
 
 function formatAddToCartResult(input: QuantityInput, cart: CartSummary | null): string {
     const identifier = input.sku || input.id || input.url;
-    const cartSummary = cart?.itemCount ? ` Cart now has ${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}.` : '';
+    const cartSummary = cart?.itemCount
+        ? ` Cart now has ${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}.`
+        : '';
 
     return `Added quantity ${input.quantity} of ${identifier} to cart.${cartSummary}`;
 }

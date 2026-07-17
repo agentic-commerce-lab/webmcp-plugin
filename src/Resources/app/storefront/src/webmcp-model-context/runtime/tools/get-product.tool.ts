@@ -1,9 +1,5 @@
 import { ShopwareClient } from '../shopware-client';
-import {
-    isPlainObject,
-    normalizeBaseUrl,
-    normalizeOptionalStringField,
-} from './storefront-tool.utils';
+import { isPlainObject, normalizeBaseUrl, normalizeOptionalStringField } from './storefront-tool.utils';
 import type { ProductLookupInput, ProductSummary, StorefrontToolOptions } from '../types';
 
 export const GET_PRODUCT_TOOL_NAME = 'shopware_webmcp_get_product';

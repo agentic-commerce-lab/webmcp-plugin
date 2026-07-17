@@ -1,31 +1,13 @@
-import {
-    ADD_TO_CART_TOOL_NAME,
-    createAddToCartTool,
-} from './runtime/tools/add-to-cart.tool';
-import {
-    createGetCartTool,
-    GET_CART_TOOL_NAME,
-} from './runtime/tools/get-cart.tool';
+import { ADD_TO_CART_TOOL_NAME, createAddToCartTool } from './runtime/tools/add-to-cart.tool';
+import { createGetCartTool, GET_CART_TOOL_NAME } from './runtime/tools/get-cart.tool';
 import {
     createGetProductCategoriesTool,
     GET_PRODUCT_CATEGORIES_TOOL_NAME,
 } from './runtime/tools/get-product-categories.tool';
-import {
-    createGetProductTool,
-    GET_PRODUCT_TOOL_NAME,
-} from './runtime/tools/get-product.tool';
-import {
-    createRemoveFromCartTool,
-    REMOVE_FROM_CART_TOOL_NAME,
-} from './runtime/tools/remove-from-cart.tool';
-import {
-    createSearchProductsTool,
-    SEARCH_PRODUCTS_TOOL_NAME,
-} from './runtime/tools/search-products.tool';
-import {
-    createUpdateLineItemTool,
-    UPDATE_LINE_ITEM_TOOL_NAME,
-} from './runtime/tools/update-line-item.tool';
+import { createGetProductTool, GET_PRODUCT_TOOL_NAME } from './runtime/tools/get-product.tool';
+import { createRemoveFromCartTool, REMOVE_FROM_CART_TOOL_NAME } from './runtime/tools/remove-from-cart.tool';
+import { createSearchProductsTool, SEARCH_PRODUCTS_TOOL_NAME } from './runtime/tools/search-products.tool';
+import { createUpdateLineItemTool, UPDATE_LINE_ITEM_TOOL_NAME } from './runtime/tools/update-line-item.tool';
 import type {
     ModelContext,
     ModelContextTool,
@@ -38,6 +20,7 @@ import type {
     WebMcpRuntimeConfig,
     WebMcpToolKey,
 } from './runtime/types';
+import { hasControlCharacters } from './runtime/tools/storefront-tool.utils';
 
 const CONFIG_SELECTOR = '[data-swag-web-mcp-model-context]';
 const CONFIG_OPTIONS_ATTRIBUTE = 'data-swag-web-mcp-model-context-options';
@@ -61,12 +44,14 @@ export function bootstrapWebMcpModelContext(configOrElement: unknown = document.
     registerConfiguredTools(config);
 
     if (config.enabled) {
-        document.dispatchEvent(new CustomEvent('webmcp:document-ready', {
-            detail: {
-                document: webMcpDocument,
-                config,
-            },
-        }));
+        document.dispatchEvent(
+            new CustomEvent('webmcp:document-ready', {
+                detail: {
+                    document: webMcpDocument,
+                    config,
+                },
+            }),
+        );
     }
 
     return {
@@ -82,10 +67,7 @@ export function buildWebMcpDocument(config: unknown = {}): WebMcpDocument {
     return {
         version: '0.2',
         context: normalizedConfig.context,
-        elements: [
-            ...createCoreShopwareElements(baseUrl),
-            ...createStaticElements(normalizedConfig, baseUrl),
-        ],
+        elements: [...createCoreShopwareElements(baseUrl), ...createStaticElements(normalizedConfig, baseUrl)],
         security: createSecurityDefinition(),
     };
 }
@@ -268,7 +250,9 @@ function createStaticElements(config: WebMcpRuntimeConfig, baseUrl: string): Unk
     const source = config.staticElements || parseJson(config.staticElementsJson);
     const elements = Array.isArray(source)
         ? source
-        : isPlainObject(source) && Array.isArray(source.elements) ? source.elements : [];
+        : isPlainObject(source) && Array.isArray(source.elements)
+          ? source.elements
+          : [];
 
     return elements.reduce((normalizedElements: UnknownRecord[], element: unknown) => {
         const normalizedElement = normalizeElement(element, baseUrl);
@@ -428,13 +412,15 @@ function registerStorefrontTool(
         return null;
     }
 
-    return registerModelContextTool(createTool({
-        baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
-        accessKey: normalizedConfig.storeApiAccessKey,
-        navigationCategoryId: normalizedConfig.navigationCategoryId,
-        activeCategoryId: normalizedConfig.activeCategoryId,
-        currentProductId: normalizedConfig.currentProductId,
-    }));
+    return registerModelContextTool(
+        createTool({
+            baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
+            accessKey: normalizedConfig.storeApiAccessKey,
+            navigationCategoryId: normalizedConfig.navigationCategoryId,
+            activeCategoryId: normalizedConfig.activeCategoryId,
+            currentProductId: normalizedConfig.currentProductId,
+        }),
+    );
 }
 
 function registerModelContextTool(tool: ModelContextTool): ModelContextTool {
@@ -444,13 +430,15 @@ function registerModelContextTool(tool: ModelContextTool): ModelContextTool {
     addModelContextHelpers(modelContext);
     const nativeToolName = registerNativeModelContextTool(tool);
 
-    document.dispatchEvent(new CustomEvent('webmcp:model-context-ready', {
-        detail: {
-            toolName: tool.name,
-            nativeToolName,
-            modelContext,
-        },
-    }));
+    document.dispatchEvent(
+        new CustomEvent('webmcp:model-context-ready', {
+            detail: {
+                toolName: tool.name,
+                nativeToolName,
+                modelContext,
+            },
+        }),
+    );
 
     return tool;
 }
@@ -471,12 +459,14 @@ function unregisterModelContextTool(toolName: string): boolean {
     addModelContextHelpers(modelContext);
 
     if (modelContext.tools.length !== previousLength || nativeToolRemoved) {
-        document.dispatchEvent(new CustomEvent('webmcp:model-context-ready', {
-            detail: {
-                toolName,
-                modelContext,
-            },
-        }));
+        document.dispatchEvent(
+            new CustomEvent('webmcp:model-context-ready', {
+                detail: {
+                    toolName,
+                    modelContext,
+                },
+            }),
+        );
     }
 
     return modelContext.tools.length !== previousLength || nativeToolRemoved;
@@ -504,17 +494,17 @@ function upsertTool(modelContext: ModelContext, tool: ModelContextTool): void {
 
 function addModelContextHelpers(modelContext: ModelContext): void {
     if (
-        typeof modelContext.getTools === 'function'
-        && !(modelContext.getTools as UnknownRecord)[WRAPPED_HELPER_KEY]
-        && typeof modelContext[ORIGINAL_GET_TOOLS_KEY] !== 'function'
+        typeof modelContext.getTools === 'function' &&
+        !(modelContext.getTools as UnknownRecord)[WRAPPED_HELPER_KEY] &&
+        typeof modelContext[ORIGINAL_GET_TOOLS_KEY] !== 'function'
     ) {
         modelContext[ORIGINAL_GET_TOOLS_KEY] = modelContext.getTools.bind(modelContext);
     }
 
     if (
-        typeof modelContext.callTool === 'function'
-        && !(modelContext.callTool as UnknownRecord)[WRAPPED_HELPER_KEY]
-        && typeof modelContext[ORIGINAL_CALL_TOOL_KEY] !== 'function'
+        typeof modelContext.callTool === 'function' &&
+        !(modelContext.callTool as UnknownRecord)[WRAPPED_HELPER_KEY] &&
+        typeof modelContext[ORIGINAL_CALL_TOOL_KEY] !== 'function'
     ) {
         modelContext[ORIGINAL_CALL_TOOL_KEY] = modelContext.callTool.bind(modelContext);
     }
@@ -523,7 +513,8 @@ function addModelContextHelpers(modelContext: ModelContext): void {
     (getTools as UnknownRecord)[WRAPPED_HELPER_KEY] = true;
     modelContext.getTools = getTools;
 
-    const callTool = async (name: string, input: ToolInput = {}) => callVisibleModelContextTool(modelContext, name, input);
+    const callTool = async (name: string, input: ToolInput = {}) =>
+        callVisibleModelContextTool(modelContext, name, input);
     (callTool as UnknownRecord)[WRAPPED_HELPER_KEY] = true;
     modelContext.callTool = callTool;
 }
@@ -586,7 +577,11 @@ function appendVisibleModelContextTool(
     visibleTools.push(candidate as ModelContextTool);
 }
 
-async function callVisibleModelContextTool(modelContext: ModelContext, name: string, input: ToolInput): Promise<unknown> {
+async function callVisibleModelContextTool(
+    modelContext: ModelContext,
+    name: string,
+    input: ToolInput,
+): Promise<unknown> {
     const tool = getVisibleModelContextTools(modelContext).find((candidate) => {
         return candidate && candidate.name === name;
     });
@@ -670,11 +665,15 @@ function getNativeModelContext(): NativeModelContext | null {
         typeof navigator !== 'undefined' ? navigator.modelContextTesting : null,
     ];
 
-    return (candidates.find((candidate) => {
-        return Boolean(candidate)
-            && typeof candidate === 'object'
-            && typeof (candidate as UnknownRecord).registerTool === 'function';
-    }) as NativeModelContext | undefined) || null;
+    return (
+        (candidates.find((candidate) => {
+            return (
+                Boolean(candidate) &&
+                typeof candidate === 'object' &&
+                typeof (candidate as UnknownRecord).registerTool === 'function'
+            );
+        }) as NativeModelContext | undefined) || null
+    );
 }
 
 function createNativeModelContextTool(tool: ModelContextTool): NativeModelContextTool {
@@ -695,16 +694,24 @@ function createNativeModelContextTool(tool: ModelContextTool): NativeModelContex
     }) as NativeModelContextTool;
 }
 
-function tryRegisterNativeModelContextTool(nativeModelContext: NativeModelContext, nativeTool: NativeModelContextTool): boolean {
+function tryRegisterNativeModelContextTool(
+    nativeModelContext: NativeModelContext,
+    nativeTool: NativeModelContextTool,
+): boolean {
     const registerTool = nativeModelContext.registerTool.bind(nativeModelContext);
     const attempts = [
         () => registerTool(nativeTool),
         () => registerTool(nativeTool.name, nativeTool),
-        () => registerTool(nativeTool.name, {
-            description: nativeTool.description,
-            inputSchema: nativeTool.inputSchema,
-            annotations: nativeTool.annotations,
-        }, nativeTool.handler),
+        () =>
+            registerTool(
+                nativeTool.name,
+                {
+                    description: nativeTool.description,
+                    inputSchema: nativeTool.inputSchema,
+                    annotations: nativeTool.annotations,
+                },
+                nativeTool.handler,
+            ),
         () => registerTool(nativeTool.name, nativeTool.description, nativeTool.inputSchema, nativeTool.handler),
     ];
 
@@ -741,7 +748,7 @@ function normalizeNativeToolInput(input: unknown): unknown {
     try {
         return JSON.parse(trimmedInput);
     } catch (error) {
-        throw new Error('WebMCP tool input must be valid JSON.');
+        throw new Error('WebMCP tool input must be valid JSON.', { cause: error });
     }
 }
 
@@ -837,7 +844,7 @@ function safeString(value: unknown): string | null {
 
     const trimmed = value.trim();
 
-    if (!trimmed || /[\x00-\x1F\x7F]/.test(trimmed)) {
+    if (!trimmed || hasControlCharacters(trimmed)) {
         return null;
     }
 
@@ -871,11 +878,13 @@ function isPlainObject(value: unknown): value is UnknownRecord {
 }
 
 function isElement(value: unknown): value is Element {
-    return Boolean(value)
-        && typeof value === 'object'
-        && value !== null
-        && 'nodeType' in value
-        && (value as Node).nodeType === Node.ELEMENT_NODE;
+    return (
+        Boolean(value) &&
+        typeof value === 'object' &&
+        value !== null &&
+        'nodeType' in value &&
+        (value as Node).nodeType === Node.ELEMENT_NODE
+    );
 }
 
 window.SwagWebMcpRuntime = {

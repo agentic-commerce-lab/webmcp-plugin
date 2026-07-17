@@ -28,7 +28,5 @@ export default defineConfig({
         // Demo shops commonly run with self-signed certs behind a proxy.
         ignoreHTTPSErrors: true,
     },
-    projects: [
-        { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    ],
+    projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 });

@@ -1,9 +1,5 @@
 import { ShopwareClient } from '../shopware-client';
-import {
-    isPlainObject,
-    normalizeBaseUrl,
-    normalizeOptionalStringField,
-} from './storefront-tool.utils';
+import { isPlainObject, normalizeBaseUrl, normalizeOptionalStringField } from './storefront-tool.utils';
 import type { CartQuantityInput, CartSummary, StorefrontToolOptions } from '../types';
 
 export const UPDATE_LINE_ITEM_TOOL_NAME = 'shopware_webmcp_update_line_item';
@@ -64,7 +60,8 @@ export function createUpdateLineItemTool(options: StorefrontToolOptions = {}) {
     return {
         name: UPDATE_LINE_ITEM_TOOL_NAME,
         title: 'Update line item',
-        description: 'Sets the cart quantity for a line item or product. Provide exactly one of lineItemId, id, sku, or url.',
+        description:
+            'Sets the cart quantity for a line item or product. Provide exactly one of lineItemId, id, sku, or url.',
         inputSchema: {
             type: 'object',
             required: ['quantity'],
@@ -143,12 +140,13 @@ function normalizeQuantity(value: unknown): number {
 
 function formatUpdateLineItemResult(input: CartQuantityInput, cart: CartSummary | null): string {
     const identifier = input.lineItemId || input.sku || input.id || input.url;
-    const actionSummary = input.quantity === 0
-        ? `Removed ${identifier} from cart.`
-        : `Set ${identifier} quantity to ${input.quantity}.`;
+    const actionSummary =
+        input.quantity === 0 ? `Removed ${identifier} from cart.` : `Set ${identifier} quantity to ${input.quantity}.`;
     const refreshSummary = cart?.cartWidgetRefreshed ? ' Cart widget refresh was requested.' : '';
     const itemCount = cart?.itemCount;
-    const cartSummary = Number.isInteger(itemCount) ? ` Cart now has ${itemCount} item${itemCount === 1 ? '' : 's'}.` : '';
+    const cartSummary = Number.isInteger(itemCount)
+        ? ` Cart now has ${itemCount} item${itemCount === 1 ? '' : 's'}.`
+        : '';
 
     return `${actionSummary}${cartSummary}${refreshSummary}`;
 }

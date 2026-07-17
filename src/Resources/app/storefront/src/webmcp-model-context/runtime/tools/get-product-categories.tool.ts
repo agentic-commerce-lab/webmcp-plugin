@@ -28,9 +28,10 @@ export function createGetProductCategoriesTool(options: StorefrontToolOptions = 
 
     const execute = async (input = {}) => {
         const normalizedInput = normalizeInput(input, baseUrl);
-        const tree = normalizedInput.scope === 'product'
-            ? await shopwareClient.getProductCategories(normalizedInput)
-            : await shopwareClient.getNavigationCategories(NAVIGATION_TREE_DEPTH);
+        const tree =
+            normalizedInput.scope === 'product'
+                ? await shopwareClient.getProductCategories(normalizedInput)
+                : await shopwareClient.getNavigationCategories(NAVIGATION_TREE_DEPTH);
         const result = buildCategoryResult(normalizedInput.scope, baseUrl, tree);
 
         return {
@@ -50,7 +51,8 @@ export function createGetProductCategoriesTool(options: StorefrontToolOptions = 
     return {
         name: GET_PRODUCT_CATEGORIES_TOOL_NAME,
         title: 'Get product categories',
-        description: 'Returns the storefront navigation category tree (with the currently viewed category and its ancestors marked active), or the categories a product belongs to, from the Shopware Store API. For product scope provide a product id, sku, or url, or omit them to use the product page the shopper is currently viewing.',
+        description:
+            'Returns the storefront navigation category tree (with the currently viewed category and its ancestors marked active), or the categories a product belongs to, from the Shopware Store API. For product scope provide a product id, sku, or url, or omit them to use the product page the shopper is currently viewing.',
         inputSchema: {
             type: 'object',
             properties: {

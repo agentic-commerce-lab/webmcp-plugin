@@ -1,10 +1,4 @@
-import type {
-    ModelContext,
-    NativeModelContext,
-    UnknownRecord,
-    WebMcpDocument,
-    WebMcpRuntimeConfig,
-} from './types';
+import type { ModelContext, NativeModelContext, UnknownRecord, WebMcpDocument, WebMcpRuntimeConfig } from './types';
 
 declare global {
     interface Document {

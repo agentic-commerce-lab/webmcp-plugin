@@ -1,9 +1,5 @@
 import { ShopwareClient } from '../shopware-client';
-import {
-    isPlainObject,
-    normalizeBaseUrl,
-    normalizeOptionalStringField,
-} from './storefront-tool.utils';
+import { isPlainObject, normalizeBaseUrl, normalizeOptionalStringField } from './storefront-tool.utils';
 import type { CartQuantityInput, CartSummary, StorefrontToolOptions } from '../types';
 
 export const REMOVE_FROM_CART_TOOL_NAME = 'shopware_webmcp_remove_from_cart';
@@ -43,7 +39,8 @@ export function createRemoveFromCartTool(options: StorefrontToolOptions = {}) {
     return {
         name: REMOVE_FROM_CART_TOOL_NAME,
         title: 'Remove from cart',
-        description: 'Removes a product, selected variant, or line item from the current cart. Provide exactly one of lineItemId, id, sku, or url.',
+        description:
+            'Removes a product, selected variant, or line item from the current cart. Provide exactly one of lineItemId, id, sku, or url.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -125,7 +122,9 @@ function formatRemoveFromCartResult(input: CartQuantityInput, cart: CartSummary 
     const identifier = input.lineItemId || input.sku || input.id || input.url;
     const refreshSummary = cart?.cartWidgetRefreshed ? ' Cart widget refresh was requested.' : '';
     const itemCount = cart?.itemCount;
-    const cartSummary = Number.isInteger(itemCount) ? ` Cart now has ${itemCount} item${itemCount === 1 ? '' : 's'}.` : '';
+    const cartSummary = Number.isInteger(itemCount)
+        ? ` Cart now has ${itemCount} item${itemCount === 1 ? '' : 's'}.`
+        : '';
 
     return `Removed quantity ${input.quantity} of ${identifier} from cart.${cartSummary}${refreshSummary}`;
 }

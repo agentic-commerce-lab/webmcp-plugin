@@ -1,8 +1,5 @@
 import { ShopwareClient } from '../shopware-client';
-import {
-    isPlainObject,
-    normalizeBaseUrl,
-} from './storefront-tool.utils';
+import { hasControlCharacters, isPlainObject, normalizeBaseUrl } from './storefront-tool.utils';
 import type { ProductSummary, StorefrontToolOptions, ToolInput } from '../types';
 
 export const SEARCH_PRODUCTS_TOOL_NAME = 'shopware_webmcp_search_products';
@@ -113,7 +110,7 @@ function normalizeQuery(value: unknown): string | null {
         return null;
     }
 
-    if (/[\x00-\x1F\x7F]/.test(query)) {
+    if (hasControlCharacters(query)) {
         throw new Error('Product search query must not contain control characters.');
     }
 
