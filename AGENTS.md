@@ -9,8 +9,8 @@ projects or product systems.
    document and browser-side `document.modelContext` tools for storefronts.
 2. Keep the package structure conventional for a Shopware platform plugin:
    `composer.json`, `src/SwagWebMcp.php`, `src/WebMcp`,
-   `src/Resources/config`, `src/Resources/views`,
-   `src/Resources/app/storefront`, and `src/Resources/public`.
+   `src/Resources/config`, `src/Resources/views`, and the TypeScript storefront
+   runtime under `src/Resources/app/storefront/src`.
 3. Read the root `README.md` before code changes. If a nearer `AGENTS.md` or
    `README.md` is added later, follow it for that subtree.
 4. When adding new features or changing configuration, update the README.md.
@@ -48,8 +48,9 @@ projects or product systems.
    `shopware.webmcp.*` tool names.
 5. Keep tool inputs and outputs stable, especially `structuredContent`, unless
    the requested change intentionally updates the WebMCP contract.
-6. Changes to `src/Resources/public/webmcp-model-context.js` affect both the
-   direct public fallback script and the Shopware storefront plugin import.
+6. The storefront runtime is TypeScript under
+   `src/Resources/app/storefront/src` (entrypoint `main.ts`). Shopware's Vite build
+   compiles it for dev/theme; `bun run build` produces the release `dist` bundle.
 
 ## 5. Validation and Safety
 1. Validate external input at runtime, including plugin config JSON,
@@ -67,12 +68,14 @@ projects or product systems.
    them.
 
 ## 6. JavaScript and Storefront Runtime
-1. Use the existing vanilla JavaScript module style in
-   `src/Resources/public/webmcp-model-context` unless the task requires
-   otherwise.
-2. Keep storefront registration through `window.PluginManager` and the public
-   fallback runtime compatible with Shopware storefront compilation.
-3. Avoid adding frontend package managers, bundlers, or browser dependencies.
+1. Use the existing TypeScript runtime under
+   `src/Resources/app/storefront/src/webmcp-model-context`. Add or change tools via
+   the `defineTool` factory with a zod input schema (see `tools/define-tool.ts` and
+   `tools/schemas.ts`); do not hand-write JSON Schemas.
+2. Keep storefront registration through `window.PluginManager` and keep the runtime
+   compatible with Shopware's Vite storefront compilation.
+3. Bun is the package manager; keep runtime browser dependencies minimal (currently
+   only `zod`). Do not add a separate frontend framework or a second bundler.
 4. Keep runtime behavior idempotent so repeated bootstrap calls do not register
    duplicate tools or break existing `document.modelContext` helpers.
 

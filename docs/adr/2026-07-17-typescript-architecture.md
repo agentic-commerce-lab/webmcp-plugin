@@ -260,6 +260,22 @@ compiled bundle **must** ship in the ZIP. The TS source is also in the ZIP but i
 - Add a short **CONTRIBUTING.md + architecture note** so the layering, the build
   paths, and the conventions are discoverable.
 
+## Implementation status (2026-07-17)
+
+Delivered on the `refactor/typescript-foundation` branch: ESLint + Prettier + CI
+quality gate; `main.ts` entrypoint (Shopware resolves `main.ts` ahead of `main.js`,
+so the JS shim was removed); the `defineTool` + zod tool factory with safety hints;
+the `shopware-client.ts` split into `transport/` + `domain/` + `cart-ui-sync`; the
+`runtime.ts` model-context registry extracted; and the browser/node tsconfig split
+with the stricter flags.
+
+Deferred: the **single-source WebMCP document** (WP6) — making the storefront fetch
+the document from the PHP endpoint would change `document.webMcp.getDocument()` from
+sync to async, a public API change that needs its own reviewed change and e2e, so it
+was intentionally not folded into the runtime split. Full domain-type coverage
+(replacing the remaining parse-boundary `any`) is likewise a follow-up, kept separate
+to avoid runtime-parse regressions on real Store API payloads.
+
 ## Non-goals
 
 - Rewriting working runtime behavior. This is about types, structure, and tooling,
