@@ -62,7 +62,7 @@ jobs:
           docker exec shop mkdir -p /var/www/html/custom/plugins/SwagWebMcp
           docker cp composer.json shop:/var/www/html/custom/plugins/SwagWebMcp/composer.json
           docker cp src shop:/var/www/html/custom/plugins/SwagWebMcp/src
-          docker exec shop chown -R www-data:www-data /var/www/html/custom/plugins/SwagWebMcp
+          docker exec -u root shop chown -R www-data:www-data /var/www/html/custom/plugins/SwagWebMcp
           docker exec -u www-data shop bash -lc "cd /var/www/html && \
             php bin/console plugin:refresh && \
             php bin/console plugin:install --activate SwagWebMcp && \
