@@ -64,16 +64,10 @@ export function createUpdateLineItemTool(options: StorefrontToolOptions = {}) {
     return {
         name: UPDATE_LINE_ITEM_TOOL_NAME,
         title: 'Update line item',
-        description: 'Sets the cart quantity for a line item or product.',
+        description: 'Sets the cart quantity for a line item or product. Provide exactly one of lineItemId, id, sku, or url.',
         inputSchema: {
             type: 'object',
             required: ['quantity'],
-            oneOf: [
-                { required: ['lineItemId'] },
-                { required: ['id'] },
-                { required: ['sku'] },
-                { required: ['url'] },
-            ],
             properties: {
                 lineItemId: {
                     type: 'string',

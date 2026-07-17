@@ -42,14 +42,9 @@ export function createAddToCartTool(options: StorefrontToolOptions = {}) {
     return {
         name: ADD_TO_CART_TOOL_NAME,
         title: 'Add to cart',
-        description: 'Adds a product or selected variant to the current cart.',
+        description: 'Adds a product or selected variant to the current cart. Provide exactly one of id, sku, or url.',
         inputSchema: {
             type: 'object',
-            oneOf: [
-                { required: ['id'] },
-                { required: ['sku'] },
-                { required: ['url'] },
-            ],
             properties: {
                 id: {
                     type: 'string',
