@@ -9,10 +9,23 @@
     {% set addToCartToolEnabled = config('SwagWebMcp.config.addToCartToolEnabled') %}
     {% set updateLineItemToolEnabled = config('SwagWebMcp.config.updateLineItemToolEnabled') %}
     {% set removeFromCartToolEnabled = config('SwagWebMcp.config.removeFromCartToolEnabled') %}
+    {% set activeCategoryId = null %}
+    {% if page.category is defined and page.category %}
+        {% set activeCategoryId = page.category.id %}
+    {% elseif page.navigationId is defined and page.navigationId %}
+        {% set activeCategoryId = page.navigationId %}
+    {% endif %}
+    {% set currentProductId = null %}
+    {% if page.product is defined and page.product %}
+        {% set currentProductId = page.product.id %}
+    {% endif %}
     {% set webMcpModelContextOptions = {
         enabled: webMcpEnabled,
         context: config('SwagWebMcp.config.context') ?: 'Shopware storefront interaction graph',
         storeApiAccessKey: context.salesChannel.accessKey|default(null),
+        navigationCategoryId: context.salesChannel.navigationCategoryId|default(null),
+        activeCategoryId: activeCategoryId,
+        currentProductId: currentProductId,
         staticElementsJson: config('SwagWebMcp.config.staticElementsJson'),
         tools: {
             searchProducts: searchProductsToolEnabled,

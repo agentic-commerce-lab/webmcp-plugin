@@ -6,6 +6,9 @@ export interface StorefrontToolOptions {
     baseUrl?: string | null;
     accessKey?: string | null;
     contextToken?: string | null;
+    navigationCategoryId?: string | null;
+    activeCategoryId?: string | null;
+    currentProductId?: string | null;
 }
 
 export interface ToolResult {
@@ -53,6 +56,9 @@ export interface WebMcpRuntimeConfig {
     context: string;
     baseUrl: string | null;
     storeApiAccessKey: string | null;
+    navigationCategoryId: string | null;
+    activeCategoryId: string | null;
+    currentProductId: string | null;
     staticElements?: unknown;
     staticElementsJson: string | null;
     tools: {
