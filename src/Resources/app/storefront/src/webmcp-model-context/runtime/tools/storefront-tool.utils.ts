@@ -81,32 +81,6 @@ export function cleanText(value: unknown): string | null {
     return text || null;
 }
 
-export function normalizeOptionalStringField(value: unknown, maxLength: number, label: string): string | null {
-    if (typeof value === 'undefined' || value === null || value === '') {
-        return null;
-    }
-
-    if (typeof value !== 'string') {
-        throw new Error(`${label} must be a string.`);
-    }
-
-    const text = value.trim();
-
-    if (!text) {
-        return null;
-    }
-
-    if (text.length > maxLength) {
-        throw new Error(`${label} must be ${maxLength} characters or fewer.`);
-    }
-
-    if (hasControlCharacters(text)) {
-        throw new Error(`${label} must not contain control characters.`);
-    }
-
-    return text;
-}
-
 // eslint-disable-next-line no-control-regex -- deliberately matches ASCII control characters (C0 range + DEL)
 const CONTROL_CHARACTERS = /[\x00-\x1F\x7F]/;
 
