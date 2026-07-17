@@ -43,15 +43,9 @@ export function createRemoveFromCartTool(options: StorefrontToolOptions = {}) {
     return {
         name: REMOVE_FROM_CART_TOOL_NAME,
         title: 'Remove from cart',
-        description: 'Removes a product, selected variant, or line item from the current cart.',
+        description: 'Removes a product, selected variant, or line item from the current cart. Provide exactly one of lineItemId, id, sku, or url.',
         inputSchema: {
             type: 'object',
-            oneOf: [
-                { required: ['lineItemId'] },
-                { required: ['id'] },
-                { required: ['sku'] },
-                { required: ['url'] },
-            ],
             properties: {
                 lineItemId: {
                     type: 'string',
