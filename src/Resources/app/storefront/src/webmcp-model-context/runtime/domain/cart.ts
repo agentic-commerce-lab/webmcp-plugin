@@ -162,7 +162,7 @@ function lineItemIdFromFormAction(form: Element, baseUrl: string): string | null
     const path = new URL(url).pathname;
     const lineItemMatch = path.match(/\/checkout\/line-item\/(?:change-quantity|delete)\/([^/]+)(?:\/|$)/i);
 
-    return lineItemMatch ? decodeURIComponent(lineItemMatch[1]) : null;
+    return lineItemMatch?.[1] ? decodeURIComponent(lineItemMatch[1]) : null;
 }
 
 function readLineItemQuantity(form: Element): number | null {

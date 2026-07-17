@@ -105,7 +105,7 @@ export class ShopwareClient {
         const products = normalizeProductCollection(result, this.baseUrl);
 
         if (products.length > 0) {
-            return products[0];
+            return products[0] ?? null;
         }
 
         const fallbackResult = await this.searchProducts({ query: sku, limit: 1 });

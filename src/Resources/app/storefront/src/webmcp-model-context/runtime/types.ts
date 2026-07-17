@@ -82,17 +82,17 @@ export interface WebMcpDocument {
 }
 
 export interface ProductLookupInput {
-    id?: string;
-    sku?: string;
-    url?: string;
+    id?: string | undefined;
+    sku?: string | undefined;
+    url?: string | undefined;
 }
 
 export interface CartLineItemLookupInput extends ProductLookupInput {
-    lineItemId?: string;
+    lineItemId?: string | undefined;
 }
 
 export interface QuantityInput extends ProductLookupInput {
-    lineItemId?: string;
+    lineItemId?: string | undefined;
     quantity: number;
 }
 
