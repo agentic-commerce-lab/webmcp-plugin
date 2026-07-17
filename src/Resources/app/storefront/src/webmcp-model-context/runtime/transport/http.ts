@@ -1,4 +1,4 @@
-export async function parseJsonResponse(response: Response): Promise<any> {
+export async function parseJsonResponse(response: Response): Promise<unknown> {
     const text = await response.text();
 
     if (!text) {
@@ -14,7 +14,7 @@ export async function parseJsonResponse(response: Response): Promise<any> {
     }
 }
 
-export async function parseFlexibleResponse(response: Response): Promise<any> {
+export async function parseFlexibleResponse(response: Response): Promise<unknown> {
     const contentType = response.headers.get('content-type') || '';
     const text = await response.text();
 

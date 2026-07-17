@@ -129,7 +129,7 @@ function readConfig(configOrElement: unknown): UnknownRecord {
         const encodedOptions = configOrElement.getAttribute(CONFIG_OPTIONS_ATTRIBUTE);
         const inlineOptions = configOrElement.textContent;
 
-        return parseJson(encodedOptions) || parseJson(inlineOptions) || {};
+        return (parseJson(encodedOptions) || parseJson(inlineOptions) || {}) as UnknownRecord;
     }
 
     if (isPlainObject(configOrElement) && Object.keys(configOrElement).length === 0) {
@@ -416,7 +416,7 @@ function currentBaseUrl(configuredBaseUrl: unknown): string {
     }
 }
 
-function parseJson(value: unknown): any {
+function parseJson(value: unknown): unknown {
     const json = nonEmptyString(value);
 
     if (!json) {

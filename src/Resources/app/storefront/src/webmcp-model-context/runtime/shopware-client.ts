@@ -73,13 +73,13 @@ export class ShopwareClient {
         products: ProductSummary[];
         total: number;
     }> {
-        const result = await this.storeApiRequest(
+        const result = (await this.storeApiRequest(
             '/search',
             createProductCriteria({
                 search: query,
                 limit,
             }),
-        );
+        )) as UnknownRecord;
         const products = normalizeProductCollection(result, this.baseUrl);
 
         return {
@@ -115,12 +115,12 @@ export class ShopwareClient {
 
     async getProduct(input: ProductLookupInput = {}): Promise<ProductSummary> {
         const productId = await this.resolveProductId(input);
-        const result = await this.storeApiRequest(
+        const result = (await this.storeApiRequest(
             `/product/${encodeURIComponent(productId)}`,
             createProductCriteria({
                 limit: 1,
             }),
-        );
+        )) as UnknownRecord;
         const product = normalizeProduct(result?.product || result, this.baseUrl);
 
         if (!product) {
@@ -139,10 +139,10 @@ export class ShopwareClient {
             );
         }
 
-        const result = await this.storeApiRequest(
+        const result = (await this.storeApiRequest(
             `/navigation/${encodeURIComponent(rootId)}/${encodeURIComponent(rootId)}`,
             { depth, buildTree: true, associations: { seoUrls: {} } },
-        );
+        )) as UnknownRecord;
         const elements = Array.isArray(result)
             ? result
             : Array.isArray(result?.elements)
@@ -151,7 +151,7 @@ export class ShopwareClient {
                 ? Object.values(result.elements)
                 : [];
         const tree = elements
-            .map((category: any) => normalizeCategoryNode(category, this.baseUrl, null))
+            .map((category: unknown) => normalizeCategoryNode(category, this.baseUrl, null))
             .filter((category: UnknownRecord | null): category is UnknownRecord => category !== null);
 
         markActiveCategoryTrail(tree, this.activeCategoryId);
@@ -167,12 +167,12 @@ export class ShopwareClient {
             throw new Error('Product category scope requires a product id, SKU, or URL, or an active product page.');
         }
 
-        const result = await this.storeApiRequest(
+        const result = (await this.storeApiRequest(
             `/product/${encodeURIComponent(productId)}`,
             createProductCriteria({
                 limit: 1,
             }),
-        );
+        )) as UnknownRecord;
         const product = result?.product || result;
 
         return normalizeCategories(product?.categories, this.baseUrl).map((category) => ({
@@ -296,7 +296,7 @@ export class ShopwareClient {
         throw new Error('Product lookup requires a Shopware product id, SKU/product number, or /detail/{id} URL.');
     }
 
-    async storeApiRequest(path: string, body: UnknownRecord = {}): Promise<any> {
+    async storeApiRequest(path: string, body: UnknownRecord = {}): Promise<unknown> {
         const url = new URL(`${STORE_API_PATH}${path}`, this.baseUrl);
         const headers: Record<string, string> = {
             Accept: 'application/json',
@@ -334,7 +334,7 @@ export class ShopwareClient {
         return payload;
     }
 
-    async webMcpCartRequest(): Promise<any> {
+    async webMcpCartRequest(): Promise<unknown> {
         const url = new URL(WEBMCP_CART_PATH, this.baseUrl);
         const response = await fetch(url.toString(), {
             method: 'GET',
