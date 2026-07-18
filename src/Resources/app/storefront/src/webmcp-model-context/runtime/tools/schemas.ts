@@ -4,7 +4,6 @@ import { hasControlCharacters } from './storefront-tool.utils';
 export const MAX_PRODUCT_ID_LENGTH = 64;
 export const MAX_SKU_LENGTH = 120;
 export const MAX_URL_LENGTH = 2048;
-export const MAX_LINE_ITEM_ID_LENGTH = 128;
 export const MAX_QUANTITY = 100;
 
 /**
@@ -24,14 +23,6 @@ export const productSelectorShape = {
     id: boundedString(MAX_PRODUCT_ID_LENGTH, 'Product id').describe('Product or selected variant id.').optional(),
     sku: boundedString(MAX_SKU_LENGTH, 'Product SKU').describe('Product or selected variant SKU.').optional(),
     url: boundedString(MAX_URL_LENGTH, 'Product URL').describe('Same-origin product or variant URL.').optional(),
-};
-
-/** Cart selector: a line item id in addition to the product selector. */
-export const lineItemSelectorShape = {
-    lineItemId: boundedString(MAX_LINE_ITEM_ID_LENGTH, 'Cart line item id')
-        .describe('Cart line item id. Prefer this when available.')
-        .optional(),
-    ...productSelectorShape,
 };
 
 /** True when exactly one of the given selector values is a non-empty string. */

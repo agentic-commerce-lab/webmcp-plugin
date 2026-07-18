@@ -17,7 +17,6 @@ const TOOL = {
     getCart: 'shopware_webmcp_get_cart',
     addToCart: 'shopware_webmcp_add_to_cart',
     updateLineItem: 'shopware_webmcp_update_line_item',
-    removeFromCart: 'shopware_webmcp_remove_from_cart',
     navigate: 'shopware_webmcp_navigate',
 } as const;
 
@@ -130,7 +129,8 @@ test('get_cart returns a cart structure on a fresh session', async ({ page }) =>
 
 test('cart lifecycle: add → read → update → remove', async ({ page }) => {
     // One test = one browser context = one shared shopper session, so the cart
-    // persists across the steps below.
+    // persists across the steps below. Cart writes are product-keyed (id/sku/url):
+    // a product line item's id equals the product id, so we key everything on it.
     const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
     const product = search.structuredContent.products[0];
     expect(product?.id, 'need a product to put in the cart').toBeTruthy();
@@ -141,46 +141,46 @@ test('cart lifecycle: add → read → update → remove', async ({ page }) => {
     expect(added.structuredContent.added).toMatchObject({ id: product.id, quantity: 1 });
     expect(added.structuredContent.cart.itemCount).toBeGreaterThanOrEqual(1);
 
-    // read back + locate the created line item
+    // read back + confirm the line item is addressable by the product id
     const afterAdd = await callTool(page, TOOL.getCart);
     const lineItems: Array<Record<string, any>> = afterAdd.structuredContent.cart.lineItems;
-    expect(lineItems.length).toBeGreaterThanOrEqual(1);
-    const lineItemId: string | undefined = lineItems[0]?.id;
-    expect(lineItemId, 'cart line item should expose an id').toBeTruthy();
+    expect(lineItems.some((item) => item.id === product.id)).toBe(true);
 
-    // update quantity to 2
-    const updated = await callTool(page, TOOL.updateLineItem, { lineItemId, quantity: 2 });
+    // set target quantity to 2 (declarative)
+    const updated = await callTool(page, TOOL.updateLineItem, { id: product.id, quantity: 2 });
     expectValidToolResult(updated);
-    expect(updated.structuredContent.skipped).toBeFalsy();
-    expect(updated.structuredContent.updated).toMatchObject({ lineItemId, quantity: 2 });
+    expect(updated.structuredContent.updated).toMatchObject({ id: product.id, quantity: 2 });
 
     const afterUpdate = await callTool(page, TOOL.getCart);
     const updatedLine = (afterUpdate.structuredContent.cart.lineItems as Array<Record<string, any>>).find(
-        (item) => item.id === lineItemId,
+        (item) => item.id === product.id,
     );
     expect(updatedLine?.quantity).toBe(2);
 
-    // remove
-    const removed = await callTool(page, TOOL.removeFromCart, { lineItemId, quantity: 2 });
+    // remove via target quantity 0
+    const removed = await callTool(page, TOOL.updateLineItem, { id: product.id, quantity: 0 });
     expectValidToolResult(removed);
-    expect(removed.structuredContent.removed).toMatchObject({ lineItemId });
+    expect(removed.structuredContent.updated).toMatchObject({ id: product.id, quantity: 0 });
 
     const afterRemove = await callTool(page, TOOL.getCart);
     const stillPresent = (afterRemove.structuredContent.cart.lineItems as Array<Record<string, any>>).some(
-        (item) => item.id === lineItemId,
+        (item) => item.id === product.id,
     );
     expect(stillPresent, 'line item should be gone after removal').toBe(false);
 });
 
-test('update_line_item reports skipped for a line item that is not in the cart', async ({ page }) => {
-    const result = await callTool(page, TOOL.updateLineItem, {
-        lineItemId: 'this-line-item-does-not-exist',
-        quantity: 1,
-    });
+test('update_line_item to quantity 0 is an idempotent no-op for a product not in the cart', async ({ page }) => {
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
+    const product = search.structuredContent.products[0];
+    expect(product?.id, 'need a product id to target').toBeTruthy();
+
+    const result = await callTool(page, TOOL.updateLineItem, { id: product.id, quantity: 0 });
 
     expectValidToolResult(result);
-    expect(result.structuredContent.skipped).toBe(true);
-    expect(result.structuredContent.reason).toBe('not_in_cart');
+    const present = (result.structuredContent.cart?.lineItems as Array<Record<string, any>> | undefined)?.some(
+        (item) => item.id === product.id,
+    );
+    expect(present ?? false).toBe(false);
 });
 
 test('navigate moves the storefront to a same-origin page (ACL-127)', async ({ page }) => {

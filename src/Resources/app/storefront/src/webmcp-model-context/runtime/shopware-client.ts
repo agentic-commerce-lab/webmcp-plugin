@@ -1,10 +1,4 @@
-import {
-    cleanText,
-    fetchStorefrontHtml,
-    isPlainObject,
-    normalizeBaseUrl,
-    parseHtmlDocument,
-} from './tools/storefront-tool.utils';
+import { cleanText, isPlainObject, normalizeBaseUrl } from './tools/storefront-tool.utils';
 import type {
     CartQuantityInput,
     CartSummary,
@@ -14,7 +8,6 @@ import type {
     StorefrontToolOptions,
     UnknownRecord,
 } from './types';
-import { STOREFRONT_CART_PATH } from './transport/paths';
 import {
     ACCESS_KEY_HEADER,
     CONTEXT_TOKEN_HEADER,
@@ -30,16 +23,11 @@ import {
     productIdFromUrl,
 } from './domain/product';
 import { markActiveCategoryTrail, normalizeCategories, normalizeCategoryNode } from './domain/category';
-import { findCartLineItemInDocument, findCartLineItemInPayload, normalizeCart } from './domain/cart';
-import { openCartOverlay } from './cart-ui-sync';
-import {
-    storefrontAddProductToCart,
-    storefrontChangeLineItemQuantity,
-    storefrontRemoveLineItemFromCart,
-} from './adapters/storefront-cart';
+import { openCartOverlay, publishCartMutation } from './cart-ui-sync';
 
 const STORE_API_PATH = '/store-api';
 const WEBMCP_CART_PATH = '/webmcp/cart';
+const WEBMCP_CART_LINE_ITEM_PATH = '/webmcp/cart/line-item';
 
 export class ShopwareClient {
     private baseUrl: string;
@@ -184,79 +172,20 @@ export class ShopwareClient {
 
     async addProductToCart(input: QuantityInput): Promise<CartSummary | null> {
         const productId = await this.resolveProductId(input);
-        const cart = await storefrontAddProductToCart(this.baseUrl, {
-            productId,
-            quantity: input.quantity,
-            lineItemId: cleanText(input.lineItemId) || productId,
-        });
+        const cart = await this.cartWriteRequest('POST', { productId, quantity: input.quantity });
 
         if (input.showCartOverlay) {
             openCartOverlay(this.baseUrl);
         }
 
-        return normalizeCart(cart);
-    }
-
-    async removeProductFromCart(input: CartQuantityInput): Promise<CartSummary | null> {
-        const lineItemId = cleanText(input.lineItemId) || (await this.resolveProductId(input));
-        const cartLineItem = await this.findStorefrontCartLineItem(lineItemId);
-
-        if (!cartLineItem) {
-            throw new Error(`No cart line item found for ${lineItemId}.`);
-        }
-
-        const remainingQuantity = cartLineItem.quantity - input.quantity;
-        const cart =
-            remainingQuantity > 0
-                ? await storefrontChangeLineItemQuantity(this.baseUrl, {
-                      lineItemId,
-                      quantity: remainingQuantity,
-                      previousQuantity: cartLineItem.quantity,
-                      removedQuantity: input.quantity,
-                  })
-                : await storefrontRemoveLineItemFromCart(this.baseUrl, {
-                      lineItemId,
-                      previousQuantity: cartLineItem.quantity,
-                      removedQuantity: cartLineItem.quantity,
-                  });
-
-        return normalizeCart(cart);
+        return this.finalizeCartMutation(cart, 'add');
     }
 
     async updateLineItem(input: CartQuantityInput): Promise<CartSummary | null> {
-        const lineItemIdInput = cleanText(input.lineItemId);
-        const lineItemLookup = lineItemIdInput || (await this.resolveProductId(input));
-        const cartLineItem = await this.findStorefrontCartLineItem(lineItemLookup);
+        const productId = await this.resolveProductId(input);
+        const cart = await this.cartWriteRequest('PATCH', { productId, quantity: input.quantity });
 
-        if (!cartLineItem) {
-            if (!lineItemIdInput && input.quantity > 0) {
-                return this.addProductToCart(input);
-            }
-
-            throw new Error(`No cart line item found for ${lineItemLookup}.`);
-        }
-
-        const lineItemId = cartLineItem.id;
-        const quantityDelta = input.quantity - cartLineItem.quantity;
-        const cart =
-            input.quantity > 0
-                ? await storefrontChangeLineItemQuantity(this.baseUrl, {
-                      lineItemId,
-                      quantity: input.quantity,
-                      previousQuantity: cartLineItem.quantity,
-                      removedQuantity: Math.max(cartLineItem.quantity - input.quantity, 0),
-                      quantityDelta,
-                      action: 'update',
-                  })
-                : await storefrontRemoveLineItemFromCart(this.baseUrl, {
-                      lineItemId,
-                      previousQuantity: cartLineItem.quantity,
-                      removedQuantity: cartLineItem.quantity,
-                      quantityDelta,
-                      action: 'update',
-                  });
-
-        return normalizeCart(cart);
+        return this.finalizeCartMutation(cart, 'update');
     }
 
     async resolveProductId(input: ProductLookupInput): Promise<string> {
@@ -346,27 +275,38 @@ export class ShopwareClient {
         return payload;
     }
 
-    async findStorefrontCartLineItem(lineItemId: string): Promise<{ id: string; quantity: number } | null> {
-        const currentDocumentLineItem = findCartLineItemInDocument(document, lineItemId, this.baseUrl);
+    async cartWriteRequest(method: 'POST' | 'PATCH', body: UnknownRecord): Promise<unknown> {
+        const url = new URL(WEBMCP_CART_LINE_ITEM_PATH, this.baseUrl);
+        const response = await fetch(url.toString(), {
+            method,
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify(body),
+        });
+        const payload = await parseJsonResponse(response);
 
-        if (currentDocumentLineItem) {
-            return currentDocumentLineItem;
+        if (!response.ok) {
+            throw new Error(webMcpCartErrorMessage(response, payload));
         }
 
-        try {
-            const cart = await this.webMcpCartRequest();
-            const payloadLineItem = findCartLineItemInPayload(cart, lineItemId);
+        return payload;
+    }
 
-            if (payloadLineItem) {
-                return payloadLineItem;
-            }
-        } catch (error) {
-            // Fall back to the storefront cart page when the optional cart endpoint is unavailable.
+    /**
+     * The server returns the authoritative cart, so there is no client-side delta to
+     * compute — just refresh the storefront cart UI so the shopper sees the change.
+     */
+    private finalizeCartMutation(cart: unknown, action: string): CartSummary | null {
+        if (!isPlainObject(cart)) {
+            return null;
         }
 
-        const cartHtml = await fetchStorefrontHtml(new URL(STOREFRONT_CART_PATH, this.baseUrl), 'Cart lookup');
-        const cartDocument = parseHtmlDocument(cartHtml, 'Cart lookup');
+        const cartWidgetRefreshed = publishCartMutation({ action }, this.baseUrl);
 
-        return findCartLineItemInDocument(cartDocument, lineItemId, this.baseUrl);
+        return { ...cart, cartWidgetRefreshed } as CartSummary;
     }
 }

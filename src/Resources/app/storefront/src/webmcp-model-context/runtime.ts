@@ -6,7 +6,6 @@ import {
 } from './runtime/tools/get-product-categories.tool';
 import { createGetProductTool, GET_PRODUCT_TOOL_NAME } from './runtime/tools/get-product.tool';
 import { createNavigateTool, NAVIGATE_TOOL_NAME } from './runtime/tools/navigate.tool';
-import { createRemoveFromCartTool, REMOVE_FROM_CART_TOOL_NAME } from './runtime/tools/remove-from-cart.tool';
 import { createSearchProductsTool, SEARCH_PRODUCTS_TOOL_NAME } from './runtime/tools/search-products.tool';
 import { createUpdateLineItemTool, UPDATE_LINE_ITEM_TOOL_NAME } from './runtime/tools/update-line-item.tool';
 import type {
@@ -70,7 +69,6 @@ export function registerConfiguredTools(config: unknown = {}): void {
     registerGetCartTool(normalizedConfig);
     registerAddToCartTool(normalizedConfig);
     registerUpdateLineItemTool(normalizedConfig);
-    registerRemoveFromCartTool(normalizedConfig);
     registerNavigateTool(normalizedConfig);
 }
 
@@ -101,10 +99,6 @@ export function registerAddToCartTool(config: unknown = {}): ModelContextTool | 
 
 export function registerUpdateLineItemTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(config, 'updateLineItem', UPDATE_LINE_ITEM_TOOL_NAME, createUpdateLineItemTool);
-}
-
-export function registerRemoveFromCartTool(config: unknown = {}): ModelContextTool | null {
-    return registerStorefrontTool(config, 'removeFromCart', REMOVE_FROM_CART_TOOL_NAME, createRemoveFromCartTool);
 }
 
 export function registerNavigateTool(config: unknown = {}): ModelContextTool | null {
@@ -167,7 +161,6 @@ function exposeGlobals(config: WebMcpRuntimeConfig, webMcpDocument: WebMcpDocume
         registerGetCartTool: () => registerGetCartTool(config),
         registerAddToCartTool: () => registerAddToCartTool(config),
         registerUpdateLineItemTool: () => registerUpdateLineItemTool(config),
-        registerRemoveFromCartTool: () => registerRemoveFromCartTool(config),
         registerNavigateTool: () => registerNavigateTool(config),
     };
 }
@@ -208,7 +201,6 @@ window.SwagWebMcpRuntime = {
     registerGetCartTool,
     registerAddToCartTool,
     registerUpdateLineItemTool,
-    registerRemoveFromCartTool,
 };
 
 if (document.readyState === 'loading') {
