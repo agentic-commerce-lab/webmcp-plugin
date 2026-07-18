@@ -1,4 +1,22 @@
 services:
+    # Local development shop: a full Shopware (web + MySQL + Adminer + Mailpit)
+    # in one Dockware container, with this plugin bind-mounted into it.
+    # Start it with `bun run shop:up` (see bin/shop.sh) — not part of the
+    # default `docker compose up`, it lives behind the `dev` profile.
+    shop:
+        image: dockware/dev:${SW_VERSION:-6.7.2.2}
+        profiles:
+            - dev
+        ports:
+            - '${SHOP_HTTP_PORT:-8000}:80' # Storefront + /admin + /adminer.php
+            - '${SHOP_DB_PORT:-3306}:3306' # MySQL (root / root)
+            - '${SHOP_MAIL_PORT:-1080}:1080' # MailCatcher web UI
+            - '${SHOP_STOREFRONT_WATCH_PORT:-9998}:9998' # storefront watcher
+            - '${SHOP_STOREFRONT_HOT_PORT:-9999}:9999' # storefront hot-proxy
+            - '${SHOP_VITE_PORT:-5173}:5173' # admin/vite watcher
+        volumes:
+            - '.:/var/www/html/custom/plugins/SwagWebMcp'
+
     qa:
         build:
             context: .

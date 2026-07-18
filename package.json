@@ -9,7 +9,14 @@
         "lint:fix": "eslint . --fix",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
-        "test:e2e": "playwright test"
+        "test:e2e": "playwright test",
+        "shop:up": "bin/shop.sh up",
+        "shop:deploy": "bin/shop.sh deploy",
+        "shop:down": "bin/shop.sh down",
+        "shop:restart": "bin/shop.sh restart",
+        "shop:logs": "bin/shop.sh logs",
+        "shop:shell": "bin/shop.sh shell",
+        "shop:open": "bin/shop.sh open"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
