@@ -18,7 +18,6 @@ final class SystemConfigWebMcpConfigProvider implements WebMcpConfigProviderInte
 
         return new WebMcpConfig(
             enabled: $this->boolConfig('enabled', $salesChannelId, true),
-            context: $this->stringConfig('context', $salesChannelId, 'Shopware storefront interaction graph'),
             searchProductsToolEnabled: $this->boolConfig('searchProductsToolEnabled', $salesChannelId, true),
             getProductToolEnabled: $this->boolConfig('getProductToolEnabled', $salesChannelId, true),
             getProductCategoriesToolEnabled: $this->boolConfig('getProductCategoriesToolEnabled', $salesChannelId, true),
@@ -26,7 +25,6 @@ final class SystemConfigWebMcpConfigProvider implements WebMcpConfigProviderInte
             addToCartToolEnabled: $this->boolConfig('addToCartToolEnabled', $salesChannelId, true),
             updateLineItemToolEnabled: $this->boolConfig('updateLineItemToolEnabled', $salesChannelId, true),
             getSalesChannelContextToolEnabled: $this->boolConfig('getSalesChannelContextToolEnabled', $salesChannelId, true),
-            staticElementsJson: $this->nullableStringConfig('staticElementsJson', $salesChannelId),
         );
     }
 
@@ -51,20 +49,6 @@ final class SystemConfigWebMcpConfigProvider implements WebMcpConfigProviderInte
         }
 
         return $default;
-    }
-
-    private function stringConfig(string $key, ?string $salesChannelId, string $default): string
-    {
-        $value = $this->read($key, $salesChannelId);
-
-        return \is_string($value) && '' !== trim($value) ? $value : $default;
-    }
-
-    private function nullableStringConfig(string $key, ?string $salesChannelId): ?string
-    {
-        $value = $this->read($key, $salesChannelId);
-
-        return \is_string($value) && '' !== trim($value) ? $value : null;
     }
 
     private function read(string $key, ?string $salesChannelId): mixed

@@ -1,13 +1,8 @@
-import type { ModelContext, NativeModelContext, UnknownRecord, WebMcpDocument, WebMcpRuntimeConfig } from './types';
+import type { ModelContext, NativeModelContext, UnknownRecord, WebMcpRuntimeConfig } from './types';
 
 declare global {
     interface Document {
         modelContext?: ModelContext;
-        webMcp?: UnknownRecord & {
-            document?: WebMcpDocument | null;
-            getDocument?: () => WebMcpDocument | null;
-            getElements?: () => UnknownRecord[];
-        };
     }
 
     interface Navigator {
@@ -30,7 +25,6 @@ declare global {
         };
         SwagWebMcp?: UnknownRecord & {
             config?: WebMcpRuntimeConfig;
-            document?: WebMcpDocument | null;
             loaded?: boolean;
         };
         SwagWebMcpRuntime?: UnknownRecord;

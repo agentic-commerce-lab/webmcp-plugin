@@ -8,7 +8,6 @@ final class WebMcpConfig
 {
     public function __construct(
         public readonly bool $enabled,
-        public readonly string $context,
         public readonly bool $searchProductsToolEnabled = true,
         public readonly bool $getProductToolEnabled = true,
         public readonly bool $getProductCategoriesToolEnabled = true,
@@ -16,7 +15,6 @@ final class WebMcpConfig
         public readonly bool $addToCartToolEnabled = true,
         public readonly bool $updateLineItemToolEnabled = true,
         public readonly bool $getSalesChannelContextToolEnabled = true,
-        public readonly ?string $staticElementsJson = null,
     ) {
     }
 }

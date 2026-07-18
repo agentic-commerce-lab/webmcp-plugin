@@ -22,12 +22,10 @@
     {% endif %}
     {% set webMcpModelContextOptions = {
         enabled: webMcpEnabled,
-        context: config('SwagWebMcp.config.context') ?: 'Shopware storefront interaction graph',
         storeApiAccessKey: context.salesChannel.accessKey|default(null),
         navigationCategoryId: context.salesChannel.navigationCategoryId|default(null),
         activeCategoryId: activeCategoryId,
         currentProductId: currentProductId,
-        staticElementsJson: config('SwagWebMcp.config.staticElementsJson'),
         tools: {
             searchProducts: searchProductsToolEnabled,
             getProduct: getProductToolEnabled,

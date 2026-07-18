@@ -1,22 +1,17 @@
 import type { UnknownRecord, WebMcpRuntimeConfig } from './types';
 import { hasControlCharacters } from './tools/storefront-tool.utils';
 
-const DEFAULT_CONTEXT = 'Shopware storefront interaction graph';
-
 export function normalizeConfig(options: unknown = {}): WebMcpRuntimeConfig {
     const source = isPlainObject(options) ? options : {};
     const tools = isPlainObject(source.tools) ? source.tools : {};
 
     return {
         enabled: booleanOption(source.enabled, true),
-        context: nonEmptyString(source.context) || DEFAULT_CONTEXT,
         baseUrl: nonEmptyString(source.baseUrl),
         storeApiAccessKey: nonEmptyString(source.storeApiAccessKey),
         navigationCategoryId: nonEmptyString(source.navigationCategoryId),
         activeCategoryId: nonEmptyString(source.activeCategoryId),
         currentProductId: nonEmptyString(source.currentProductId),
-        staticElements: source.staticElements,
-        staticElementsJson: nonEmptyString(source.staticElementsJson),
         tools: {
             searchProducts: booleanOption(tools.searchProducts, true),
             getProduct: booleanOption(tools.getProduct, true),

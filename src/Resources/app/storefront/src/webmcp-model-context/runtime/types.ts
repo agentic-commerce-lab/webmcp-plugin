@@ -53,14 +53,11 @@ export interface NativeModelContext {
 
 export interface WebMcpRuntimeConfig {
     enabled: boolean;
-    context: string;
     baseUrl: string | null;
     storeApiAccessKey: string | null;
     navigationCategoryId: string | null;
     activeCategoryId: string | null;
     currentProductId: string | null;
-    staticElements?: unknown;
-    staticElementsJson: string | null;
     tools: {
         searchProducts: boolean;
         getProduct: boolean;
@@ -74,13 +71,6 @@ export interface WebMcpRuntimeConfig {
 }
 
 export type WebMcpToolKey = keyof WebMcpRuntimeConfig['tools'];
-
-export interface WebMcpDocument {
-    version: string;
-    context: string;
-    tools: UnknownRecord[];
-    elements: UnknownRecord[];
-}
 
 export interface ProductLookupInput {
     id?: string | undefined;

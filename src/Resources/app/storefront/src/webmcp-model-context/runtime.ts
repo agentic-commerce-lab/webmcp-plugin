@@ -16,12 +16,10 @@ import type {
     ModelContextTool,
     StorefrontToolOptions,
     UnknownRecord,
-    WebMcpDocument,
     WebMcpRuntimeConfig,
     WebMcpToolKey,
 } from './runtime/types';
 import { currentBaseUrl, isElement, isPlainObject, normalizeConfig, parseJson } from './runtime/config';
-import { buildWebMcpDocument } from './runtime/document';
 import {
     addModelContextHelpers,
     getModelContext,
@@ -29,39 +27,18 @@ import {
     unregisterModelContextTool,
 } from './runtime/model-context/registry';
 
-export { buildWebMcpDocument };
-
 const CONFIG_SELECTOR = '[data-swag-web-mcp-model-context]';
 const CONFIG_OPTIONS_ATTRIBUTE = 'data-swag-web-mcp-model-context-options';
 
 export function bootstrapWebMcpModelContext(configOrElement: unknown = document.querySelector(CONFIG_SELECTOR)): {
     config: WebMcpRuntimeConfig;
-    document: WebMcpDocument | null;
 } {
     const config = normalizeConfig(readConfig(configOrElement));
 
-    // Register tools first so the document projects the live tool registry.
     registerConfiguredTools(config);
+    exposeGlobals(config);
 
-    const webMcpDocument = config.enabled ? buildWebMcpDocument(config) : null;
-
-    exposeGlobals(config, webMcpDocument);
-
-    if (config.enabled) {
-        document.dispatchEvent(
-            new CustomEvent('webmcp:document-ready', {
-                detail: {
-                    document: webMcpDocument,
-                    config,
-                },
-            }),
-        );
-    }
-
-    return {
-        config,
-        document: webMcpDocument,
-    };
+    return { config };
 }
 
 export function registerConfiguredTools(config: unknown = {}): void {
@@ -148,28 +125,11 @@ function readConfig(configOrElement: unknown): UnknownRecord {
     return isPlainObject(configOrElement) ? configOrElement : {};
 }
 
-function exposeGlobals(config: WebMcpRuntimeConfig, webMcpDocument: WebMcpDocument | null): void {
-    const getDocument = () => (config.enabled ? buildWebMcpDocument(config) : null);
-    const getElements = () => {
-        const currentDocument = getDocument();
-
-        return currentDocument ? currentDocument.elements.slice() : [];
-    };
-
-    document.webMcp = {
-        ...(isPlainObject(document.webMcp) ? document.webMcp : {}),
-        document: webMcpDocument,
-        getDocument,
-        getElements,
-    };
-
+function exposeGlobals(config: WebMcpRuntimeConfig): void {
     window.SwagWebMcp = {
         ...(window.SwagWebMcp || {}),
         config,
-        document: webMcpDocument,
         loaded: true,
-        getDocument,
-        getElements,
         registerConfiguredTools: () => registerConfiguredTools(config),
         registerSearchProductsTool: () => registerSearchProductsTool(config),
         registerGetProductTool: () => registerGetProductTool(config),
@@ -210,7 +170,6 @@ function registerStorefrontTool(
 window.SwagWebMcpRuntime = {
     ...(window.SwagWebMcpRuntime || {}),
     bootstrap: bootstrapWebMcpModelContext,
-    buildDocument: buildWebMcpDocument,
     registerConfiguredTools,
     registerSearchProductsTool,
     registerGetProductTool,
@@ -229,4 +188,3 @@ if (document.readyState === 'loading') {
 
 window.addEventListener('load', bootstrapFromDocument, { once: true });
 document.addEventListener('webmcp:model-context-request', bootstrapFromDocument);
-document.addEventListener('webmcp:document-request', bootstrapFromDocument);

@@ -255,14 +255,10 @@ relevant/helpful tool set.
    (drop `add_to_cart` too) — fully idempotent, smallest surface, at the cost of a
    prior read for relative "add N more". Chosen: **two tools** unless LOC is
    weighted hardest, then the single-tool variant.
-2. **`.wmcp` — auto-derive (DECIDED).** The imperative tool registry is the single
-   source of truth; `.wmcp` becomes a projection of the tool list
-   (name/description/inputSchema/annotations). This removes the bespoke
-   DOM-affordance machinery in `WebMcpController` (`coreShopwareElements`,
-   `normalizeElement`/`normalizeAction`, `selector`/`role`/`action`/`csrf_tag`
-   model, `securityDefinition`) — a legacy of DOM-driving that the imperative
-   contract no longer needs. Single manifest delivered PHP→TS via the existing
-   config pipe; both `.wmcp` and the runtime derive from it.
+2. **`.wmcp` — auto-derive.** ~~The imperative tool registry is the single
+   source of truth; `.wmcp` becomes a projection of the tool list.~~
+   **SUPERSEDED — see the Update below. `.wmcp` is removed entirely, not derived.**
+   (C4 shipped the auto-derive step; the follow-up commit then retired the document.)
 3. **`get_cart` stays server-side, co-located.** No behavioural change. New write
    endpoints live in the same controller and reuse `CartPayloadBuilder`, so reads
    and writes return an identical cart shape (less code, consistent grounding).
@@ -279,3 +275,43 @@ rather than incidental.
 
 `get_sales_channel_context` reuses the same server-side context-resolution
 primitive as the cart — one endpoint pattern, two consumers.
+
+## Update 2026-07-18 — retire the `.wmcp` document entirely
+
+After C4 made the document derive from the tool registry, we researched whether the
+`.wmcp` document is worth keeping at all. Conclusion: **no — remove it.**
+
+**Findings.**
+- **WebMCP is a runtime-only standard.** Per the authoritative source (Chrome for
+  Developers / the W3C WebML CG), WebMCP is `navigator`/`document.modelContext`
+  (imperative `registerTool`) plus declarative HTML form attributes. It defines
+  **no** static server-side discovery: no `.well-known`, no file extension, no MIME
+  type. The spec even lists "tool discoverability: clients must visit the site
+  directly" as a known *limitation*.
+- **`/webmcp.wmcp` + `application/webmcp+json` + the `elements`/`security` shape is
+  a bespoke invention** of this plugin. It matches no standard, and nothing —
+  browser agent or crawler — looks for it. Browser agents read
+  `document.modelContext`, which the runtime already populates correctly.
+- The `/.well-known/webmcp` manifest that some third-party guides describe is an
+  **ecosystem convention pushed by a few tools, not part of the W3C spec** — an
+  unstable, moving target.
+
+**Decision.** Remove the bespoke document in both processes:
+- Delete the `/webmcp.wmcp` route and its builder/normalizers from `WebMcpController`.
+- Delete the TS twin (`document.ts` / `buildWebMcpDocument`) and its
+  `document.webMcp` / `getDocument` / `getElements` / `webmcp:document-*` surface.
+- Remove the now-orphaned config fields that only fed it: `context` and
+  `staticElementsJson` (+ their config.xml / `WebMcpConfig` / normaliser plumbing).
+
+`document.modelContext` (the live registered tools) is the single source of truth
+for tool discovery. This dissolves the PHP↔TS SSOT problem by deletion rather than
+by building a sync pipeline for an artifact nothing consumes.
+
+**If static discovery ever matters** (a non-browser consumer, or the
+`/.well-known/webmcp` convention stabilises / is standardised), revisit with a
+TS-authored, build-generated manifest served at the **standard** path and shape —
+not a bespoke `.wmcp`.
+
+Sources: [WebMCP — Chrome for Developers](https://developer.chrome.com/docs/ai/webmcp) ·
+[webmachinelearning/webmcp (W3C CG)](https://github.com/webmachinelearning/webmcp) ·
+[WebMCP Reality Check](https://studiomeyer.io/en/blog/webmcp-reality-check-may-2026).
