@@ -77,8 +77,8 @@ export type WebMcpToolKey = keyof WebMcpRuntimeConfig['tools'];
 export interface WebMcpDocument {
     version: string;
     context: string;
+    tools: UnknownRecord[];
     elements: UnknownRecord[];
-    security: UnknownRecord;
 }
 
 export interface ProductLookupInput {

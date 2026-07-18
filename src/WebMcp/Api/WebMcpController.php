@@ -218,59 +218,13 @@ final class WebMcpController
     {
         $baseUrl = rtrim($baseUrl, '/');
 
+        // The executable contract is the imperative tool registry exposed client-side
+        // via document.modelContext (per the WebMCP standard). This server descriptor
+        // stays thin: context plus any merchant-configured static affordances.
         return [
-            'version' => '0.2',
+            'version' => '0.3',
             'context' => $config->context,
-            'elements' => [
-                ...$this->coreShopwareElements($baseUrl),
-                ...$this->staticElements($config->staticElementsJson, $baseUrl),
-            ],
-            'security' => $this->securityDefinition(),
-        ];
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function coreShopwareElements(string $baseUrl): array
-    {
-        return [
-            [
-                'selector' => 'form[action*="/search"] input[name="search"]',
-                'role' => 'input.search',
-                'name' => 'SEARCH_QUERY',
-            ],
-            [
-                'selector' => 'form[action*="/search"] button[type="submit"]',
-                'role' => 'button.submit',
-                'name' => 'SUBMIT_SEARCH',
-                'action' => [
-                    'kind' => 'GET',
-                    'endpoint' => $baseUrl.'/search',
-                    'params' => [
-                        'search' => '$SEARCH_QUERY',
-                    ],
-                ],
-            ],
-            [
-                'selector' => 'a[href*="/checkout/cart"], .header-cart',
-                'role' => 'link.cart',
-                'name' => 'VIEW_CART',
-                'action' => [
-                    'kind' => 'GET',
-                    'endpoint' => $baseUrl.'/checkout/cart',
-                ],
-            ],
-            [
-                'selector' => 'form[action*="/checkout/line-item/add"] button[type="submit"]',
-                'role' => 'button.add_to_cart',
-                'name' => 'ADD_TO_CART',
-                'action' => [
-                    'kind' => 'POST',
-                    'endpoint' => '@ADD_TO_CART',
-                    'csrf_tag' => '$CSRF_TOKEN',
-                ],
-            ],
+            'elements' => $this->staticElements($config->staticElementsJson, $baseUrl),
         ];
     }
 
@@ -406,27 +360,6 @@ final class WebMcpController
         }
 
         return null;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function securityDefinition(): array
-    {
-        return [
-            'endpoints' => [
-                '@ADD_TO_CART' => [
-                    'tokenised' => true,
-                    'expires' => 300,
-                    'scopes' => ['cart:write'],
-                ],
-            ],
-            'csrf' => [
-                'token_field' => '_csrf_token',
-                'header_name' => 'X-CSRF-Token',
-                'mode' => 'synchroniser',
-            ],
-        ];
     }
 
     private function safeString(mixed $value): ?string

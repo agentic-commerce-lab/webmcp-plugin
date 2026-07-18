@@ -35,11 +35,13 @@ export function bootstrapWebMcpModelContext(configOrElement: unknown = document.
     document: WebMcpDocument | null;
 } {
     const config = normalizeConfig(readConfig(configOrElement));
+
+    // Register tools first so the document projects the live tool registry.
+    registerConfiguredTools(config);
+
     const webMcpDocument = config.enabled ? buildWebMcpDocument(config) : null;
 
     exposeGlobals(config, webMcpDocument);
-
-    registerConfiguredTools(config);
 
     if (config.enabled) {
         document.dispatchEvent(
