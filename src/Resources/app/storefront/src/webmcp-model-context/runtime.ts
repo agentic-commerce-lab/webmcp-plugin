@@ -5,6 +5,7 @@ import {
     GET_PRODUCT_CATEGORIES_TOOL_NAME,
 } from './runtime/tools/get-product-categories.tool';
 import { createGetProductTool, GET_PRODUCT_TOOL_NAME } from './runtime/tools/get-product.tool';
+import { createNavigateTool, NAVIGATE_TOOL_NAME } from './runtime/tools/navigate.tool';
 import { createRemoveFromCartTool, REMOVE_FROM_CART_TOOL_NAME } from './runtime/tools/remove-from-cart.tool';
 import { createSearchProductsTool, SEARCH_PRODUCTS_TOOL_NAME } from './runtime/tools/search-products.tool';
 import { createUpdateLineItemTool, UPDATE_LINE_ITEM_TOOL_NAME } from './runtime/tools/update-line-item.tool';
@@ -81,6 +82,7 @@ export function registerConfiguredTools(config: unknown = {}): void {
     registerAddToCartTool(normalizedConfig);
     registerUpdateLineItemTool(normalizedConfig);
     registerRemoveFromCartTool(normalizedConfig);
+    registerNavigateTool(normalizedConfig);
 }
 
 export function registerSearchProductsTool(config: unknown = {}): ModelContextTool | null {
@@ -114,6 +116,10 @@ export function registerUpdateLineItemTool(config: unknown = {}): ModelContextTo
 
 export function registerRemoveFromCartTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(config, 'removeFromCart', REMOVE_FROM_CART_TOOL_NAME, createRemoveFromCartTool);
+}
+
+export function registerNavigateTool(config: unknown = {}): ModelContextTool | null {
+    return registerStorefrontTool(config, 'navigate', NAVIGATE_TOOL_NAME, createNavigateTool);
 }
 
 function bootstrapFromDocument(): void {
@@ -173,6 +179,7 @@ function exposeGlobals(config: WebMcpRuntimeConfig, webMcpDocument: WebMcpDocume
         registerAddToCartTool: () => registerAddToCartTool(config),
         registerUpdateLineItemTool: () => registerUpdateLineItemTool(config),
         registerRemoveFromCartTool: () => registerRemoveFromCartTool(config),
+        registerNavigateTool: () => registerNavigateTool(config),
     };
 }
 
@@ -198,6 +205,7 @@ function normalizeConfig(options: unknown = {}): WebMcpRuntimeConfig {
             addToCart: booleanOption(tools.addToCart, true),
             updateLineItem: booleanOption(tools.updateLineItem, true),
             removeFromCart: booleanOption(tools.removeFromCart, true),
+            navigate: booleanOption(tools.navigate, true),
         },
     };
 }

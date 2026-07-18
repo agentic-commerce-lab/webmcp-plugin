@@ -73,5 +73,12 @@
             <label lang="de-DE">remove_from_cart-Tool aktivieren</label>
             <defaultValue>true</defaultValue>
         </input-field>
+
+        <input-field type="bool">
+            <name>navigateToolEnabled</name>
+            <label>Enable navigate tool</label>
+            <label lang="de-DE">navigate-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
     </card>
 </config>

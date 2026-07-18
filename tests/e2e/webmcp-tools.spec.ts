@@ -18,6 +18,7 @@ const TOOL = {
     addToCart: 'shopware_webmcp_add_to_cart',
     updateLineItem: 'shopware_webmcp_update_line_item',
     removeFromCart: 'shopware_webmcp_remove_from_cart',
+    navigate: 'shopware_webmcp_navigate',
 } as const;
 
 type ToolResult = {
@@ -180,4 +181,26 @@ test('update_line_item reports skipped for a line item that is not in the cart',
     expectValidToolResult(result);
     expect(result.structuredContent.skipped).toBe(true);
     expect(result.structuredContent.reason).toBe('not_in_cart');
+});
+
+test('navigate moves the storefront to a same-origin page (ACL-127)', async ({ page }) => {
+    const result = await callTool(page, TOOL.navigate, { url: '/checkout/cart' });
+
+    expectValidToolResult(result);
+    expect(typeof result.structuredContent.navigatedTo).toBe('string');
+    expect(result.structuredContent.navigatedTo).toContain('/checkout/cart');
+
+    // The tool returns first, then assigns location; the browser follows.
+    await page.waitForURL(/\/checkout\/cart/, { timeout: 15_000 });
+});
+
+test('add_to_cart with showCartOverlay opens the cart overlay (ACL-137)', async ({ page }) => {
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
+    const product = search.structuredContent.products[0];
+    expect(product?.id, 'need a product to add').toBeTruthy();
+
+    await callTool(page, TOOL.addToCart, { id: product.id, quantity: 1, showCartOverlay: true });
+
+    // Shopware renders the off-canvas cart, giving the shopper direct feedback.
+    await expect(page.locator('.cart-offcanvas').first()).toBeVisible({ timeout: 15_000 });
 });

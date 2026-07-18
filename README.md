@@ -123,6 +123,7 @@ panel:
 - `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
 - `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool.
 - `removeFromCartToolEnabled`: enables the cart removal `document.modelContext` tool.
+- `navigateToolEnabled`: enables the storefront navigation `document.modelContext` tool.
 
 ## Test
 For native WebMCP testing, follow Chrome's
@@ -174,6 +175,7 @@ successful mutations.
 | `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`; optional `showCartOverlay` (default `false`) to open the storefront cart overlay for shopper feedback. | `added`, `cart`. |
 | `shopware_webmcp_update_line_item` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100`. Quantity `0` removes the line item. | `updated`, `cart`, or `skipped` with `reason`. |
 | `shopware_webmcp_remove_from_cart` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`. | `removed`, `cart`. |
+| `shopware_webmcp_navigate` | Same-origin storefront `url` (or path) to open. | `navigatedTo`. |
 
 
 ## Extend
