@@ -35,3 +35,6 @@ Prefer Mermaid diagrams over long prose where a diagram is clearer.
   code/architecture improvements plus missing functions & use cases vs. the Linear
   MVP definition, status report, and Milestone 2 issues, with a prioritized
   roadmap.
+- [Module structure: adapter, transport, domain](specs/2026-07-18-module-structure-and-adapters.md)
+  — the layering rule (transport vs domain vs adapter), the target folder hierarchy,
+  and the concrete cuts to shrink shopware-client.ts and model-context-registry.ts.
