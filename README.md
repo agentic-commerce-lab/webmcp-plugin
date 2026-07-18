@@ -81,6 +81,7 @@ changes need the `shop:deploy` rebuild.
 | ----------------------- | --------------------------------------------------------------- |
 | `bun run shop:up`       | Start the shop and align its storefront domain with the port    |
 | `bun run shop:deploy`   | `bun run build` + refresh, install/activate, compile theme      |
+| `bun run shop:test`     | Ensure the shop is up + deployed, then run the e2e tests        |
 | `bun run shop:down`     | Stop and remove the shop container                              |
 | `bun run shop:restart`  | Restart the shop container                                      |
 | `bun run shop:logs`     | Follow the shop logs                                            |
@@ -107,15 +108,16 @@ routes, Twig data attributes, and storefront runtime in sync.
 
 ### Testing
 
-The end-to-end tests (Playwright) run against the running dev shop and default to
-`http://localhost:8000`:
+The end-to-end tests (Playwright) run against the dev shop, which is also the
+default `baseURL` (`http://localhost:8000`):
 
 ```sh
-bun run shop:up && bun run shop:deploy
-bun run test:e2e
-# or point at a different shop:
-SHOPWARE_BASE_URL=http://localhost:8000 bun run test:e2e
+bunx playwright install chromium   # once
+bun run shop:test                  # boot the shop, deploy the plugin, run the tests
 ```
+
+If the shop is already up and you only changed a test, `bun run test:e2e` is
+enough. Target a different shop with `SHOPWARE_BASE_URL=... bun run test:e2e`.
 
 For native browser testing, follow Chrome's
 [WebMCP setup guide](https://developer.chrome.com/docs/ai/webmcp), enable
@@ -172,16 +174,17 @@ panel:
 - `getProductCategoriesToolEnabled`: enables the product category `document.modelContext` tool.
 - `getCartToolEnabled`: enables the cart read `document.modelContext` tool.
 - `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
-- `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool.
-- `removeFromCartToolEnabled`: enables the cart removal `document.modelContext` tool.
+- `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool (quantity `0` removes).
+- `getSalesChannelContextToolEnabled`: enables the sales channel context `document.modelContext` tool.
 - `navigateToolEnabled`: enables the storefront navigation `document.modelContext` tool.
 
 ## Tool Reference
 
 All tools return WebMCP-style results with `content` text and `structuredContent`
-data. Product lookup tools use the Shopware Store API with customer context. Cart
-mutation tools use storefront cart routes, publish a cart update event, and
-request best-effort storefront cart UI refreshes after successful mutations.
+data. Product and category lookups use the Shopware Store API with customer
+context. Cart reads/writes and the sales channel context use the plugin's own
+same-origin storefront JSON endpoints (server-side `CartService`), and cart
+writes request best-effort storefront cart UI refreshes after success.
 
 | Tool | Input | Structured output |
 | --- | --- | --- |
@@ -191,7 +194,7 @@ request best-effort storefront cart UI refreshes after successful mutations.
 | `shopware_webmcp_get_cart` | No input properties. | `cart`. |
 | `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`; optional `showCartOverlay` (default `false`) to open the storefront cart overlay for shopper feedback. | `added`, `cart`. |
 | `shopware_webmcp_update_line_item` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100`. Quantity `0` removes the line item. | `updated`, `cart`, or `skipped` with `reason`. |
-| `shopware_webmcp_remove_from_cart` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`. | `removed`, `cart`. |
+| `shopware_webmcp_get_sales_channel_context` | No input properties. | `salesChannelContext` (sales channel, language, currency, customer group, country, tax mode, login state). |
 | `shopware_webmcp_navigate` | Same-origin storefront `url` (or path) to open. | `navigatedTo`. |
 
 ## Security & Limits

@@ -21,7 +21,8 @@ bun install
 | `bun run lint` | ESLint (flat config, typescript-eslint). `bun run lint:fix` to autofix. |
 | `bun run format:check` | Prettier check. `bun run format` to write. |
 | `bun run build` | Bundles the release storefront asset with Bun. |
-| `bun run test:e2e` | Playwright integration test against a running Shopware (see below). |
+| `bun run test:e2e` | Playwright integration test against an already-running shop (see below). |
+| `bun run shop:test` | Boot the Dockware dev shop, deploy the plugin, then run `test:e2e`. |
 
 CI runs `check` + `lint` + `format:check` (the `quality` job) and the Playwright
 integration test on every pull request.
@@ -42,25 +43,7 @@ channels — see [ADR 0004](docs/adr/2026-07-17-typescript-architecture.md):
 Type-checking is a separate gate: neither Vite nor Bun type-check, so `tsc` (via
 `bun run check`) is the authority.
 
-## Storefront architecture
-
-Runtime lives under `src/Resources/app/storefront/src/`:
-
-```
-main.ts                      entrypoint (registers the PluginManager plugin)
-webmcp-model-context/
-  runtime.ts                 bootstrap, config, document assembly, tool registration
-  model-context-registry.ts  document.modelContext registry + native bridge
-  cart-ui-sync.ts            best-effort storefront cart-UI refresh after mutations
-  shopware-client.ts         facade over the transport + domain modules
-  transport/                 token-discovery · http · paths
-  domain/                    product · category · cart (payload normalizers)
-  tools/
-    define-tool.ts           the tool factory (zod schema -> validator + JSON Schema)
-    schemas.ts               shared zod selectors, quantity, bounds
-    *.tool.ts                one file per tool: schema + execute, nothing else
-    storefront-tool.utils.ts small shared helpers
-```
+## Architecture
 
 See [ADR 0001](docs/adr/2026-07-17-architecture-overview.md) for the full picture.
 
@@ -84,13 +67,18 @@ See [ADR 0001](docs/adr/2026-07-17-architecture-overview.md) for the full pictur
 ## Running the integration test locally
 
 The Playwright test drives `document.modelContext` against a real storefront
-([ADR 0003](docs/adr/2026-07-17-testing-strategy.md)). Point it at a running shop
-(env `SHOPWARE_BASE_URL`) with the plugin installed and activated, then:
+([ADR 0003](docs/adr/2026-07-17-testing-strategy.md)). The simplest path uses the
+local Dockware dev shop (see the README "Development" section):
 
 ```sh
-bunx playwright install --with-deps chromium
-bun run test:e2e
+bunx playwright install --with-deps chromium   # once
+bun run shop:test                              # boot + deploy + test
 ```
+
+`bun run shop:test` ensures the shop is up (`shop:up`) and the current code is
+deployed (`shop:deploy`), then runs the tests. If the shop is already running and
+you only changed a test, `bun run test:e2e` is enough. To target a different shop,
+set `SHOPWARE_BASE_URL` (defaults to `http://localhost:8000`, the dev shop).
 
 ## PHP backend
 
