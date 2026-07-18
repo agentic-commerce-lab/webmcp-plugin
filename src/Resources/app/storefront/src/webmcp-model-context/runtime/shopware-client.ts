@@ -21,15 +21,8 @@ import {
     persistContextToken,
     readAccessKey,
     readContextToken,
-    readCsrfToken,
 } from './transport/token-discovery';
-import {
-    parseFlexibleResponse,
-    parseJsonResponse,
-    storeApiErrorMessage,
-    storefrontErrorMessage,
-    webMcpCartErrorMessage,
-} from './transport/http';
+import { parseJsonResponse, storeApiErrorMessage, webMcpCartErrorMessage } from './transport/http';
 import {
     createProductCriteria,
     normalizeProduct,
@@ -37,20 +30,16 @@ import {
     productIdFromUrl,
 } from './domain/product';
 import { markActiveCategoryTrail, normalizeCategories, normalizeCategoryNode } from './domain/category';
+import { findCartLineItemInDocument, findCartLineItemInPayload, normalizeCart } from './domain/cart';
+import { openCartOverlay } from './cart-ui-sync';
 import {
-    createAddToCartFormBody,
-    findCartLineItemInDocument,
-    findCartLineItemInPayload,
-    normalizeCart,
-    normalizeLineItems,
-} from './domain/cart';
-import { openCartOverlay, publishCartMutation } from './cart-ui-sync';
+    storefrontAddProductToCart,
+    storefrontChangeLineItemQuantity,
+    storefrontRemoveLineItemFromCart,
+} from './adapters/storefront-cart';
 
 const STORE_API_PATH = '/store-api';
 const WEBMCP_CART_PATH = '/webmcp/cart';
-const STOREFRONT_ADD_TO_CART_PATH = '/checkout/line-item/add';
-const STOREFRONT_CHANGE_LINE_ITEM_QUANTITY_PATH = '/checkout/line-item/change-quantity';
-const STOREFRONT_REMOVE_FROM_CART_PATH = '/checkout/line-item/delete';
 
 export class ShopwareClient {
     private baseUrl: string;
@@ -195,7 +184,7 @@ export class ShopwareClient {
 
     async addProductToCart(input: QuantityInput): Promise<CartSummary | null> {
         const productId = await this.resolveProductId(input);
-        const cart = await this.storefrontAddProductToCart({
+        const cart = await storefrontAddProductToCart(this.baseUrl, {
             productId,
             quantity: input.quantity,
             lineItemId: cleanText(input.lineItemId) || productId,
@@ -219,13 +208,13 @@ export class ShopwareClient {
         const remainingQuantity = cartLineItem.quantity - input.quantity;
         const cart =
             remainingQuantity > 0
-                ? await this.storefrontChangeLineItemQuantity({
+                ? await storefrontChangeLineItemQuantity(this.baseUrl, {
                       lineItemId,
                       quantity: remainingQuantity,
                       previousQuantity: cartLineItem.quantity,
                       removedQuantity: input.quantity,
                   })
-                : await this.storefrontRemoveLineItemFromCart({
+                : await storefrontRemoveLineItemFromCart(this.baseUrl, {
                       lineItemId,
                       previousQuantity: cartLineItem.quantity,
                       removedQuantity: cartLineItem.quantity,
@@ -251,7 +240,7 @@ export class ShopwareClient {
         const quantityDelta = input.quantity - cartLineItem.quantity;
         const cart =
             input.quantity > 0
-                ? await this.storefrontChangeLineItemQuantity({
+                ? await storefrontChangeLineItemQuantity(this.baseUrl, {
                       lineItemId,
                       quantity: input.quantity,
                       previousQuantity: cartLineItem.quantity,
@@ -259,7 +248,7 @@ export class ShopwareClient {
                       quantityDelta,
                       action: 'update',
                   })
-                : await this.storefrontRemoveLineItemFromCart({
+                : await storefrontRemoveLineItemFromCart(this.baseUrl, {
                       lineItemId,
                       previousQuantity: cartLineItem.quantity,
                       removedQuantity: cartLineItem.quantity,
@@ -379,184 +368,5 @@ export class ShopwareClient {
         const cartDocument = parseHtmlDocument(cartHtml, 'Cart lookup');
 
         return findCartLineItemInDocument(cartDocument, lineItemId, this.baseUrl);
-    }
-
-    private async storefrontCartPost(url: URL, body: URLSearchParams): Promise<unknown> {
-        const csrfToken = readCsrfToken();
-        const headers: Record<string, string> = {
-            Accept: 'application/json, text/html, */*',
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-        };
-
-        if (csrfToken) {
-            headers['X-CSRF-Token'] = csrfToken;
-            body.set('_csrf_token', csrfToken);
-        }
-
-        const response = await fetch(url.toString(), {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers,
-            body: body.toString(),
-        });
-        const payload = await parseFlexibleResponse(response);
-
-        if (!response.ok) {
-            throw new Error(storefrontErrorMessage(response, payload));
-        }
-
-        return payload;
-    }
-
-    async storefrontAddProductToCart({
-        productId,
-        quantity,
-        lineItemId,
-    }: {
-        productId: string;
-        quantity: number;
-        lineItemId: string;
-    }): Promise<UnknownRecord> {
-        const url = new URL(STOREFRONT_ADD_TO_CART_PATH, this.baseUrl);
-        const body = createAddToCartFormBody({
-            productId,
-            lineItemId,
-            quantity,
-        });
-        const payload = await this.storefrontCartPost(url, body);
-
-        const cartWidgetRefreshed = publishCartMutation(
-            {
-                action: 'add',
-                productId,
-                quantity,
-                lineItemId,
-            },
-            this.baseUrl,
-        );
-
-        return isPlainObject(payload)
-            ? {
-                  ...payload,
-                  cartWidgetRefreshed,
-              }
-            : {
-                  sessionCartUpdated: true,
-                  cartWidgetRefreshed,
-                  lineItems: [
-                      {
-                          id: lineItemId,
-                          referencedId: productId,
-                          type: 'product',
-                          quantity,
-                      },
-                  ],
-              };
-    }
-
-    async storefrontChangeLineItemQuantity({
-        lineItemId,
-        quantity,
-        previousQuantity,
-        removedQuantity,
-        quantityDelta,
-        action = 'update',
-    }: {
-        lineItemId: string;
-        quantity: number;
-        previousQuantity: number;
-        removedQuantity: number;
-        quantityDelta?: number;
-        action?: string;
-    }): Promise<UnknownRecord> {
-        const url = new URL(
-            `${STOREFRONT_CHANGE_LINE_ITEM_QUANTITY_PATH}/${encodeURIComponent(lineItemId)}`,
-            this.baseUrl,
-        );
-        const body = new URLSearchParams();
-        body.set('quantity', String(quantity));
-
-        const payload = await this.storefrontCartPost(url, body);
-
-        const cartWidgetRefreshed = publishCartMutation(
-            {
-                action,
-                lineItemId,
-                previousQuantity,
-                removedQuantity,
-                quantityDelta: Number.isFinite(quantityDelta) ? quantityDelta : quantity - previousQuantity,
-                remainingQuantity: quantity,
-                lineItemDeleted: false,
-            },
-            this.baseUrl,
-        );
-
-        return isPlainObject(payload)
-            ? {
-                  ...payload,
-                  cartWidgetRefreshed,
-                  lineItems:
-                      normalizeLineItems(payload.lineItems).length > 0
-                          ? payload.lineItems
-                          : [
-                                {
-                                    id: lineItemId,
-                                    quantity,
-                                },
-                            ],
-              }
-            : {
-                  sessionCartUpdated: true,
-                  cartWidgetRefreshed,
-                  lineItems: [
-                      {
-                          id: lineItemId,
-                          quantity,
-                      },
-                  ],
-              };
-    }
-
-    async storefrontRemoveLineItemFromCart({
-        lineItemId,
-        previousQuantity,
-        removedQuantity,
-        quantityDelta,
-        action = 'remove',
-    }: {
-        lineItemId: string;
-        previousQuantity: number;
-        removedQuantity: number;
-        quantityDelta?: number;
-        action?: string;
-    }): Promise<UnknownRecord> {
-        const url = new URL(`${STOREFRONT_REMOVE_FROM_CART_PATH}/${encodeURIComponent(lineItemId)}`, this.baseUrl);
-        const body = new URLSearchParams();
-        const payload = await this.storefrontCartPost(url, body);
-
-        const cartWidgetRefreshed = publishCartMutation(
-            {
-                action,
-                lineItemId,
-                previousQuantity,
-                removedQuantity,
-                quantityDelta: Number.isFinite(quantityDelta) ? quantityDelta : -previousQuantity,
-                remainingQuantity: 0,
-                lineItemDeleted: true,
-            },
-            this.baseUrl,
-        );
-
-        return isPlainObject(payload)
-            ? {
-                  ...payload,
-                  cartWidgetRefreshed,
-              }
-            : {
-                  sessionCartUpdated: true,
-                  cartWidgetRefreshed,
-                  lineItems: [],
-              };
     }
 }
