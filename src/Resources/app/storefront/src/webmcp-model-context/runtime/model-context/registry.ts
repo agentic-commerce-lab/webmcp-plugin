@@ -1,6 +1,6 @@
-import type { ModelContext, ModelContextTool, ToolInput, UnknownRecord } from './types';
-import { isPlainObject } from './tools/storefront-tool.utils';
-import { registerNativeModelContextTool, unregisterNativeModelContextTool } from './native-model-context';
+import type { ModelContext, ModelContextTool, ToolInput, UnknownRecord } from '../types';
+import { isPlainObject } from '../tools/storefront-tool.utils';
+import { registerNativeModelContextTool, unregisterNativeModelContextTool } from './native-bridge';
 
 const SWAG_WEB_MCP_TOOL_NAME_PREFIX = 'shopware_webmcp_';
 const ORIGINAL_GET_TOOLS_KEY = '__swagWebMcpOriginalGetTools';

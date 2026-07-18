@@ -23,7 +23,7 @@ import {
     getModelContext,
     registerModelContextTool,
     unregisterModelContextTool,
-} from './runtime/model-context-registry';
+} from './runtime/model-context/registry';
 
 const CONFIG_SELECTOR = '[data-swag-web-mcp-model-context]';
 const CONFIG_OPTIONS_ATTRIBUTE = 'data-swag-web-mcp-model-context-options';

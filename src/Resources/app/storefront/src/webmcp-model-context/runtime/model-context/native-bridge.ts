@@ -1,4 +1,4 @@
-import type { ModelContextTool, NativeModelContext, NativeModelContextTool, ToolInput, UnknownRecord } from './types';
+import type { ModelContextTool, NativeModelContext, NativeModelContextTool, ToolInput, UnknownRecord } from '../types';
 
 const NATIVE_TOOL_REGISTRY_KEY = '__swagWebMcpNativeToolRegistry';
 
