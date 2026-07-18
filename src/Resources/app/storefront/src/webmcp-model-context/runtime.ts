@@ -17,7 +17,8 @@ import type {
     WebMcpRuntimeConfig,
     WebMcpToolKey,
 } from './runtime/types';
-import { hasControlCharacters } from './runtime/tools/storefront-tool.utils';
+import { currentBaseUrl, isElement, isPlainObject, normalizeConfig, parseJson } from './runtime/config';
+import { buildWebMcpDocument } from './runtime/document';
 import {
     addModelContextHelpers,
     getModelContext,
@@ -25,10 +26,10 @@ import {
     unregisterModelContextTool,
 } from './runtime/model-context/registry';
 
+export { buildWebMcpDocument };
+
 const CONFIG_SELECTOR = '[data-swag-web-mcp-model-context]';
 const CONFIG_OPTIONS_ATTRIBUTE = 'data-swag-web-mcp-model-context-options';
-const DEFAULT_CONTEXT = 'Shopware storefront interaction graph';
-const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
 export function bootstrapWebMcpModelContext(configOrElement: unknown = document.querySelector(CONFIG_SELECTOR)): {
     config: WebMcpRuntimeConfig;
@@ -55,18 +56,6 @@ export function bootstrapWebMcpModelContext(configOrElement: unknown = document.
     return {
         config,
         document: webMcpDocument,
-    };
-}
-
-export function buildWebMcpDocument(config: unknown = {}): WebMcpDocument {
-    const normalizedConfig = normalizeConfig(config);
-    const baseUrl = currentBaseUrl(normalizedConfig.baseUrl);
-
-    return {
-        version: '0.2',
-        context: normalizedConfig.context,
-        elements: [...createCoreShopwareElements(baseUrl), ...createStaticElements(normalizedConfig, baseUrl)],
-        security: createSecurityDefinition(),
     };
 }
 
@@ -183,204 +172,6 @@ function exposeGlobals(config: WebMcpRuntimeConfig, webMcpDocument: WebMcpDocume
     };
 }
 
-function normalizeConfig(options: unknown = {}): WebMcpRuntimeConfig {
-    const source = isPlainObject(options) ? options : {};
-    const tools = isPlainObject(source.tools) ? source.tools : {};
-
-    return {
-        enabled: booleanOption(source.enabled, true),
-        context: nonEmptyString(source.context) || DEFAULT_CONTEXT,
-        baseUrl: nonEmptyString(source.baseUrl),
-        storeApiAccessKey: nonEmptyString(source.storeApiAccessKey),
-        navigationCategoryId: nonEmptyString(source.navigationCategoryId),
-        activeCategoryId: nonEmptyString(source.activeCategoryId),
-        currentProductId: nonEmptyString(source.currentProductId),
-        staticElements: source.staticElements,
-        staticElementsJson: nonEmptyString(source.staticElementsJson),
-        tools: {
-            searchProducts: booleanOption(tools.searchProducts, true),
-            getProduct: booleanOption(tools.getProduct, true),
-            getProductCategories: booleanOption(tools.getProductCategories, true),
-            getCart: booleanOption(tools.getCart, true),
-            addToCart: booleanOption(tools.addToCart, true),
-            updateLineItem: booleanOption(tools.updateLineItem, true),
-            removeFromCart: booleanOption(tools.removeFromCart, true),
-            navigate: booleanOption(tools.navigate, true),
-        },
-    };
-}
-
-function createCoreShopwareElements(baseUrl: string): UnknownRecord[] {
-    return [
-        {
-            selector: 'form[action*="/search"] input[name="search"]',
-            role: 'input.search',
-            name: 'SEARCH_QUERY',
-        },
-        {
-            selector: 'form[action*="/search"] button[type="submit"]',
-            role: 'button.submit',
-            name: 'SUBMIT_SEARCH',
-            action: {
-                kind: 'GET',
-                endpoint: `${baseUrl}/search`,
-                params: {
-                    search: '$SEARCH_QUERY',
-                },
-            },
-        },
-        {
-            selector: 'a[href*="/checkout/cart"], .header-cart',
-            role: 'link.cart',
-            name: 'VIEW_CART',
-            action: {
-                kind: 'GET',
-                endpoint: `${baseUrl}/checkout/cart`,
-            },
-        },
-        {
-            selector: 'form[action*="/checkout/line-item/add"] button[type="submit"]',
-            role: 'button.add_to_cart',
-            name: 'ADD_TO_CART',
-            action: {
-                kind: 'POST',
-                endpoint: '@ADD_TO_CART',
-                csrf_tag: '$CSRF_TOKEN',
-            },
-        },
-    ];
-}
-
-function createStaticElements(config: WebMcpRuntimeConfig, baseUrl: string): UnknownRecord[] {
-    const source = config.staticElements || parseJson(config.staticElementsJson);
-    const elements = Array.isArray(source)
-        ? source
-        : isPlainObject(source) && Array.isArray(source.elements)
-          ? source.elements
-          : [];
-
-    return elements.reduce((normalizedElements: UnknownRecord[], element: unknown) => {
-        const normalizedElement = normalizeElement(element, baseUrl);
-
-        if (normalizedElement) {
-            normalizedElements.push(normalizedElement);
-        }
-
-        return normalizedElements;
-    }, []);
-}
-
-function normalizeElement(element: unknown, baseUrl: string): UnknownRecord | null {
-    if (!isPlainObject(element)) {
-        return null;
-    }
-
-    const selector = safeString(element.selector);
-    const role = safeString(element.role);
-    const name = safeString(element.name);
-
-    if (!selector || !role || !name) {
-        return null;
-    }
-
-    const normalizedElement: UnknownRecord = {
-        selector,
-        role,
-        name,
-    };
-    const description = safeString(element.description);
-    const action = normalizeAction(element.action, baseUrl);
-
-    if (description) {
-        normalizedElement.description = description.slice(0, 160);
-    }
-
-    if (action) {
-        normalizedElement.action = action;
-    }
-
-    if (isPlainObject(element.metadata)) {
-        normalizedElement.metadata = element.metadata;
-    }
-
-    return normalizedElement;
-}
-
-function normalizeAction(action: unknown, baseUrl: string): UnknownRecord | null {
-    if (!isPlainObject(action)) {
-        return null;
-    }
-
-    const kind = safeString(action.kind)?.toUpperCase();
-    const endpoint = normalizeEndpoint(action.endpoint, baseUrl);
-
-    if (!kind || !HTTP_METHODS.includes(kind) || !endpoint) {
-        return null;
-    }
-
-    const normalizedAction: UnknownRecord = {
-        kind,
-        endpoint,
-    };
-
-    if (isPlainObject(action.params)) {
-        normalizedAction.params = action.params;
-    }
-
-    ['csrf_tag', 'payload_jwe'].forEach((key) => {
-        const value = safeString(action[key]);
-
-        if (value) {
-            normalizedAction[key] = value;
-        }
-    });
-
-    return normalizedAction;
-}
-
-function normalizeEndpoint(endpoint: unknown, baseUrl: string): string | null {
-    const value = safeString(endpoint);
-
-    if (!value) {
-        return null;
-    }
-
-    if (value.startsWith('@')) {
-        return value;
-    }
-
-    if (value.startsWith('/')) {
-        return `${baseUrl}${value}`;
-    }
-
-    if (!value.startsWith('https://') && !value.startsWith('http://')) {
-        return null;
-    }
-
-    try {
-        return new URL(value).toString();
-    } catch (error) {
-        return null;
-    }
-}
-
-function createSecurityDefinition(): UnknownRecord {
-    return {
-        endpoints: {
-            '@ADD_TO_CART': {
-                tokenised: true,
-                expires: 300,
-                scopes: ['cart:write'],
-            },
-        },
-        csrf: {
-            token_field: '_csrf_token',
-            header_name: 'X-CSRF-Token',
-            mode: 'synchroniser',
-        },
-    };
-}
-
 function registerStorefrontTool(
     config: unknown,
     toolKey: WebMcpToolKey,
@@ -403,105 +194,6 @@ function registerStorefrontTool(
             activeCategoryId: normalizedConfig.activeCategoryId,
             currentProductId: normalizedConfig.currentProductId,
         }),
-    );
-}
-
-function currentBaseUrl(configuredBaseUrl: unknown): string {
-    const fallbackBaseUrl = window.location.origin.replace(/\/+$/, '');
-
-    if (!configuredBaseUrl) {
-        return fallbackBaseUrl;
-    }
-
-    if (typeof configuredBaseUrl !== 'string') {
-        return fallbackBaseUrl;
-    }
-
-    try {
-        return new URL(configuredBaseUrl, fallbackBaseUrl).origin.replace(/\/+$/, '');
-    } catch (error) {
-        return fallbackBaseUrl;
-    }
-}
-
-function parseJson(value: unknown): unknown {
-    const json = nonEmptyString(value);
-
-    if (!json) {
-        return null;
-    }
-
-    try {
-        return JSON.parse(json);
-    } catch (error) {
-        return null;
-    }
-}
-
-function booleanOption(value: unknown, fallback: boolean): boolean {
-    if (typeof value === 'boolean') {
-        return value;
-    }
-
-    if (typeof value === 'number') {
-        return value === 1;
-    }
-
-    if (typeof value === 'string') {
-        switch (value.trim().toLowerCase()) {
-            case '1':
-            case 'true':
-            case 'yes':
-            case 'on':
-                return true;
-            case '0':
-            case 'false':
-            case 'no':
-            case 'off':
-                return false;
-            default:
-                return fallback;
-        }
-    }
-
-    return fallback;
-}
-
-function safeString(value: unknown): string | null {
-    if (typeof value !== 'string') {
-        return null;
-    }
-
-    const trimmed = value.trim();
-
-    if (!trimmed || hasControlCharacters(trimmed)) {
-        return null;
-    }
-
-    return trimmed;
-}
-
-function nonEmptyString(value: unknown): string | null {
-    if (typeof value !== 'string') {
-        return null;
-    }
-
-    const trimmed = value.trim();
-
-    return trimmed || null;
-}
-
-function isPlainObject(value: unknown): value is UnknownRecord {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function isElement(value: unknown): value is Element {
-    return (
-        Boolean(value) &&
-        typeof value === 'object' &&
-        value !== null &&
-        'nodeType' in value &&
-        (value as Node).nodeType === Node.ELEMENT_NODE
     );
 }
 
