@@ -7,6 +7,8 @@
 #
 #   bin/shop.sh up        Start the shop (creates .env from .env.example first)
 #   bin/shop.sh deploy    Transpile the TS runtime and (re)install the plugin
+#   bin/shop.sh test      Ensure the shop is up + deployed, then run the e2e tests
+#   bin/shop.sh restart   Restart the shop container
 #   bin/shop.sh down      Stop and remove the shop container
 #   bin/shop.sh logs      Follow the shop logs
 #   bin/shop.sh shell     Open a shell inside the shop container
@@ -161,7 +163,14 @@ open | urls)
     print_urls
     ;;
 
+test)
+    "$0" up
+    "$0" deploy
+    echo "→ Running Playwright e2e tests"
+    bun run test:e2e
+    ;;
+
 help | *)
-    sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,17p' "$0" | sed 's/^# \{0,1\}//'
     ;;
 esac

@@ -3,13 +3,16 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * WebMCP integration tests run against a real, running Shopware storefront.
  *
- * - Locally: defaults to the developer's running shopware-cli project.
- * - In CI: point SHOPWARE_BASE_URL at the Dockware container (see ADR 0003).
+ * - Locally: defaults to the Dockware dev shop at http://localhost:8000
+ *   (`bun run shop:up`). `bun run shop:test` boots it, deploys the plugin, and
+ *   runs these tests in one step.
+ * - In CI: SHOPWARE_BASE_URL points at the Dockware container (see ADR 0003).
  *
  * The plugin must be installed and active in the target shop, otherwise the
- * `document.modelContext` tools are never registered.
+ * `document.modelContext` tools are never registered — `bun run shop:deploy`
+ * ensures that locally.
  */
-const baseURL = process.env.SHOPWARE_BASE_URL ?? 'http://127.0.0.1:8000';
+const baseURL = process.env.SHOPWARE_BASE_URL ?? 'http://localhost:8000';
 
 export default defineConfig({
     testDir: './tests/e2e',
