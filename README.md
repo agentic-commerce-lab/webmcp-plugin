@@ -171,7 +171,7 @@ successful mutations.
 | `shopware_webmcp_get_product` | Exactly one of `id`, `sku`, or same-origin product `url`. | `lookup`, `product`. |
 | `shopware_webmcp_get_product_categories` | Optional `scope`: `tree` or `product`; for `product` scope exactly one of `id`, `sku`, or same-origin `url` (any of them implies `product` scope). | `lookup`, `scope`, `source` (`store-api`), `sourceUrl`, `count`, `activeCategoryIds`, `categories`, `tree`. Categories carry real Shopware ids, names, SEO urls, and `parentId`. |
 | `shopware_webmcp_get_cart` | No input properties. | `cart`. |
-| `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`. | `added`, `cart`. |
+| `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`; optional `showCartOverlay` (default `false`) to open the storefront cart overlay for shopper feedback. | `added`, `cart`. |
 | `shopware_webmcp_update_line_item` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100`. Quantity `0` removes the line item. | `updated`, `cart`, or `skipped` with `reason`. |
 | `shopware_webmcp_remove_from_cart` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`. | `removed`, `cart`. |
 

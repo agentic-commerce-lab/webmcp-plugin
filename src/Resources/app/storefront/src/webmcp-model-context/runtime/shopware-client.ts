@@ -44,7 +44,7 @@ import {
     normalizeCart,
     normalizeLineItems,
 } from './domain/cart';
-import { publishCartMutation } from './cart-ui-sync';
+import { openCartOverlay, publishCartMutation } from './cart-ui-sync';
 
 const STORE_API_PATH = '/store-api';
 const WEBMCP_CART_PATH = '/webmcp/cart';
@@ -200,6 +200,10 @@ export class ShopwareClient {
             quantity: input.quantity,
             lineItemId: cleanText(input.lineItemId) || productId,
         });
+
+        if (input.showCartOverlay) {
+            openCartOverlay(this.baseUrl);
+        }
 
         return normalizeCart(cart);
     }

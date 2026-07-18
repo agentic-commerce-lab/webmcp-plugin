@@ -23,6 +23,34 @@ export function publishCartMutation(detail: UnknownRecord, baseUrl: string): boo
     return cartWidgetRefreshed;
 }
 
+/**
+ * Actively opens the Shopware off-canvas cart overlay, giving the shopper direct
+ * visual feedback after an agent-driven cart change. Opt-in per call (see the
+ * add_to_cart `showCartOverlay` param): a background agent operating the shop
+ * invisibly does not open it.
+ */
+export function openCartOverlay(baseUrl: string): boolean {
+    const offCanvasCartUrl = readOffCanvasCartUrl(baseUrl);
+
+    if (!offCanvasCartUrl) {
+        return false;
+    }
+
+    const opened = refreshOffCanvasCartPlugins(offCanvasCartUrl);
+
+    if (opened) {
+        document.dispatchEvent(
+            new CustomEvent('webmcp:cart-overlay-opened', {
+                detail: {
+                    url: offCanvasCartUrl,
+                },
+            }),
+        );
+    }
+
+    return opened;
+}
+
 function refreshCartWidgets(): boolean {
     const instances = window.PluginManager?.getPluginInstances?.('CartWidget');
     let refreshed = false;

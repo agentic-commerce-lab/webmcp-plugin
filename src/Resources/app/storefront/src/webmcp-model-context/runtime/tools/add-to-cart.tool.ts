@@ -10,6 +10,12 @@ const addToCartInput = z
     .object({
         ...productSelectorShape,
         quantity: optionalQuantity.describe('Quantity to add.'),
+        showCartOverlay: z
+            .boolean()
+            .default(false)
+            .describe(
+                'When true, open the storefront cart overlay so the shopper sees the change. Use this only when the shopper is watching the same page; leave false for background/invisible agents.',
+            ),
     })
     .refine((value) => hasExactlyOne([value.id, value.sku, value.url]), {
         message: 'Provide exactly one of id, sku, or url.',

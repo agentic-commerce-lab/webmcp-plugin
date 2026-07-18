@@ -94,6 +94,7 @@ export interface CartLineItemLookupInput extends ProductLookupInput {
 export interface QuantityInput extends ProductLookupInput {
     lineItemId?: string | undefined;
     quantity: number;
+    showCartOverlay?: boolean | undefined;
 }
 
 export interface CartQuantityInput extends CartLineItemLookupInput {
