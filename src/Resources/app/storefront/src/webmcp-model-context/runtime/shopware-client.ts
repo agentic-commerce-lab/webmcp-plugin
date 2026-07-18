@@ -23,7 +23,7 @@ import {
     productIdFromUrl,
 } from './domain/product';
 import { markActiveCategoryTrail, normalizeCategories, normalizeCategoryNode } from './domain/category';
-import { openCartOverlay, publishCartMutation } from './cart-ui-sync';
+import { openCartOverlay, refreshCartUi } from './cart-ui-sync';
 
 const STORE_API_PATH = '/store-api';
 const WEBMCP_CART_PATH = '/webmcp/cart';
@@ -178,14 +178,14 @@ export class ShopwareClient {
             openCartOverlay(this.baseUrl);
         }
 
-        return this.finalizeCartMutation(cart, 'add');
+        return this.finalizeCartMutation(cart);
     }
 
     async updateLineItem(input: CartQuantityInput): Promise<CartSummary | null> {
         const productId = await this.resolveProductId(input);
         const cart = await this.cartWriteRequest('PATCH', { productId, quantity: input.quantity });
 
-        return this.finalizeCartMutation(cart, 'update');
+        return this.finalizeCartMutation(cart);
     }
 
     async resolveProductId(input: ProductLookupInput): Promise<string> {
@@ -300,12 +300,12 @@ export class ShopwareClient {
      * The server returns the authoritative cart, so there is no client-side delta to
      * compute — just refresh the storefront cart UI so the shopper sees the change.
      */
-    private finalizeCartMutation(cart: unknown, action: string): CartSummary | null {
+    private finalizeCartMutation(cart: unknown): CartSummary | null {
         if (!isPlainObject(cart)) {
             return null;
         }
 
-        const cartWidgetRefreshed = publishCartMutation({ action }, this.baseUrl);
+        const cartWidgetRefreshed = refreshCartUi(this.baseUrl);
 
         return { ...cart, cartWidgetRefreshed } as CartSummary;
     }

@@ -6,14 +6,15 @@ import {
     parseHtmlDocument,
 } from './tools/storefront-tool.utils';
 import { STOREFRONT_CART_PATH, STOREFRONT_OFFCANVAS_CART_PATH } from './transport/paths';
-import type { UnknownRecord } from './types';
 
-export function publishCartMutation(detail: UnknownRecord, baseUrl: string): boolean {
-    document.dispatchEvent(
-        new CustomEvent('webmcp:cart-updated', {
-            detail,
-        }),
-    );
+/**
+ * Refreshes the storefront cart UI (header widget, open off-canvas, cart page) after
+ * a server-side cart write so the shopper sees the change. The server returns the
+ * authoritative cart, so there is nothing to diff here — this is a pure best-effort
+ * UI sync. Returns whether a cart widget refresh was triggered.
+ */
+export function refreshCartUi(baseUrl: string): boolean {
+    document.dispatchEvent(new CustomEvent('webmcp:cart-updated'));
 
     const cartWidgetRefreshed = refreshCartWidgets();
 
