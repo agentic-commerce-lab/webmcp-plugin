@@ -8,6 +8,7 @@
     {% set getCartToolEnabled = config('SwagWebMcp.config.getCartToolEnabled') %}
     {% set addToCartToolEnabled = config('SwagWebMcp.config.addToCartToolEnabled') %}
     {% set updateLineItemToolEnabled = config('SwagWebMcp.config.updateLineItemToolEnabled') %}
+    {% set getSalesChannelContextToolEnabled = config('SwagWebMcp.config.getSalesChannelContextToolEnabled') %}
     {% set navigateToolEnabled = config('SwagWebMcp.config.navigateToolEnabled') %}
     {% set activeCategoryId = null %}
     {% if page.category is defined and page.category %}
@@ -34,6 +35,7 @@
             getCart: getCartToolEnabled,
             addToCart: addToCartToolEnabled,
             updateLineItem: updateLineItemToolEnabled,
+            getSalesChannelContext: getSalesChannelContextToolEnabled,
             navigate: navigateToolEnabled
         }
     } %}

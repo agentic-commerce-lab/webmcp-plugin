@@ -68,6 +68,13 @@
         </input-field>
 
         <input-field type="bool">
+            <name>getSalesChannelContextToolEnabled</name>
+            <label>Enable get_sales_channel_context tool</label>
+            <label lang="de-DE">get_sales_channel_context-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
+
+        <input-field type="bool">
             <name>navigateToolEnabled</name>
             <label>Enable navigate tool</label>
             <label lang="de-DE">navigate-Tool aktivieren</label>

@@ -70,10 +70,10 @@ export function storefrontErrorMessage(response: Response, payload: any): string
     return `Shopware storefront cart request failed with status ${response.status}.`;
 }
 
-export function webMcpCartErrorMessage(response: Response, payload: any): string {
+export function webMcpErrorMessage(response: Response, payload: any): string {
     if (typeof payload?.message === 'string' && payload.message.trim()) {
         return payload.message.trim();
     }
 
-    return `Shopware WebMCP cart request failed with status ${response.status}.`;
+    return `Shopware WebMCP request failed with status ${response.status}.`;
 }

@@ -17,6 +17,7 @@ const TOOL = {
     getCart: 'shopware_webmcp_get_cart',
     addToCart: 'shopware_webmcp_add_to_cart',
     updateLineItem: 'shopware_webmcp_update_line_item',
+    getSalesChannelContext: 'shopware_webmcp_get_sales_channel_context',
     navigate: 'shopware_webmcp_navigate',
 } as const;
 
@@ -181,6 +182,16 @@ test('update_line_item to quantity 0 is an idempotent no-op for a product not in
         (item) => item.id === product.id,
     );
     expect(present ?? false).toBe(false);
+});
+
+test('get_sales_channel_context returns the active sales channel context', async ({ page }) => {
+    const result = await callTool(page, TOOL.getSalesChannelContext);
+
+    expectValidToolResult(result);
+    const context = result.structuredContent.salesChannelContext;
+    expect(context).toBeTruthy();
+    expect(context.currency?.isoCode, 'context should carry a currency iso code').toBeTruthy();
+    expect(context.customer, 'context should report the customer login state').toBeTruthy();
 });
 
 test('navigate moves the storefront to a same-origin page (ACL-127)', async ({ page }) => {

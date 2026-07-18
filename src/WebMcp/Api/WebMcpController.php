@@ -11,6 +11,7 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Swag\WebMcp\WebMcp\Config\WebMcpConfig;
 use Swag\WebMcp\WebMcp\Config\WebMcpConfigProviderInterface;
 use Swag\WebMcp\WebMcp\Model\CartPayloadBuilder;
+use Swag\WebMcp\WebMcp\Model\SalesChannelContextPayloadBuilder;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,6 +27,7 @@ final class WebMcpController
         private readonly CartService $cartService,
         private readonly CartPayloadBuilder $cartPayloadBuilder,
         private readonly LineItemFactoryRegistry $lineItemFactory,
+        private readonly SalesChannelContextPayloadBuilder $salesChannelContextPayloadBuilder,
     ) {
     }
 
@@ -78,6 +80,34 @@ final class WebMcpController
     }
 
     /**
+     * Read-only sales channel context (sales channel, language, currency, customer
+     * group, country, tax mode, login state) resolved from the shopper's session.
+     * Never cached.
+     */
+    #[Route(
+        path: '/webmcp/sales-channel-context',
+        name: 'frontend.swag_web_mcp.sales_channel_context',
+        defaults: ['_routeScope' => ['storefront'], 'auth_required' => false, 'XmlHttpRequest' => true],
+        methods: ['GET'],
+    )]
+    public function salesChannelContext(Request $request, ?SalesChannelContext $salesChannelContext = null): Response
+    {
+        $config = $this->configProvider->getConfig($salesChannelContext);
+        if (!$config->enabled || !$config->getSalesChannelContextToolEnabled) {
+            return $this->errorResponse('WebMCP sales channel context tool is disabled.', Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$salesChannelContext instanceof SalesChannelContext) {
+            return $this->errorResponse('Sales channel context is unavailable.', Response::HTTP_BAD_REQUEST);
+        }
+
+        $response = new JsonResponse($this->salesChannelContextPayloadBuilder->build($salesChannelContext, $request));
+        $response->headers->set('cache-control', 'private, no-store');
+
+        return $response;
+    }
+
+    /**
      * Adds `quantity` of a product to the shopper's cart (relative). Runs in the
      * shopper's own session — the storefront-scoped, same-origin request resolves
      * the identical SalesChannelContext the user browses with, so agent and user
@@ -115,23 +145,23 @@ final class WebMcpController
         $config = $this->configProvider->getConfig($salesChannelContext);
         $toolEnabled = $setTarget ? $config->updateLineItemToolEnabled : $config->addToCartToolEnabled;
         if (!$config->enabled || !$toolEnabled) {
-            return $this->cartError('WebMCP cart write tool is disabled.', Response::HTTP_NOT_FOUND);
+            return $this->errorResponse('WebMCP cart write tool is disabled.', Response::HTTP_NOT_FOUND);
         }
 
         if (!$salesChannelContext instanceof SalesChannelContext) {
-            return $this->cartError('Sales channel context is unavailable.', Response::HTTP_BAD_REQUEST);
+            return $this->errorResponse('Sales channel context is unavailable.', Response::HTTP_BAD_REQUEST);
         }
 
         $payload = $this->decodeJsonBody($request);
         $productId = \is_string($payload['productId'] ?? null) ? trim($payload['productId']) : '';
         if ('' === $productId) {
-            return $this->cartError('A productId is required.', Response::HTTP_BAD_REQUEST);
+            return $this->errorResponse('A productId is required.', Response::HTTP_BAD_REQUEST);
         }
 
         // add: quantity is a relative amount (>= 1, default 1); update: target (>= 0, required).
         $quantity = $this->normalizeQuantity($payload['quantity'] ?? null, $setTarget ? 0 : 1, $setTarget ? null : 1);
         if (null === $quantity) {
-            return $this->cartError('A valid quantity is required.', Response::HTTP_BAD_REQUEST);
+            return $this->errorResponse('A valid quantity is required.', Response::HTTP_BAD_REQUEST);
         }
 
         $cart = $this->cartService->getCart($salesChannelContext->getToken(), $salesChannelContext);
@@ -166,7 +196,7 @@ final class WebMcpController
         ], $context);
     }
 
-    private function cartError(string $message, int $status): JsonResponse
+    private function errorResponse(string $message, int $status): JsonResponse
     {
         $response = new JsonResponse(['message' => $message], $status);
         $response->headers->set('cache-control', 'private, no-store');

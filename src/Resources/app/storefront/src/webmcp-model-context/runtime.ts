@@ -5,6 +5,10 @@ import {
     GET_PRODUCT_CATEGORIES_TOOL_NAME,
 } from './runtime/tools/get-product-categories.tool';
 import { createGetProductTool, GET_PRODUCT_TOOL_NAME } from './runtime/tools/get-product.tool';
+import {
+    createGetSalesChannelContextTool,
+    GET_SALES_CHANNEL_CONTEXT_TOOL_NAME,
+} from './runtime/tools/get-sales-channel-context.tool';
 import { createNavigateTool, NAVIGATE_TOOL_NAME } from './runtime/tools/navigate.tool';
 import { createSearchProductsTool, SEARCH_PRODUCTS_TOOL_NAME } from './runtime/tools/search-products.tool';
 import { createUpdateLineItemTool, UPDATE_LINE_ITEM_TOOL_NAME } from './runtime/tools/update-line-item.tool';
@@ -71,6 +75,7 @@ export function registerConfiguredTools(config: unknown = {}): void {
     registerGetCartTool(normalizedConfig);
     registerAddToCartTool(normalizedConfig);
     registerUpdateLineItemTool(normalizedConfig);
+    registerGetSalesChannelContextTool(normalizedConfig);
     registerNavigateTool(normalizedConfig);
 }
 
@@ -101,6 +106,15 @@ export function registerAddToCartTool(config: unknown = {}): ModelContextTool | 
 
 export function registerUpdateLineItemTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(config, 'updateLineItem', UPDATE_LINE_ITEM_TOOL_NAME, createUpdateLineItemTool);
+}
+
+export function registerGetSalesChannelContextTool(config: unknown = {}): ModelContextTool | null {
+    return registerStorefrontTool(
+        config,
+        'getSalesChannelContext',
+        GET_SALES_CHANNEL_CONTEXT_TOOL_NAME,
+        createGetSalesChannelContextTool,
+    );
 }
 
 export function registerNavigateTool(config: unknown = {}): ModelContextTool | null {
@@ -163,6 +177,7 @@ function exposeGlobals(config: WebMcpRuntimeConfig, webMcpDocument: WebMcpDocume
         registerGetCartTool: () => registerGetCartTool(config),
         registerAddToCartTool: () => registerAddToCartTool(config),
         registerUpdateLineItemTool: () => registerUpdateLineItemTool(config),
+        registerGetSalesChannelContextTool: () => registerGetSalesChannelContextTool(config),
         registerNavigateTool: () => registerNavigateTool(config),
     };
 }
@@ -203,6 +218,7 @@ window.SwagWebMcpRuntime = {
     registerGetCartTool,
     registerAddToCartTool,
     registerUpdateLineItemTool,
+    registerGetSalesChannelContextTool,
 };
 
 if (document.readyState === 'loading') {

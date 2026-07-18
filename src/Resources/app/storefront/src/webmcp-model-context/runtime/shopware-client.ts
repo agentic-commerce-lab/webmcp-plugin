@@ -15,7 +15,7 @@ import {
     readAccessKey,
     readContextToken,
 } from './transport/token-discovery';
-import { parseJsonResponse, storeApiErrorMessage, webMcpCartErrorMessage } from './transport/http';
+import { parseJsonResponse, storeApiErrorMessage, webMcpErrorMessage } from './transport/http';
 import {
     createProductCriteria,
     normalizeProduct,
@@ -28,6 +28,7 @@ import { openCartOverlay, refreshCartUi } from './cart-ui-sync';
 const STORE_API_PATH = '/store-api';
 const WEBMCP_CART_PATH = '/webmcp/cart';
 const WEBMCP_CART_LINE_ITEM_PATH = '/webmcp/cart/line-item';
+const WEBMCP_SALES_CHANNEL_CONTEXT_PATH = '/webmcp/sales-channel-context';
 
 export class ShopwareClient {
     private baseUrl: string;
@@ -170,6 +171,29 @@ export class ShopwareClient {
         return cart;
     }
 
+    async getSalesChannelContext(): Promise<UnknownRecord> {
+        const url = new URL(WEBMCP_SALES_CHANNEL_CONTEXT_PATH, this.baseUrl);
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        const payload = await parseJsonResponse(response);
+
+        if (!response.ok) {
+            throw new Error(webMcpErrorMessage(response, payload));
+        }
+
+        if (!isPlainObject(payload)) {
+            throw new Error('No sales channel context was returned by the Shopware WebMCP endpoint.');
+        }
+
+        return payload;
+    }
+
     async addProductToCart(input: QuantityInput): Promise<CartSummary | null> {
         const productId = await this.resolveProductId(input);
         const cart = await this.cartWriteRequest('POST', { productId, quantity: input.quantity });
@@ -269,7 +293,7 @@ export class ShopwareClient {
         const payload = await parseJsonResponse(response);
 
         if (!response.ok) {
-            throw new Error(webMcpCartErrorMessage(response, payload));
+            throw new Error(webMcpErrorMessage(response, payload));
         }
 
         return payload;
@@ -290,7 +314,7 @@ export class ShopwareClient {
         const payload = await parseJsonResponse(response);
 
         if (!response.ok) {
-            throw new Error(webMcpCartErrorMessage(response, payload));
+            throw new Error(webMcpErrorMessage(response, payload));
         }
 
         return payload;
