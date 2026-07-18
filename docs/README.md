@@ -28,6 +28,11 @@ Prefer Mermaid diagrams over long prose where a diagram is clearer.
   — open-source readiness: fixing the strange TS build wiring, enforcing type-check
   + lint in CI, replacing boundary `any` with typed domain models, and structuring
   the runtime for external contributors.
+- [0005 — Cart: session context, caching & declarative vs. imperative exposure](adr/2026-07-18-cart-context-caching-declarative.md)
+  — **Proposed / open.** Grounded options (Shopware + WebMCP standard) for
+  cart context-sync, cache-safety, and the imperative-vs-declarative /
+  delta-vs-target-quantity questions, with a founded hybrid recommendation and
+  shared plumbing for `get_sales_channel_context`.
 
 ### Specs
 
@@ -38,3 +43,7 @@ Prefer Mermaid diagrams over long prose where a diagram is clearer.
 - [Module structure: adapter, transport, domain](specs/2026-07-18-module-structure-and-adapters.md)
   — the layering rule (transport vs domain vs adapter), the target folder hierarchy,
   and the concrete cuts to shrink shopware-client.ts and model-context-registry.ts.
+- [Cart architecture implementation plan](specs/2026-07-18-cart-implementation-plan.md)
+  — commit-by-commit (each a later MR) plan implementing ADR 0005: server-side
+  `CartService` write endpoints, declarative-per-line tools, slimmed `cart-ui-sync`,
+  auto-derived `.wmcp`.
