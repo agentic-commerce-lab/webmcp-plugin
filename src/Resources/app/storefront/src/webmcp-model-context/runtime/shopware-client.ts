@@ -381,21 +381,7 @@ export class ShopwareClient {
         return findCartLineItemInDocument(cartDocument, lineItemId, this.baseUrl);
     }
 
-    async storefrontAddProductToCart({
-        productId,
-        quantity,
-        lineItemId,
-    }: {
-        productId: string;
-        quantity: number;
-        lineItemId: string;
-    }): Promise<UnknownRecord> {
-        const url = new URL(STOREFRONT_ADD_TO_CART_PATH, this.baseUrl);
-        const body = createAddToCartFormBody({
-            productId,
-            lineItemId,
-            quantity,
-        });
+    private async storefrontCartPost(url: URL, body: URLSearchParams): Promise<unknown> {
         const csrfToken = readCsrfToken();
         const headers: Record<string, string> = {
             Accept: 'application/json, text/html, */*',
@@ -419,6 +405,26 @@ export class ShopwareClient {
         if (!response.ok) {
             throw new Error(storefrontErrorMessage(response, payload));
         }
+
+        return payload;
+    }
+
+    async storefrontAddProductToCart({
+        productId,
+        quantity,
+        lineItemId,
+    }: {
+        productId: string;
+        quantity: number;
+        lineItemId: string;
+    }): Promise<UnknownRecord> {
+        const url = new URL(STOREFRONT_ADD_TO_CART_PATH, this.baseUrl);
+        const body = createAddToCartFormBody({
+            productId,
+            lineItemId,
+            quantity,
+        });
+        const payload = await this.storefrontCartPost(url, body);
 
         const cartWidgetRefreshed = publishCartMutation(
             {
@@ -469,31 +475,9 @@ export class ShopwareClient {
             this.baseUrl,
         );
         const body = new URLSearchParams();
-        const csrfToken = readCsrfToken();
-        const headers: Record<string, string> = {
-            Accept: 'application/json, text/html, */*',
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-        };
-
         body.set('quantity', String(quantity));
 
-        if (csrfToken) {
-            headers['X-CSRF-Token'] = csrfToken;
-            body.set('_csrf_token', csrfToken);
-        }
-
-        const response = await fetch(url.toString(), {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers,
-            body: body.toString(),
-        });
-        const payload = await parseFlexibleResponse(response);
-
-        if (!response.ok) {
-            throw new Error(storefrontErrorMessage(response, payload));
-        }
+        const payload = await this.storefrontCartPost(url, body);
 
         const cartWidgetRefreshed = publishCartMutation(
             {
@@ -549,29 +533,7 @@ export class ShopwareClient {
     }): Promise<UnknownRecord> {
         const url = new URL(`${STOREFRONT_REMOVE_FROM_CART_PATH}/${encodeURIComponent(lineItemId)}`, this.baseUrl);
         const body = new URLSearchParams();
-        const csrfToken = readCsrfToken();
-        const headers: Record<string, string> = {
-            Accept: 'application/json, text/html, */*',
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-        };
-
-        if (csrfToken) {
-            headers['X-CSRF-Token'] = csrfToken;
-            body.set('_csrf_token', csrfToken);
-        }
-
-        const response = await fetch(url.toString(), {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers,
-            body: body.toString(),
-        });
-        const payload = await parseFlexibleResponse(response);
-
-        if (!response.ok) {
-            throw new Error(storefrontErrorMessage(response, payload));
-        }
+        const payload = await this.storefrontCartPost(url, body);
 
         const cartWidgetRefreshed = publishCartMutation(
             {
