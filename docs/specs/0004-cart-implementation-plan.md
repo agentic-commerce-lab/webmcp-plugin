@@ -1,7 +1,7 @@
 # Cart architecture — implementation plan
 
 Date: 2026-07-18
-Implements: [ADR 0005 — Cart context, caching & exposure](../adr/2026-07-18-cart-context-caching-declarative.md)
+Implements: [ADR 0004 — Cart context, caching & exposure](../adr/0004-cart-context-caching-declarative.md)
 Branch: `refactor/typescript-foundation` (stacked)
 
 **Workflow:** one big branch; **each commit is later extracted as its own MR**, so

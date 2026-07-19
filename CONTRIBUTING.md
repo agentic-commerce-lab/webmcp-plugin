@@ -30,7 +30,7 @@ integration test on every pull request.
 ## Build & distribution model
 
 TypeScript never ships to the browser as-is; it is always compiled. There are two
-channels — see [ADR 0004](docs/adr/2026-07-17-typescript-architecture.md):
+channels — see [ADR 0003](docs/adr/0003-typescript-architecture.md):
 
 - **Source install** (git clone / composer project): Shopware's own Vite/esbuild
   storefront build compiles the plugin's `.ts` during the normal storefront build.
@@ -45,7 +45,7 @@ Type-checking is a separate gate: neither Vite nor Bun type-check, so `tsc` (via
 
 ## Architecture
 
-See [ADR 0001](docs/adr/2026-07-17-architecture-overview.md) for the full picture.
+See [Architecture Overview](docs/Architecture.md) for the full picture.
 
 ## Adding or changing a tool
 
@@ -67,7 +67,7 @@ See [ADR 0001](docs/adr/2026-07-17-architecture-overview.md) for the full pictur
 ## Running the integration test locally
 
 The Playwright test drives `document.modelContext` against a real storefront
-([ADR 0003](docs/adr/2026-07-17-testing-strategy.md)). The simplest path uses the
+([ADR 0002](docs/adr/0002-testing-strategy.md)). The simplest path uses the
 local Dockware dev shop (see the README "Development" section):
 
 ```sh

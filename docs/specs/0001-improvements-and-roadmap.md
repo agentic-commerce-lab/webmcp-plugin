@@ -2,7 +2,7 @@
 
 Date: 2026-07-17
 Status: Draft
-Baseline: [ADR 0001 — Architecture Overview](../adr/2026-07-17-architecture-overview.md)
+Baseline: [Architecture Overview](../Architecture.md)
 Sources: current codebase (IST), Linear project *WebMCP Support*
 (MVP Definition, Status Report, Showcase Brief) and Milestone 2 issues
 ACL-126…ACL-132.
@@ -24,7 +24,7 @@ Severity: **P1** = correctness/maintainability risk or best-practice violation
 that will bite soon · **P2** = meaningful debt · **P3** = polish.
 
 > The TypeScript-specific items below (A1–A3, A7) are elaborated for **open-source
-> readiness** in [ADR 0004 — TypeScript integration, architecture & conventions](../adr/2026-07-17-typescript-architecture.md):
+> readiness** in [ADR 0003 — TypeScript integration, architecture & conventions](../adr/0003-typescript-architecture.md):
 > the strange JS-entry/two-compiler build wiring, unenforced type-checking, missing
 > lint/format, boundary `any`, and module structure.
 
@@ -217,7 +217,7 @@ Ordering blends impact (MVP/differentiator, safety) with effort and dependency.
 | 9 | `clear_cart` (ACL-129) + `create_checkout` (ACL-128) tools | Feature (B3) | P2 | 4 |
 | 10 | Land page-navigation tool (ACL-127) into main | Feature (B3) | P2 | 4 |
 | 11 | Mutation audit logging (server-side) | Safety (B2) | P2 | — |
-| 12 | ~~Move `get_product_categories` off DOM scraping onto Store API~~ ✅ done — see [ADR 0002](../adr/2026-07-17-categories-store-api.md) | Debt (B1) | P2 | — |
+| 12 | ~~Move `get_product_categories` off DOM scraping onto Store API~~ ✅ done — see [ADR 0001](../adr/0001-categories-store-api.md) | Debt (B1) | P2 | — |
 | 13 | QA: add TS check to `qa`, PHPStan, align PHP 8.2/8.3, drop package-lock | Debt (A7) | P2 | — |
 | 14 | Order management / order status (ACL-130) | Feature (B3/B4) | P3 | 1 |
 | 15 | Shopify tool-name alignment decision (ACL-131) | Feature (B4) | P3 | 4 |

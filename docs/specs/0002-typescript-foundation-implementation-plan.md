@@ -2,9 +2,9 @@
 
 Date: 2026-07-17
 Status: Draft
-Basis: [ADR 0004 — TypeScript integration & conventions](../adr/2026-07-17-typescript-architecture.md) ·
-[Improvements & Roadmap](2026-07-17-improvements-and-roadmap.md) ·
-[ADR 0002 — Categories via Store API](../adr/2026-07-17-categories-store-api.md)
+Basis: [ADR 0003 — TypeScript integration & conventions](../adr/0003-typescript-architecture.md) ·
+[Improvements & Roadmap](0001-improvements-and-roadmap.md) ·
+[ADR 0001 — Categories via Store API](../adr/0001-categories-store-api.md)
 
 ## How to execute this plan
 
@@ -152,7 +152,7 @@ flags to silence errors.
 - Drop `allowJs`/`checkJs` from tsconfig; remove `**/*.js` from `include`.
 
 **Fallback:** if the Shopware build does **not** pick up `main.ts`, keep a minimal
-`main.js` shim (`import './main';`) and document why. Record the outcome in ADR 0004.
+`main.js` shim (`import './main';`) and document why. Record the outcome in ADR 0003.
 
 **Verification:** `bun run build` green; theme compile in a real shop emits the
 plugin JS; e2e green.
@@ -332,4 +332,4 @@ short ADR. **Commit:** `Decide and apply tool naming policy`
 ## Final verification (whole plan)
 `bun run check && bun run lint && bun run format:check && bun run build && bun run test:e2e`
 green; `composer qa` green; README tool table and `config.xml` list every enabled
-tool; ADR 0004 updated with the WP3 entrypoint outcome and the WP6 document decision.
+tool; ADR 0003 updated with the WP3 entrypoint outcome and the WP6 document decision.

@@ -1,4 +1,4 @@
-# ADR 0003 — WebMCP Integration Test Against a Real Shopware
+# ADR 0002 — WebMCP Integration Test Against a Real Shopware
 
 Date: 2026-07-17
 Status: Accepted (implemented)
@@ -39,5 +39,5 @@ build.
 
 Unit tests, PHP test-kernel tests, the PHP↔TS contract test, and a multi-version
 matrix stay on the roadmap (A1/A7 in
-[`../specs/2026-07-17-improvements-and-roadmap.md`](../specs/2026-07-17-improvements-and-roadmap.md)).
+[`../specs/0001-improvements-and-roadmap.md`](../specs/0001-improvements-and-roadmap.md)).
 This ADR ships only the one real integration test.

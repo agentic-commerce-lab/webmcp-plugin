@@ -2,9 +2,9 @@
 
 Date: 2026-07-18
 Status: Draft
-Relates to: [ADR 0001 — Architecture Overview](../adr/2026-07-17-architecture-overview.md) ·
-[ADR 0004 — TypeScript architecture](../adr/2026-07-17-typescript-architecture.md) ·
-[Improvements & Roadmap](2026-07-17-improvements-and-roadmap.md) (A2)
+Relates to: [Architecture Overview](../Architecture.md) ·
+[ADR 0003 — TypeScript architecture](../adr/0003-typescript-architecture.md) ·
+[Improvements & Roadmap](0001-improvements-and-roadmap.md) (A2)
 
 ## Goal
 

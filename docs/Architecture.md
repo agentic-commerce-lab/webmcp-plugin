@@ -1,18 +1,18 @@
-# ADR 0001 — WebMCP Plugin Architecture Overview (IST)
+# WebMCP Plugin Architecture Overview (IST)
 
 Date: 2026-07-17 (revised 2026-07-18)
 Status: Accepted (describes the current implementation, not a target state)
 
-> This ADR documents the **current ("IST") architecture** of the Shopware WebMCP
-> plugin. It records what exists and why, not what should change.
+> This document describes the **current ("IST") architecture** of the Shopware
+> WebMCP plugin. It records what exists and why, not what should change.
 >
 > **Revision 2026-07-18** — updated to the state after the TypeScript foundation
-> work (ADR 0004), the Store-API category migration (ADR 0002), the integration
-> test suite (ADR 0003), the server-side cart write endpoints (ADR 0005 / cart
+> work (ADR 0003), the Store-API category migration (ADR 0001), the integration
+> test suite (ADR 0002), the server-side cart write endpoints (ADR 0004 / cart
 > implementation plan), and the move to a standalone Dockware dev shop. The
 > notable characteristics from the original ADR are now mostly resolved — see
 > §9. The remaining backlog lives in
-> [`../specs/2026-07-17-improvements-and-roadmap.md`](../specs/2026-07-17-improvements-and-roadmap.md).
+> [`specs/0001-improvements-and-roadmap.md`](specs/0001-improvements-and-roadmap.md).
 
 ## 1. Context
 
@@ -231,7 +231,7 @@ annotations (`readOnlyHint`, `untrustedContentHint`) and return
 
 > Removal is handled by `update_line_item` with `quantity: 0` (declarative,
 > idempotent) — there is no separate `remove_from_cart` tool. `get_product_categories`
-> now uses the Store API navigation endpoint (ADR 0002), not DOM scraping.
+> now uses the Store API navigation endpoint (ADR 0001), not DOM scraping.
 
 ## 7. Configuration flow
 
@@ -285,7 +285,7 @@ graph LR
   tsconfigs), `bun run lint` (ESLint), `bun run format` (Prettier). All three run
   in the CI "TypeScript quality" job.
 - **Tests** — 11 Playwright integration tests (`tests/e2e`) drive
-  `document.modelContext` against a real shop (`bun run test:e2e`, ADR 0003), run
+  `document.modelContext` against a real shop (`bun run test:e2e`, ADR 0002), run
   locally against the dev shop and in CI against `dockware/shopware`.
 - **PHP QA** — `composer qa` / `docker compose run --rm qa` still run **only PHP
   `php -l` syntax linting** (no PHPStan/Psalm/CS-Fixer/PHPUnit).
@@ -306,14 +306,14 @@ Most of the concerns recorded in the original ADR have since been addressed.
 - **God modules split.** `shopware-client.ts` 1302 → 336 (over `transport/` +
   `domain/`); `runtime.ts` 897 → 190 (config, model-context registry, and native
   bridge extracted); `get-product-categories.tool.ts` 876 → 123 (Store API
-  instead of a DOM tree-inference engine, ADR 0002).
+  instead of a DOM tree-inference engine, ADR 0001).
 - **Per-tool boilerplate → factory.** The "exactly one of id/sku/url" validator,
   quantity clamping, and constants live once behind `defineTool` + shared zod
   `schemas.ts`.
 - **DOM scraping removed.** `get_product_categories` uses the Store API
-  navigation endpoint (ADR 0002).
+  navigation endpoint (ADR 0001).
 - **0% tests → integration suite.** 11 Playwright tests plus a CI "TypeScript
-  quality" gate (ADR 0003, 0004).
+  quality" gate (ADR 0002, 0003).
 - **Safety hints added.** Tools declare `readOnlyHint` / `untrustedContentHint`.
 - **AGENTS.md corrected** to the TypeScript runtime under `app/storefront/src`.
 

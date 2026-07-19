@@ -1,9 +1,9 @@
 # Shopware WebMCP Plugin
 
-A Shopware 6 plugin that adds [WebMCP](https://github.com/webmachinelearning/webmcp)
-support to storefronts. It registers browser-side `document.modelContext` tools so
+[WebMCP](https://github.com/webmachinelearning/webmcp)
+support for Shopware 6.
 AI-capable clients can do agentic product discovery, category browsing, and cart
-operations through bounded tool calls instead of scraping the rendered page.
+operations in context of a browser session. 
 
 > **Status: research preview.** This plugin is experimental and not intended for
 > production use. Use it only in controlled test or development environments, and
@@ -21,22 +21,16 @@ structured outputs.
 ## What This Plugin Does
 
 When enabled, AI-capable browsers and assistants can interact with a Shopware
-storefront through structured catalog and cart tools: search products, inspect
-product details, browse categories, read the current cart, and prepare cart
-changes — all as explicit, bounded capabilities with validated inputs and
-structured outputs.
+storefront through structured catalog and cart tools: search products, inspect product details, browse categories, read the current cart, and prepare cart changes — all as explicit, bounded capabilities with validated inputs and structured outputs.
 
 It does **not** handle checkout, payment, private backend operations, or
 privileged merchant workflows.
 
-For the Shopware community it also serves as a small, inspectable reference for
-how WebMCP-style tools fit into existing storefront, configuration, session, and
-Store API boundaries.
-
 ## Development
 
-Everything runs from this repository — you do **not** need a separate Shopware
-installation. You only need [Bun](https://bun.sh) and Docker.
+You can checkout this plugin to `custom/plugins/SwagWebMcp` of an existing installation or use ephemeral Shopware instances provided by dockware. 
+
+For this you only need [Bun](https://bun.sh) and Docker.
 
 ### 1. Install dependencies
 
@@ -46,8 +40,7 @@ bun install
 
 ### 2. Boot a local shop
 
-A full, throwaway Shopware (web + MySQL + Adminer + MailCatcher) runs in a single
-[Dockware](https://dockware.io) container with this plugin bind-mounted into it.
+A full, ephemeral Shopware (web + MySQL + Adminer + MailCatcher) runs in a single [Dockware](https://dockware.io) container with this plugin bind-mounted into it.
 
 ```sh
 cp .env.example .env   # then adjust ports if any are already taken
@@ -72,8 +65,7 @@ Edit code, then re-run:
 bun run shop:deploy
 ```
 
-PHP changes are picked up live from the mounted source; storefront TypeScript
-changes need the `shop:deploy` rebuild.
+PHP changes are picked up live from the mounted source; storefront TypeScript changes need the `shop:deploy` rebuild.
 
 ### Commands
 
@@ -93,19 +85,6 @@ changes need the `shop:deploy` rebuild.
 | `bun run format`        | Format with Prettier (`format:check` to verify only)           |
 | `bun run test:e2e`      | Run the Playwright end-to-end tests against the running shop    |
 
-### Storefront TypeScript
-
-The browser runtime is TypeScript under
-`src/Resources/app/storefront/src/webmcp-model-context`. The entrypoint is
-`src/Resources/app/storefront/src/main.ts`, which Shopware discovers and compiles
-for dev/theme; `bun run build` produces the release `dist` bundle used in ZIPs.
-
-Add or change tools via the `defineTool` factory with a zod input schema — do not
-hand-write JSON Schemas. Keep tool inputs and outputs (especially
-`structuredContent`) stable unless a change intentionally updates the WebMCP
-contract. When touching configuration, keep the Admin config, service wiring,
-routes, Twig data attributes, and storefront runtime in sync.
-
 ### Testing
 
 The end-to-end tests (Playwright) run against the dev shop, which is also the
@@ -121,24 +100,23 @@ enough. Target a different shop with `SHOPWARE_BASE_URL=... bun run test:e2e`.
 
 For native browser testing, follow Chrome's
 [WebMCP setup guide](https://developer.chrome.com/docs/ai/webmcp), enable
-`chrome://flags/#enable-webmcp-testing`, and relaunch Chrome. Then inspect the
-runtime from the storefront console:
+`chrome://flags/#enable-webmcp-testing`, and relaunch Chrome. Then inspect the runtime from the storefront console:
 
 ```js
 window.SwagWebMcp; // runtime config + loaded state
 document.modelContext.getTools(); // registered WebMCP tools
 ```
 
+### Architecture
+
+See the [Architecture Overview](docs/Architecture.md) for how the plugin is put
+together, and [docs/](docs/README.md) for the ADRs and specs.
+
 ### Building an installable ZIP
 
 ```sh
 docker compose run --rm qa bin/build-zip.sh
 ```
-
-This type-checks the TypeScript, rebuilds the storefront asset, and packages
-`SwagWebMcp.zip` with compiled `dist` files included. The dev-shop files
-(`docker-compose.yml`, `.env*`, `bin/shop.sh`) are excluded from the ZIP and
-never ship with the plugin.
 
 ## Installing Into an Existing Shopware
 
@@ -147,9 +125,6 @@ extensions → Upload extension), then activate it:
 
 <https://github.com/agentic-commerce-lab/web-mcp-plugin/releases/download/latest-main/SwagWebMcp.zip>
 
-Release ZIPs ship with compiled storefront assets, so the plugin works right
-after upload. To install from a source checkout placed under
-`custom/plugins/SwagWebMcp`:
 
 ```sh
 bun install && bun run build
@@ -162,8 +137,7 @@ After installing, enable and configure the plugin in Shopware Admin.
 
 ## Configuration
 
-Shopware renders these settings in the plugin configuration screen in the Admin
-panel:
+Shopware renders these settings in the plugin configuration screen in the Admin panel:
 
 <img src="docs/admin-configuration.svg" alt="Shopware Admin WebMCP configuration screen" width="760">
 

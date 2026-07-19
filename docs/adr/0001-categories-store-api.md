@@ -1,9 +1,9 @@
-# ADR 0002 — Move `get_product_categories` from DOM scraping to the Store API
+# ADR 0001 — Move `get_product_categories` from DOM scraping to the Store API
 
 Date: 2026-07-17
 Status: Accepted
-Relates to: [ADR 0001 — Architecture Overview](2026-07-17-architecture-overview.md) ·
-[Improvements & Roadmap](../specs/2026-07-17-improvements-and-roadmap.md) (item B1 / #12)
+Relates to: [Architecture Overview](../Architecture.md) ·
+[Improvements & Roadmap](../specs/0001-improvements-and-roadmap.md) (item B1 / #12)
 
 ## Context
 
@@ -90,7 +90,7 @@ improvement: results now carry real IDs usable by other tools.
   `shopware-client.ts` (god-module split is tracked separately in the roadmap, A2).
   The broader "strange TypeScript integration / big files / structure" feedback
   raised in review is captured in
-  [ADR 0004 — TypeScript integration, architecture & conventions](2026-07-17-typescript-architecture.md).
+  [ADR 0003 — TypeScript integration, architecture & conventions](0003-typescript-architecture.md).
 
 ## Addendum (2026-07-17) — current-page context
 

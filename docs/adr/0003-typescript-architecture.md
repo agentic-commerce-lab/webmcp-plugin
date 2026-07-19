@@ -1,10 +1,10 @@
-# ADR 0004 — TypeScript integration, architecture & conventions (open-source readiness)
+# ADR 0003 — TypeScript integration, architecture & conventions (open-source readiness)
 
 Date: 2026-07-17
 Status: Draft
-Relates to: [ADR 0001 — Architecture Overview](2026-07-17-architecture-overview.md) ·
-[ADR 0003 — Testing Strategy](2026-07-17-testing-strategy.md) ·
-[Improvements & Roadmap](../specs/2026-07-17-improvements-and-roadmap.md) (A1–A3, A7)
+Relates to: [Architecture Overview](../Architecture.md) ·
+[ADR 0002 — Testing Strategy](0002-testing-strategy.md) ·
+[Improvements & Roadmap](../specs/0001-improvements-and-roadmap.md) (A1–A3, A7)
 
 ## Context
 
@@ -207,7 +207,7 @@ compiled bundle **must** ship in the ZIP. The TS source is also in the ZIP but i
 - Producing `dist` with a standalone bundler (not Shopware's own build) is the
   deliberate trade-off for a standalone OSS repo with no shop in CI. Acceptable
   because the bundle is trivial (register a PluginManager plugin); the risk is
-  transpile divergence from a real shop, mitigated by the e2e test (ADR 0003).
+  transpile divergence from a real shop, mitigated by the e2e test (ADR 0002).
 
 **Release chain (`bin/build-zip.sh`):**
 `bun install` → `tsc` (type-check) → eslint/prettier (check) → `bun run build`
@@ -227,7 +227,7 @@ compiled bundle **must** ship in the ZIP. The TS source is also in the ZIP but i
 ### 2. Enforce TypeScript in CI
 - Add `bun run check` (tsc) to the QA gate so type errors fail CI, not only the ZIP
   build. Unify PHP + TS checks into one CI pipeline (composer qa + bun check + lint
-  + e2e per [ADR 0003](2026-07-17-testing-strategy.md)).
+  + e2e per [ADR 0002](0002-testing-strategy.md)).
 
 ### 3. Adopt lint + format
 - **typescript-eslint** (flat config) + **Prettier** (or Biome as an all-in-one).
@@ -251,7 +251,7 @@ compiled bundle **must** ship in the ZIP. The TS source is also in the ZIP but i
 - Type the core request methods (`storeApiRequest<T>()`), removing `Promise<any>`.
 
 ### 6. Structure for readability (open-source ergonomics)
-- Split the god modules along the seams in ADR 0001 §9 / roadmap A2:
+- Split the god modules along the seams in the Architecture Overview §9 / roadmap A2:
   `store-api-client`, `cart-client`, `*-normalizer`, `cart-ui-sync`,
   `token-discovery`, and a thin `tool-registry` / `native-bridge`.
 - A **shared tool factory** + typed `productSelector` schema to remove per-tool
@@ -292,7 +292,7 @@ to avoid runtime-parse regressions on real Store API payloads.
   lint/CI). Best done incrementally: (1) CI + lint + tsconfig, (2) tool factory +
   schema/type unification, (3) module split, (4) domain types.
 - **Risk:** introducing zod/domain types touches the client boundary broadly;
-  guard with the [ADR 0003](2026-07-17-testing-strategy.md) test pyramid before/after.
+  guard with the [ADR 0002](0002-testing-strategy.md) test pyramid before/after.
 
 ## Verification
 

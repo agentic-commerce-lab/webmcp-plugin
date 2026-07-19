@@ -1,17 +1,17 @@
-# ADR 0005 — Cart: session context, caching & declarative vs. imperative exposure
+# ADR 0004 — Cart: session context, caching & declarative vs. imperative exposure
 
 Date: 2026-07-18
 Status: **Accepted** (2026-07-18)
-Relates to: [ADR 0001 — Architecture Overview](2026-07-17-architecture-overview.md) ·
-[ADR 0002 — Categories via Store API](2026-07-17-categories-store-api.md) ·
-[Improvements & Roadmap](../specs/2026-07-17-improvements-and-roadmap.md)
+Relates to: [Architecture Overview](../Architecture.md) ·
+[ADR 0001 — Categories via Store API](0001-categories-store-api.md) ·
+[Improvements & Roadmap](../specs/0001-improvements-and-roadmap.md)
 (`get_sales_channel_context`, item B1) ·
-[Module structure](../specs/2026-07-18-module-structure-and-adapters.md)
+[Module structure](../specs/0003-module-structure-and-adapters.md)
 
 > Accepted with the two-tool variant of resolution 1 (`add_to_cart` +
 > `update_line_item`). See the resolutions section for the full decision. Grounded
 > in both the Shopware platform and the WebMCP standard. Implementation plan:
-> [Cart architecture implementation plan](../specs/2026-07-18-cart-implementation-plan.md).
+> [Cart architecture implementation plan](../specs/0004-cart-implementation-plan.md).
 
 ## Context
 
