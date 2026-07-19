@@ -264,16 +264,26 @@ graph LR
     Dist --> Zip["bin/build-zip.sh → SwagWebMcp.zip"]
     Src -->|bun run check/lint/format:check| TSQA["tsc + ESLint + Prettier"]
     Src -->|bun run test:e2e| E2E["Playwright · 11 tests"]
-    PHP["src/*.php"] -->|composer qa → bin/lint| Lint["php -l only"]
-    subgraph CI["GitHub Actions (build-plugin-zip.yml)"]
-        J1["Integration Test<br/>(Playwright vs dockware/shopware)"]
-        J2["TypeScript quality<br/>(check + lint + format:check)"]
-        J3["Build zip → latest-main release"]
+    PHP["src/*.php"] -->|composer qa| Lint["php -l + PHPStan (lvl 8) + PHP-CS-Fixer"]
+    subgraph CI["GitHub Actions (ci.yml)"]
+        J1["test: Integration Test<br/>(Playwright vs dockware/shopware)"]
+        J2["quality: TypeScript quality<br/>(check + lint + format:check)"]
+        J3["php-quality: composer qa<br/>(php -l + PHPStan + PHP-CS-Fixer)"]
+        J4["build-plugin-zip: build zip<br/>→ latest-main release"]
     end
     E2E --> J1
     TSQA --> J2
-    Zip --> J3
+    Lint --> J3
+    Zip --> J4
+    J1 --> J4
+    J2 --> J4
+    J3 --> J4
 ```
+
+The three checks — `test`, `quality`, and `php-quality` — run in parallel;
+`build-plugin-zip` runs only after all three pass (`needs: [test, quality,
+php-quality]`), so a cheap PHPStan/CS-Fixer failure surfaces without waiting on
+the integration test.
 
 - **Local dev shop** — a full Shopware runs on demand in a single
   [Dockware](https://dockware.io) container (`dockware/dev`) via the `shop`
@@ -287,8 +297,11 @@ graph LR
 - **Tests** — 11 Playwright integration tests (`tests/e2e`) drive
   `document.modelContext` against a real shop (`bun run test:e2e`, ADR 0002), run
   locally against the dev shop and in CI against `dockware/shopware`.
-- **PHP QA** — `composer qa` / `docker compose run --rm qa` still run **only PHP
-  `php -l` syntax linting** (no PHPStan/Psalm/CS-Fixer/PHPUnit).
+- **PHP QA** — `composer qa` / `docker compose run --rm qa` run `php -l` syntax
+  linting (`bin/lint`), **PHPStan** at level 8 (`phpstan.neon.dist`, clean, no
+  baseline), and **PHP-CS-Fixer** in dry-run/check mode (`.php-cs-fixer.dist.php`,
+  `@PSR12` + `@Symfony` + risky, `declare_strict_types`). `composer cs-fix`
+  applies fixes. There is still no PHPUnit/Psalm.
 - **Release** — `bin/build-storefront-dist.ts` bundles `main.ts` with `Bun.build`
   (IIFE, minified) into `dist/` (gitignored, built fresh); `bin/build-zip.sh`
   type-checks, rebuilds, and packages `SwagWebMcp.zip`. The dev-shop files
@@ -319,8 +332,8 @@ Most of the concerns recorded in the original ADR have since been addressed.
 
 **Still open (see the improvement spec):**
 
-- **PHP has no static analysis or unit tests** — `composer qa` remains `php -l`
-  only; there is no PHPStan/Psalm/PHPUnit.
+- **PHP has no unit tests** — `composer qa` now runs `php -l`, PHPStan (level 8,
+  clean) and PHP-CS-Fixer, but there is still no PHPUnit/Psalm.
 - **`CartPayloadBuilder.php` (378) and `cart-ui-sync.ts` (294)** remain the
   largest units; cart-UI refresh stays inherently best-effort and theme-dependent.
 - **Storefront context dependency** — cart/context endpoints return `400` without

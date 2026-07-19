@@ -83,4 +83,7 @@ set `SHOPWARE_BASE_URL` (defaults to `http://localhost:8000`, the dev shop).
 ## PHP backend
 
 PHP lives under `src/WebMcp` (endpoints, config provider, cart payload builder).
-QA is `composer qa` (run via `docker compose run --rm qa`).
+QA is `composer qa` (run via `docker compose run --rm qa`), which runs `php -l`
+syntax linting, **PHPStan** (level 8, config in `phpstan.neon.dist`), and
+**PHP-CS-Fixer** in check mode (`.php-cs-fixer.dist.php`). Run `composer cs-fix`
+to apply code-style fixes.

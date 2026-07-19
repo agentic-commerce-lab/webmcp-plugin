@@ -88,7 +88,7 @@ regenerate `bun.lock`.
 - `.prettierignore` — same as eslint ignores + `*.md` optional (keep docs manual).
 - Delete stray `package-lock.json` (Bun is canonical); confirm it is gitignored.
 
-**CI** (`.github/workflows/build-plugin-zip.yml`): add a `quality` job that runs on
+**CI** (`.github/workflows/ci.yml`): add a `quality` job that runs on
 the existing `pull_request` trigger:
 ```yaml
   quality:

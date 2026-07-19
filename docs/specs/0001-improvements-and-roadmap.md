@@ -104,7 +104,9 @@ breakage surfaces at compile/lint time rather than as silent nulls.
 
 - `qa` runs **only** `php -l`. Add `bun run check` (TS type-check) to the default
   `qa` target so type errors fail before release, not only in `build-zip.sh`.
-- Add static analysis: **PHPStan** (or Psalm) for PHP; consider `eslint` for TS.
+- ~~Add static analysis: **PHPStan** (or Psalm) for PHP~~ ✅ done — PHPStan
+  (level 8, clean) and PHP-CS-Fixer are wired into `composer qa`. ESLint for
+  TS already runs via `bun run lint`.
 - **No tests exist (0% coverage).** AGENTS.md §7.4 forbids adding a framework
   *without request* — so this is a decision to take, not a silent change. Minimum
   worth proposing: unit tests for input normalization/validators (pure functions,
@@ -218,7 +220,7 @@ Ordering blends impact (MVP/differentiator, safety) with effort and dependency.
 | 10 | Land page-navigation tool (ACL-127) into main | Feature (B3) | P2 | 4 |
 | 11 | Mutation audit logging (server-side) | Safety (B2) | P2 | — |
 | 12 | ~~Move `get_product_categories` off DOM scraping onto Store API~~ ✅ done — see [ADR 0001](../adr/0001-categories-store-api.md) | Debt (B1) | P2 | — |
-| 13 | QA: add TS check to `qa`, PHPStan, align PHP 8.2/8.3, drop package-lock | Debt (A7) | P2 | — |
+| 13 | QA: ~~PHPStan + PHP-CS-Fixer in `composer qa`~~ ✅ done; still open: align PHP 8.2/8.3, drop package-lock | Debt (A7) | P2 | — |
 | 14 | Order management / order status (ACL-130) | Feature (B3/B4) | P3 | 1 |
 | 15 | Shopify tool-name alignment decision (ACL-131) | Feature (B4) | P3 | 4 |
 | 16 | Coupons, store-info, variant-helper, shipping/payment listing (ACL-132) | Feature (B4) | P3 | 4,5 |

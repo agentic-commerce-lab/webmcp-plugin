@@ -23,9 +23,7 @@ final class CartPayloadBuilder
         $lineItems = [];
 
         foreach ($cart->getLineItems() as $lineItem) {
-            if ($lineItem instanceof LineItem) {
-                $lineItems[] = $this->normalizeLineItem($lineItem, $currency, $baseUrl);
-            }
+            $lineItems[] = $this->normalizeLineItem($lineItem, $currency, $baseUrl);
         }
 
         return $this->removeNullValues([
@@ -55,9 +53,7 @@ final class CartPayloadBuilder
 
         if ($level < 2) {
             foreach ($lineItem->getChildren() as $childLineItem) {
-                if ($childLineItem instanceof LineItem) {
-                    $children[] = $this->normalizeLineItem($childLineItem, $currency, $baseUrl, $level + 1);
-                }
+                $children[] = $this->normalizeLineItem($childLineItem, $currency, $baseUrl, $level + 1);
             }
         }
 
@@ -145,11 +141,7 @@ final class CartPayloadBuilder
         $found = false;
 
         foreach ($price->getCalculatedTaxes() as $tax) {
-            if (!\is_object($tax) || !method_exists($tax, 'getTax')) {
-                continue;
-            }
-
-            $total += (float) $tax->getTax();
+            $total += $tax->getTax();
             $found = true;
         }
 
@@ -162,7 +154,7 @@ final class CartPayloadBuilder
         $found = false;
 
         foreach ($cart->getLineItems() as $lineItem) {
-            if (!$lineItem instanceof LineItem || !$lineItem->getPrice() instanceof CalculatedPrice) {
+            if (!$lineItem->getPrice() instanceof CalculatedPrice) {
                 continue;
             }
 
@@ -180,25 +172,11 @@ final class CartPayloadBuilder
 
     private function shippingTotal(Cart $cart): ?float
     {
-        $deliveries = method_exists($cart, 'getDeliveries') ? $cart->getDeliveries() : null;
-        if (!is_iterable($deliveries)) {
-            return null;
-        }
-
         $total = 0.0;
         $found = false;
 
-        foreach ($deliveries as $delivery) {
-            if (!\is_object($delivery) || !method_exists($delivery, 'getShippingCosts')) {
-                continue;
-            }
-
-            $shippingCosts = $delivery->getShippingCosts();
-            if (!$shippingCosts instanceof CalculatedPrice) {
-                continue;
-            }
-
-            $total += $shippingCosts->getTotalPrice();
+        foreach ($cart->getDeliveries() as $delivery) {
+            $total += $delivery->getShippingCosts()->getTotalPrice();
             $found = true;
         }
 
@@ -330,20 +308,17 @@ final class CartPayloadBuilder
             return null;
         }
 
-        return $this->removeNullValues([
-            'value' => $number,
-            'currency' => $currency,
-        ]);
+        $money = ['value' => $number];
+        if (null !== $currency && '' !== $currency) {
+            $money['currency'] = $currency;
+        }
+
+        return $money;
     }
 
     private function currencyCode(SalesChannelContext $context): ?string
     {
-        $currency = method_exists($context, 'getCurrency') ? $context->getCurrency() : null;
-        if (!\is_object($currency) || !method_exists($currency, 'getIsoCode')) {
-            return null;
-        }
-
-        return $this->stringValue($currency->getIsoCode());
+        return $this->stringValue($context->getCurrency()->getIsoCode());
     }
 
     private function numberValue(mixed $value): ?float

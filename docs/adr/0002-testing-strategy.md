@@ -30,7 +30,7 @@ build.
     baked in; determinism comes from the pinned tag).
   - One command, base URL from `SHOPWARE_BASE_URL` (default
     `http://127.0.0.1:8000`): `bun run test:e2e`.
-- **CI** (`.github/workflows/build-plugin-zip.yml`): the `test` job builds the
+- **CI** (`.github/workflows/ci.yml`): the `test` job builds the
   storefront asset, boots Dockware, copies in + activates the plugin, compiles the
   theme, and runs the suite. `build-plugin-zip` depends on it; tests also run on
   pull requests.

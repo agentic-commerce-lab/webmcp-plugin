@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Swag\WebMcp\WebMcp\Config;
 
+use Shopware\Core\System\SystemConfig\SystemConfigService;
+
 final class SystemConfigWebMcpConfigProvider implements WebMcpConfigProviderInterface
 {
     private const CONFIG_PREFIX = 'SwagWebMcp.config.';
 
-    public function __construct(private readonly object $systemConfigService)
+    public function __construct(private readonly SystemConfigService $systemConfigService)
     {
     }
 

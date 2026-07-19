@@ -1,4 +1,4 @@
-name: Build Plugin Zip
+name: CI
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: build-plugin-zip-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 20
     env:
       # Dockware ships a fully installed Shopware incl. demo data; pin the tag so
-      # the catalog is identical on every run (see docs/adr/2026-07-17-testing-strategy.md).
+      # the catalog is identical on every run (see docs/adr/0002-testing-strategy.md).
       DOCKWARE_TAG: "6.7.12.1"
       SHOPWARE_BASE_URL: "http://localhost"
 
@@ -113,9 +113,8 @@ jobs:
       - name: Check formatting
         run: bun run format:check
 
-  build-plugin-zip:
-    name: Build Plugin Zip
-    needs: [test, quality]
+  php-quality:
+    name: PHP quality
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -123,8 +122,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run QA
+      - name: Run PHP QA
         run: docker compose run --rm qa
+
+  build-plugin-zip:
+    name: Build Plugin Zip
+    needs: [test, quality, php-quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Build zip
         run: docker compose run --rm qa bin/build-zip.sh

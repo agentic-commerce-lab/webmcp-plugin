@@ -1,0 +1,7 @@
+parameters:
+    level: 8
+    paths:
+        - src
+    tmpDir: .tools/phpstan
+    bootstrapFiles:
+        - .tools/vendor/autoload.php
