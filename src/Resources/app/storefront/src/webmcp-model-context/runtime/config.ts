@@ -1,5 +1,7 @@
-import type { UnknownRecord, WebMcpRuntimeConfig } from './types';
-import { hasControlCharacters } from './tools/storefront-tool.utils';
+import type { WebMcpRuntimeConfig } from './types';
+import { hasControlCharacters, isPlainObject } from './tools/storefront-tool.utils';
+
+export { isPlainObject };
 
 export function normalizeConfig(options: unknown = {}): WebMcpRuntimeConfig {
     const source = isPlainObject(options) ? options : {};
@@ -109,10 +111,6 @@ export function nonEmptyString(value: unknown): string | null {
     const trimmed = value.trim();
 
     return trimmed || null;
-}
-
-export function isPlainObject(value: unknown): value is UnknownRecord {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 export function isElement(value: unknown): value is Element {

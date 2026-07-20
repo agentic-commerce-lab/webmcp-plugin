@@ -69,7 +69,7 @@ export class ShopwareClient {
         };
     }
 
-    async findProductBySku(sku: string): Promise<ProductSummary | null> {
+    private async findProductBySku(sku: string): Promise<ProductSummary | null> {
         const result = await this.storeApiRequest(
             '/search',
             createProductCriteria({
@@ -215,7 +215,7 @@ export class ShopwareClient {
         return this.finalizeCartMutation(cart);
     }
 
-    async resolveProductId(input: ProductLookupInput): Promise<string> {
+    private async resolveProductId(input: ProductLookupInput): Promise<string> {
         const id = cleanText(input.id);
         const sku = cleanText(input.sku);
         const productUrl = cleanText(input.url);
@@ -245,7 +245,7 @@ export class ShopwareClient {
         throw new Error('Product lookup requires a Shopware product id, SKU/product number, or /detail/{id} URL.');
     }
 
-    async storeApiRequest(path: string, body: UnknownRecord = {}): Promise<unknown> {
+    private async storeApiRequest(path: string, body: UnknownRecord = {}): Promise<unknown> {
         const url = new URL(`${STORE_API_PATH}${path}`, this.baseUrl);
         const headers: Record<string, string> = {
             Accept: 'application/json',
@@ -283,7 +283,7 @@ export class ShopwareClient {
         return payload;
     }
 
-    async webMcpCartRequest(): Promise<unknown> {
+    private async webMcpCartRequest(): Promise<unknown> {
         const url = new URL(WEBMCP_CART_PATH, this.baseUrl);
         const response = await fetch(url.toString(), {
             method: 'GET',
@@ -302,7 +302,7 @@ export class ShopwareClient {
         return payload;
     }
 
-    async cartWriteRequest(method: 'POST' | 'PATCH', body: UnknownRecord): Promise<unknown> {
+    private async cartWriteRequest(method: 'POST' | 'PATCH', body: UnknownRecord): Promise<unknown> {
         const url = new URL(WEBMCP_CART_LINE_ITEM_PATH, this.baseUrl);
         const response = await fetch(url.toString(), {
             method,

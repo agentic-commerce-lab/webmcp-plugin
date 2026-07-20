@@ -80,17 +80,12 @@ export interface ProductLookupInput {
     url?: string | undefined;
 }
 
-export interface CartLineItemLookupInput extends ProductLookupInput {
-    lineItemId?: string | undefined;
-}
-
 export interface QuantityInput extends ProductLookupInput {
-    lineItemId?: string | undefined;
     quantity: number;
     showCartOverlay?: boolean | undefined;
 }
 
-export interface CartQuantityInput extends CartLineItemLookupInput {
+export interface CartQuantityInput extends ProductLookupInput {
     quantity: number;
 }
 
