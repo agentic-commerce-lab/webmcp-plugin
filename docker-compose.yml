@@ -1,7 +1,7 @@
 services:
     # Local development shop: a full Shopware (web + MySQL + Adminer + Mailpit)
     # in one Dockware container, with this plugin bind-mounted into it.
-    # Start it with `bun run shop:up` (see bin/shop.sh) — not part of the
+    # Start it with `npm run shop:up` (see bin/shop.sh) — not part of the
     # default `docker compose up`, it lives behind the `dev` profile.
     shop:
         image: dockware/dev:${SW_VERSION:-6.7.2.2}

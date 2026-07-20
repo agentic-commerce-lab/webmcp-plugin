@@ -6,7 +6,7 @@
 # gives you a few smooth commands for the day-to-day dev loop.
 #
 #   bin/shop.sh up        Start the shop (creates .env from .env.example first)
-#   bin/shop.sh deploy    Transpile the TS runtime and (re)install the plugin
+#   bin/shop.sh deploy    Build the storefront asset (webpack, in-shop) + (re)install
 #   bin/shop.sh test      Ensure the shop is up + deployed, then run the e2e tests
 #   bin/shop.sh restart   Restart the shop container
 #   bin/shop.sh down      Stop and remove the shop container
@@ -118,8 +118,18 @@ up)
 
 deploy)
     load_env
-    echo "→ Transpiling TypeScript runtime (bun run build)"
-    bun run build
+    # The storefront runtime dep (zod) must be resolvable for the webpack build.
+    # node_modules is bind-mounted from the host, so `npm install` must have run.
+    if ! in_shop "test -d custom/plugins/${PLUGIN_NAME}/node_modules/zod" 2>/dev/null; then
+        echo "! Plugin dependencies missing — run 'npm install' first (provides zod for the build)." >&2
+        exit 1
+    fi
+    # Build with Shopware's OWN storefront webpack, inside the running shop. The build
+    # environment is already warm there (node_modules + vendor), so this is ~5s — unlike
+    # a standalone shopware-cli build (~70s), which rebuilds that environment each run.
+    echo "→ Building storefront asset (webpack, in the dev shop)"
+    console "bundle:dump"
+    in_shop 'SF=vendor/shopware/storefront/Resources/app/storefront; [ -d "$SF" ] || SF=vendor/shopware/platform/src/Storefront/Resources/app/storefront; cd "$SF" && NODE_ENV=production PROJECT_ROOT=/var/www/html npm run production'
     echo "→ Registering plugin in Shopware"
     console "plugin:refresh"
     # install --activate is a no-op error if already installed; keep it idempotent.
@@ -128,7 +138,7 @@ deploy)
     console "theme:compile"
     console "assets:install"
     console "cache:clear"
-    echo "✓ Plugin transpiled and installed."
+    echo "✓ Plugin built and installed."
     print_urls
     ;;
 
@@ -167,7 +177,7 @@ test)
     "$0" up
     "$0" deploy
     echo "→ Running Playwright e2e tests"
-    bun run test:e2e
+    npm run test:e2e
     ;;
 
 help | *)

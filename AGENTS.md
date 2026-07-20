@@ -77,9 +77,10 @@ projects or product systems.
    the `defineTool` factory with a zod input schema (see `tools/define-tool.ts` and
    `tools/schemas.ts`); do not hand-write JSON Schemas.
 2. Keep storefront registration through `window.PluginManager` and keep the runtime
-   compatible with Shopware's Vite storefront compilation.
-3. Bun is the package manager; keep runtime browser dependencies minimal (currently
-   only `zod`). Do not add a separate frontend framework or a second bundler.
+   compatible with Shopware's own storefront compilation (Webpack).
+3. npm is the package manager and the storefront is built with `shopware-cli`
+   (Shopware's own build); keep runtime browser dependencies minimal (currently only
+   `zod`). Do not add a separate frontend framework or a second bundler.
 4. Keep runtime behavior idempotent so repeated bootstrap calls do not register
    duplicate tools or break existing `document.modelContext` helpers.
 

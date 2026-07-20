@@ -1,46 +1,21 @@
 #!/usr/bin/env sh
+#
+# Build an installable plugin ZIP the idiomatic Shopware way (ADR 0007).
+#
+# shopware-cli compiles the storefront asset with Shopware's own build, then packs
+# src + the built dist into a ZIP, honouring .shopware-extension.yml (pack.excludes,
+# npm_strict). CI uses the equivalent `shopware/github-actions/build-zip` action.
 set -eu
 
-PLUGIN_NAME="SwagWebMcp"
-ZIP_NAME="SwagWebMcp.zip"
-DIST_DIR="dist"
-WORK_DIR="$DIST_DIR/package"
-ZIP_PATH="$DIST_DIR/$ZIP_NAME"
+OUTPUT_DIR="dist"
 
-bun install --frozen-lockfile
-bun run check
-bun run build
-
-rm -rf "$WORK_DIR" "$ZIP_PATH"
-mkdir -p "$WORK_DIR"
-mkdir "$WORK_DIR/$PLUGIN_NAME"
-
-cp composer.json "$WORK_DIR/$PLUGIN_NAME/"
-if [ -f composer.lock ]; then
-  cp composer.lock "$WORK_DIR/$PLUGIN_NAME/"
+if ! command -v shopware-cli >/dev/null 2>&1; then
+  echo "! shopware-cli not found. Install it: https://sw-cli.fos.gg/install/" >&2
+  exit 1
 fi
-cp LICENSE "$WORK_DIR/$PLUGIN_NAME/"
-cp README.md "$WORK_DIR/$PLUGIN_NAME/"
-cp .shopware-extension.yml "$WORK_DIR/$PLUGIN_NAME/"
-cp -R src "$WORK_DIR/$PLUGIN_NAME/"
 
-cd "$WORK_DIR"
+# --disable-git packs the working tree as-is (local build). CI packs the committed
+# commit via --git-commit and adds --release.
+shopware-cli extension zip . --disable-git --output-directory "$OUTPUT_DIR"
 
-zip -rq "../$ZIP_NAME" "$PLUGIN_NAME/" \
-  --exclude=.github/* \
-  --exclude=.tools/* \
-  --exclude=dist/* \
-  --exclude=tests/* \
-  --exclude=Dockerfile \
-  --exclude=docker-compose.yml \
-  --exclude="$PLUGIN_NAME/.github/*" \
-  --exclude="$PLUGIN_NAME/.tools/*" \
-  --exclude="$PLUGIN_NAME/dist/*" \
-  --exclude="$PLUGIN_NAME/tests/*" \
-  --exclude="$PLUGIN_NAME/Dockerfile" \
-  --exclude="$PLUGIN_NAME/docker-compose.yml"
-
-cd ../..
-rm -rf "$WORK_DIR"
-
-echo "$ZIP_PATH"
+echo "$OUTPUT_DIR/SwagWebMcp.zip"

@@ -118,7 +118,7 @@ graph LR
     Ctrl --> Scc
     Ctrl --> CfgP
     CfgP --> CfgDTO
-    Main -.->|bun build| Dist
+    Main -.->|shopware-cli build| Dist
 ```
 
 The runtime is now split by responsibility — `transport/` (HTTP + token
@@ -260,16 +260,16 @@ Twig, which emits the enabled toggles and the public `storeApiAccessKey` into a
 
 ```mermaid
 graph LR
-    Src["TypeScript src/"] -->|bun run build| Dist["dist/.../swag-web-mcp.js<br/>(gitignored)"]
-    Dist --> Zip["bin/build-zip.sh → SwagWebMcp.zip"]
-    Src -->|bun run check/lint/format:check| TSQA["tsc + ESLint + Prettier"]
-    Src -->|bun run test:e2e| E2E["Playwright · 11 tests"]
+    Src["TypeScript src/"] -->|shopware-cli build| Dist["dist/.../swag-web-mcp.js<br/>(gitignored)"]
+    Dist --> Zip["shopware-cli extension zip → SwagWebMcp.zip"]
+    Src -->|npm run check/lint/format:check| TSQA["tsc + ESLint + Prettier"]
+    Src -->|npm run test:e2e| E2E["Playwright · 11 tests"]
     PHP["src/*.php"] -->|composer qa| Lint["php -l + PHPStan (lvl 8) + PHP-CS-Fixer"]
     subgraph CI["GitHub Actions (ci.yml)"]
         J1["test: Integration Test<br/>(Playwright vs dockware/shopware)"]
         J2["quality: TypeScript quality<br/>(check + lint + format:check)"]
         J3["php-quality: composer qa<br/>(php -l + PHPStan + PHP-CS-Fixer)"]
-        J4["build-plugin-zip: build zip<br/>→ latest-main release"]
+        J4["build-plugin-zip: shopware-cli zip<br/>→ latest-main release"]
     end
     E2E --> J1
     TSQA --> J2
@@ -287,25 +287,26 @@ the integration test.
 
 - **Local dev shop** — a full Shopware runs on demand in a single
   [Dockware](https://dockware.io) container (`dockware/dev`) via the `shop`
-  service in `docker-compose.yml`. `bin/shop.sh` + `bun run shop:*` wrap boot,
+  service in `docker-compose.yml`. `bin/shop.sh` + `npm run shop:*` wrap boot,
   storefront transpile + plugin install, and teardown; ports and the Shopware
   version come from `.env`. The plugin repository is self-contained — no
   surrounding Shopware install is required.
-- **TS quality** — `bun run check` (`tsc --noEmit`, split browser/node
-  tsconfigs), `bun run lint` (ESLint), `bun run format` (Prettier). All three run
+- **TS quality** — `npm run check` (`tsc --noEmit`, split browser/node
+  tsconfigs), `npm run lint` (ESLint), `npm run format` (Prettier). All three run
   in the CI "TypeScript quality" job.
 - **Tests** — 11 Playwright integration tests (`tests/e2e`) drive
-  `document.modelContext` against a real shop (`bun run test:e2e`, ADR 0002), run
+  `document.modelContext` against a real shop (`npm run test:e2e`, ADR 0002), run
   locally against the dev shop and in CI against `dockware/shopware`.
 - **PHP QA** — `composer qa` / `docker compose run --rm qa` run `php -l` syntax
   linting (`bin/lint`), **PHPStan** at level 8 (`phpstan.neon.dist`, clean, no
   baseline), and **PHP-CS-Fixer** in dry-run/check mode (`.php-cs-fixer.dist.php`,
   `@PSR12` + `@Symfony` + risky, `declare_strict_types`). `composer cs-fix`
   applies fixes. There is still no PHPUnit/Psalm.
-- **Release** — `bin/build-storefront-dist.ts` bundles `main.ts` with `Bun.build`
-  (IIFE, minified) into `dist/` (gitignored, built fresh); `bin/build-zip.sh`
-  type-checks, rebuilds, and packages `SwagWebMcp.zip`. The dev-shop files
-  (`docker-compose.yml`, `.env*`, `bin/shop.sh`) are excluded from the ZIP.
+- **Release** — `shopware-cli` builds `main.ts` with Shopware's own storefront build
+  (Webpack) into `dist/` (gitignored, built fresh) and packages `SwagWebMcp.zip`
+  (`shopware-cli extension zip`, honouring `.shopware-extension.yml`). Locally via
+  `bin/build-zip.sh`; in CI via `shopware/github-actions/build-zip` (ADR 0007). Dev
+  and TS-tooling files are excluded from the ZIP via `pack.excludes`.
 
 ## 9. Notable IST characteristics
 

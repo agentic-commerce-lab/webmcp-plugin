@@ -176,6 +176,11 @@ graph LR
 
 ### Distribution & build model (the concrete solution)
 
+> **Superseded by [ADR 0007](0007-build-and-packaging.md).** The standalone
+> `Bun.build` bundler described below has been replaced by `shopware-cli` + npm; the
+> distribution principle (ship a pre-built `dist`, keep it gitignored, `tsc` as a
+> separate type gate) still holds.
+
 Not "ship TS **or** JS" — **ship TS source and a pre-built JS bundle**. One source,
 two emit channels, plus a separate type/quality gate:
 

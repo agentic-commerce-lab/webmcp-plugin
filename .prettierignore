@@ -4,7 +4,7 @@ dist/
 src/Resources/app/storefront/dist/
 playwright-report/
 test-results/
-bun.lock
+package-lock.json
 composer.lock
 *.md
 .github/

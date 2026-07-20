@@ -30,12 +30,12 @@ privileged merchant workflows.
 
 You can checkout this plugin to `custom/plugins/SwagWebMcp` of an existing installation or use ephemeral Shopware instances provided by dockware. 
 
-For this you only need [Bun](https://bun.sh) and Docker.
+For this you only need Node.js, [shopware-cli](https://sw-cli.fos.gg/install/), and Docker.
 
 ### 1. Install dependencies
 
 ```sh
-bun install
+npm install
 ```
 
 ### 2. Boot a local shop
@@ -44,8 +44,8 @@ A full, ephemeral Shopware (web + MySQL + Adminer + MailCatcher) runs in a singl
 
 ```sh
 cp .env.example .env   # then adjust ports if any are already taken
-bun run shop:up        # boot the shop (first run pulls the image)
-bun run shop:deploy    # transpile the TS runtime and install the plugin
+npm run shop:up        # boot the shop (first run pulls the image)
+npm run shop:deploy    # transpile the TS runtime and install the plugin
 ```
 
 Open <http://localhost:8000>:
@@ -62,28 +62,28 @@ Ports and the Shopware version are read from `.env` (see `.env.example`).
 Edit code, then re-run:
 
 ```sh
-bun run shop:deploy
+npm run shop:deploy
 ```
 
-PHP changes are picked up live from the mounted source; storefront TypeScript changes need the `shop:deploy` rebuild.
+`shop:deploy` builds the storefront asset with Shopware's own Webpack **inside the running shop** (~15–20 s, no host `shopware-cli` needed), then installs the plugin and compiles the theme. PHP changes are picked up live from the mounted source; storefront TypeScript changes need the `shop:deploy` rebuild.
 
 ### Commands
 
 | Command                 | What it does                                                     |
 | ----------------------- | --------------------------------------------------------------- |
-| `bun run shop:up`       | Start the shop and align its storefront domain with the port    |
-| `bun run shop:deploy`   | `bun run build` + refresh, install/activate, compile theme      |
-| `bun run shop:test`     | Ensure the shop is up + deployed, then run the e2e tests        |
-| `bun run shop:down`     | Stop and remove the shop container                              |
-| `bun run shop:restart`  | Restart the shop container                                      |
-| `bun run shop:logs`     | Follow the shop logs                                            |
-| `bun run shop:shell`    | Open a shell inside the shop container                          |
-| `bun run shop:open`     | Print the shop, admin, Adminer, and mail URLs                   |
-| `bun run build`         | Transpile the storefront TS runtime to the release `dist` asset |
-| `bun run check`         | Type-check the TypeScript (`tsc --noEmit`)                      |
-| `bun run lint`          | Lint with ESLint (`lint:fix` to autofix)                        |
-| `bun run format`        | Format with Prettier (`format:check` to verify only)           |
-| `bun run test:e2e`      | Run the Playwright end-to-end tests against the running shop    |
+| `npm run shop:up`       | Start the shop and align its storefront domain with the port    |
+| `npm run shop:deploy`   | Build the asset (webpack, in-shop) + refresh, install, compile  |
+| `npm run shop:test`     | Ensure the shop is up + deployed, then run the e2e tests        |
+| `npm run shop:down`     | Stop and remove the shop container                              |
+| `npm run shop:restart`  | Restart the shop container                                      |
+| `npm run shop:logs`     | Follow the shop logs                                            |
+| `npm run shop:shell`    | Open a shell inside the shop container                          |
+| `npm run shop:open`     | Print the shop, admin, Adminer, and mail URLs                   |
+| `npm run build`         | Build the storefront asset to `dist` via `shopware-cli`          |
+| `npm run check`         | Type-check the TypeScript (`tsc --noEmit`)                      |
+| `npm run lint`          | Lint with ESLint (`lint:fix` to autofix)                        |
+| `npm run format`        | Format with Prettier (`format:check` to verify only)           |
+| `npm run test:e2e`      | Run the Playwright end-to-end tests against the running shop    |
 
 ### Testing
 
@@ -91,12 +91,12 @@ The end-to-end tests (Playwright) run against the dev shop, which is also the
 default `baseURL` (`http://localhost:8000`):
 
 ```sh
-bunx playwright install chromium   # once
-bun run shop:test                  # boot the shop, deploy the plugin, run the tests
+npx playwright install chromium   # once
+npm run shop:test                  # boot the shop, deploy the plugin, run the tests
 ```
 
-If the shop is already up and you only changed a test, `bun run test:e2e` is
-enough. Target a different shop with `SHOPWARE_BASE_URL=... bun run test:e2e`.
+If the shop is already up and you only changed a test, `npm run test:e2e` is
+enough. Target a different shop with `SHOPWARE_BASE_URL=... npm run test:e2e`.
 
 For native browser testing, follow Chrome's
 [WebMCP setup guide](https://developer.chrome.com/docs/ai/webmcp), enable
@@ -115,19 +115,26 @@ together, and [docs/](docs/README.md) for the ADRs and specs.
 ### Building an installable ZIP
 
 ```sh
-docker compose run --rm qa bin/build-zip.sh
+bin/build-zip.sh   # requires shopware-cli; wraps `shopware-cli extension zip`
 ```
 
 ## Installing Into an Existing Shopware
 
-Download the latest release and upload it in Shopware Admin (Extensions → My
-extensions → Upload extension), then activate it:
+### From the prebuilt ZIP (no build required)
 
-<https://github.com/agentic-commerce-lab/web-mcp-plugin/releases/download/latest-main/SwagWebMcp.zip>
+The release ZIP already contains the compiled storefront bundle. Download it and
+upload it in Shopware Admin (Extensions → My extensions → Upload extension), then
+activate it:
 
+<https://github.com/agentic-commerce-lab/webmcp-plugin/releases/download/latest-main/SwagWebMcp.zip>
+
+### From a source checkout (build required)
+
+Place the checkout in `custom/plugins/SwagWebMcp`, build the storefront asset,
+then install via the console:
 
 ```sh
-bun install && bun run build
+npm install && npm run build
 bin/console plugin:refresh
 bin/console plugin:install --activate SwagWebMcp   # or: plugin:update SwagWebMcp
 bin/console theme:compile && bin/console assets:install && bin/console cache:clear
@@ -142,7 +149,6 @@ Shopware renders these settings in the plugin configuration screen in the Admin 
 <img src="docs/admin-configuration.svg" alt="Shopware Admin WebMCP configuration screen" width="760">
 
 - `enabled`: enables the public WebMCP browser tools.
-- `context`: human-readable context for the WebMCP runtime.
 - `searchProductsToolEnabled`: enables the product search `document.modelContext` tool.
 - `getProductToolEnabled`: enables the product detail `document.modelContext` tool.
 - `getProductCategoriesToolEnabled`: enables the product category `document.modelContext` tool.
@@ -167,7 +173,7 @@ writes request best-effort storefront cart UI refreshes after success.
 | `shopware_webmcp_get_product_categories` | Optional `scope`: `tree` or `product`; for `product` scope exactly one of `id`, `sku`, or same-origin `url` (any of them implies `product` scope). | `lookup`, `scope`, `source` (`store-api`), `sourceUrl`, `count`, `activeCategoryIds`, `categories`, `tree`. Categories carry real Shopware ids, names, SEO urls, and `parentId`. |
 | `shopware_webmcp_get_cart` | No input properties. | `cart`. |
 | `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`; optional `showCartOverlay` (default `false`) to open the storefront cart overlay for shopper feedback. | `added`, `cart`. |
-| `shopware_webmcp_update_line_item` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100`. Quantity `0` removes the line item. | `updated`, `cart`, or `skipped` with `reason`. |
+| `shopware_webmcp_update_line_item` | Exactly one of `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100`. Quantity `0` removes the line item. | `updated`, `cart`, or `skipped` with `reason`. |
 | `shopware_webmcp_get_sales_channel_context` | No input properties. | `salesChannelContext` (sales channel, language, currency, customer group, country, tax mode, login state). |
 | `shopware_webmcp_navigate` | Same-origin storefront `url` (or path) to open. | `navigatedTo`. |
 
@@ -176,7 +182,7 @@ writes request best-effort storefront cart UI refreshes after success.
 - Do not expose private backend credentials in storefront code or plugin config.
 - The Store API access key is a storefront value used by Shopware browser clients.
 - Cart read and mutation requests use same-origin storefront session cookies.
-- CSRF tokens are read from the storefront when available and sent with cart mutation requests.
+- Cart mutation endpoints are same-origin, session-scoped, and rely on SameSite cookies; they do not send a separate CSRF token.
 - Tool inputs are validated and normalized before Store API or storefront cart requests are made.
 - Do not log secrets, tokens, credentials, storefront session identifiers, CSRF tokens, or raw sensitive user/cart data.
 - Normalize and constrain URLs, selectors, HTTP methods, quantities, product identifiers, and other user-controllable values before emitting or using them.

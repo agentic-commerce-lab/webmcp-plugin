@@ -49,6 +49,11 @@ same topic they are cross-linked in their headers.
   bespoke `.wmcp` document; `document.modelContext` (the live registered tools) is the
   single discovery contract. Dissolves the PHP↔TS contract duplication (roadmap A1) by
   deletion, not a sync pipeline.
+- [0007 — Build & packaging: shopware-cli + npm](adr/0007-build-and-packaging.md) —
+  **Accepted.** Build the storefront asset and package the ZIP the idiomatic way with
+  `shopware-cli` (via `shopware/github-actions/build-zip`), migrate the JS toolchain
+  Bun → npm, and retire the bespoke `Bun.build` bundler. Supersedes the build-model
+  decision in [ADR 0003](adr/0003-typescript-architecture.md); `dist` stays gitignored.
 
 ### Specs
 

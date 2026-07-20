@@ -5,43 +5,45 @@ storefront TypeScript architecture, the build model, and the local checks.
 
 ## Prerequisites
 
-- **Bun** `1.3.14` (package manager + release build + test runner).
-- **Docker** for QA and the installable ZIP (`docker compose run --rm qa`).
+- **Node.js** (LTS) + **npm** (package manager + test runner).
+- **[shopware-cli](https://sw-cli.fos.gg/install/)** for the storefront build and the installable ZIP.
+- **Docker** for PHP QA (`docker compose run --rm qa`) and the local dev shop.
 - PHP/Composer are optional locally; QA runs in Docker.
 
 ```sh
-bun install
+npm install
 ```
 
 ## Local checks (run before every PR)
 
 | Command | What it does |
 | --- | --- |
-| `bun run check` | Type-checks the storefront (`tsconfig.json`) and the Node scripts (`tsconfig.node.json`). |
-| `bun run lint` | ESLint (flat config, typescript-eslint). `bun run lint:fix` to autofix. |
-| `bun run format:check` | Prettier check. `bun run format` to write. |
-| `bun run build` | Bundles the release storefront asset with Bun. |
-| `bun run test:e2e` | Playwright integration test against an already-running shop (see below). |
-| `bun run shop:test` | Boot the Dockware dev shop, deploy the plugin, then run `test:e2e`. |
+| `npm run check` | Type-checks the storefront (`tsconfig.json`) and the Node scripts (`tsconfig.node.json`). |
+| `npm run lint` | ESLint (flat config, typescript-eslint). `npm run lint:fix` to autofix. |
+| `npm run format:check` | Prettier check. `npm run format` to write. |
+| `npm run build` | Builds the storefront asset to `dist` via `shopware-cli` (Shopware's own build). |
+| `npm run test:e2e` | Playwright integration test against an already-running shop (see below). |
+| `npm run shop:deploy` | Build the asset (webpack, inside the running shop, ~15–20 s) + (re)install the plugin. |
+| `npm run shop:test` | Boot the Dockware dev shop, deploy the plugin, then run `test:e2e`. |
 
 CI runs `check` + `lint` + `format:check` (the `quality` job) and the Playwright
 integration test on every pull request.
 
 ## Build & distribution model
 
-TypeScript never ships to the browser as-is; it is always compiled. There are two
-channels — see [ADR 0003](docs/adr/0003-typescript-architecture.md):
+TypeScript never ships to the browser as-is; it is always compiled — see
+[ADR 0007](docs/adr/0007-build-and-packaging.md):
 
-- **Source install** (git clone / composer project): Shopware's own Vite/esbuild
-  storefront build compiles the plugin's `.ts` during the normal storefront build.
+- **Source install** (git clone / composer project): Shopware's own storefront build
+  (Webpack) compiles the plugin's `.ts` during the normal storefront build.
 - **ZIP / Store / Admin upload**: the shop does not build assets, so a pre-built
   bundle must ship inside the ZIP at
   `src/Resources/app/storefront/dist/storefront/js/swag-web-mcp/swag-web-mcp.js`.
-  `dist/` is gitignored and produced fresh by `bun run build` (and by
-  `bin/build-zip.sh`).
+  `dist/` is gitignored and produced fresh by `shopware-cli` — locally via
+  `npm run build` / `bin/build-zip.sh`, in CI via `shopware/github-actions/build-zip`.
 
-Type-checking is a separate gate: neither Vite nor Bun type-check, so `tsc` (via
-`bun run check`) is the authority.
+Type-checking is a separate gate: the storefront build strips types without checking
+them, so `tsc` (via `npm run check`) is the authority.
 
 ## Architecture
 
@@ -71,13 +73,13 @@ The Playwright test drives `document.modelContext` against a real storefront
 local Dockware dev shop (see the README "Development" section):
 
 ```sh
-bunx playwright install --with-deps chromium   # once
-bun run shop:test                              # boot + deploy + test
+npx playwright install --with-deps chromium   # once
+npm run shop:test                              # boot + deploy + test
 ```
 
-`bun run shop:test` ensures the shop is up (`shop:up`) and the current code is
+`npm run shop:test` ensures the shop is up (`shop:up`) and the current code is
 deployed (`shop:deploy`), then runs the tests. If the shop is already running and
-you only changed a test, `bun run test:e2e` is enough. To target a different shop,
+you only changed a test, `npm run test:e2e` is enough. To target a different shop,
 set `SHOPWARE_BASE_URL` (defaults to `http://localhost:8000`, the dev shop).
 
 ## PHP backend

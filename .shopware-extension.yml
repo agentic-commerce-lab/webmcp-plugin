@@ -6,12 +6,27 @@ build:
             enabled: true
         assets:
             enabled: true
+            # Only install the storefront runtime dependency (zod) for the build;
+            # the dev toolchain (eslint/prettier/tsc/playwright) is not needed to bundle.
+            npm_strict: true
         pack:
             excludes:
                 paths:
                     - .github
                     - .tools
+                    - bin
                     - dist
+                    - node_modules
                     - tests
+                    - .husky
                     - Dockerfile
                     - docker-compose.yml
+                    - package.json
+                    - package-lock.json
+                    - tsconfig.json
+                    - tsconfig.base.json
+                    - tsconfig.node.json
+                    - eslint.config.js
+                    - .prettierrc.json
+                    - .prettierignore
+                    - playwright.config.ts
