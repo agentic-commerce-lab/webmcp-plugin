@@ -27,7 +27,6 @@ declare global {
             config?: WebMcpRuntimeConfig;
             loaded?: boolean;
         };
-        SwagWebMcpRuntime?: UnknownRecord;
         Shopware?: UnknownRecord;
         storefrontSettings?: UnknownRecord;
         router?: Record<string, string>;

@@ -130,6 +130,7 @@ function exposeGlobals(config: WebMcpRuntimeConfig): void {
         ...(window.SwagWebMcp || {}),
         config,
         loaded: true,
+        bootstrap: bootstrapWebMcpModelContext,
         registerConfiguredTools: () => registerConfiguredTools(config),
         registerSearchProductsTool: () => registerSearchProductsTool(config),
         registerGetProductTool: () => registerGetProductTool(config),
@@ -168,17 +169,12 @@ function registerStorefrontTool(
     );
 }
 
-window.SwagWebMcpRuntime = {
-    ...(window.SwagWebMcpRuntime || {}),
+// Single debug global. exposeGlobals() enriches it with the bootstrapped config
+// and config-bound register helpers once a config element has been read.
+window.SwagWebMcp = {
+    ...(window.SwagWebMcp || {}),
+    loaded: false,
     bootstrap: bootstrapWebMcpModelContext,
-    registerConfiguredTools,
-    registerSearchProductsTool,
-    registerGetProductTool,
-    registerGetProductCategoriesTool,
-    registerGetCartTool,
-    registerAddToCartTool,
-    registerUpdateLineItemTool,
-    registerGetSalesChannelContextTool,
 };
 
 if (document.readyState === 'loading') {

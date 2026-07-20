@@ -36,7 +36,7 @@ graph TB
     subgraph Browser["Browser (open storefront tab)"]
         Agent["AI agent / WebMCP client<br/>(document.modelContext)"]
         Runtime["Storefront runtime (TypeScript)<br/>webmcp-model-context"]
-        Globals["Debug globals:<br/>window.SwagWebMcp · window.SwagWebMcpRuntime"]
+        Globals["Debug global:<br/>window.SwagWebMcp"]
     end
 
     subgraph Shopware["Shopware 6"]

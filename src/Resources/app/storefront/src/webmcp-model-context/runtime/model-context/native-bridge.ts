@@ -1,4 +1,5 @@
 import type { ModelContextTool, NativeModelContext, NativeModelContextTool, ToolInput, UnknownRecord } from '../types';
+import { removeEmptyValues } from '../tools/storefront-tool.utils';
 
 const NATIVE_TOOL_REGISTRY_KEY = '__swagWebMcpNativeToolRegistry';
 
@@ -94,9 +95,15 @@ function tryRegisterNativeModelContextTool(
     nativeTool: NativeModelContextTool,
 ): boolean {
     const registerTool = nativeModelContext.registerTool.bind(nativeModelContext);
+    // The WebMCP registerTool signature is still experimental and varies across
+    // implementations; try the known shapes in order and keep the first that works.
     const attempts = [
+        // 1. registerTool(tool) — single tool descriptor object.
         () => registerTool(nativeTool),
+        // 2. registerTool(name, tool) — name plus descriptor object.
         () => registerTool(nativeTool.name, nativeTool),
+        // 3. registerTool(name, spec, handler) — descriptor without the handler,
+        //    passed as a separate third argument.
         () =>
             registerTool(
                 nativeTool.name,
@@ -107,6 +114,7 @@ function tryRegisterNativeModelContextTool(
                 },
                 nativeTool.handler,
             ),
+        // 4. registerTool(name, description, inputSchema, handler) — fully positional.
         () => registerTool(nativeTool.name, nativeTool.description, nativeTool.inputSchema, nativeTool.handler),
     ];
 
@@ -165,16 +173,4 @@ function getNativeToolRegistry(): Map<string, string> {
     }
 
     return window[NATIVE_TOOL_REGISTRY_KEY];
-}
-
-function removeEmptyValues(value: UnknownRecord): UnknownRecord {
-    return Object.entries(value).reduce((normalizedValue, [key, item]) => {
-        if (item === null || typeof item === 'undefined' || item === '') {
-            return normalizedValue;
-        }
-
-        normalizedValue[key] = item;
-
-        return normalizedValue;
-    }, {} as UnknownRecord);
 }

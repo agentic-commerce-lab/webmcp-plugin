@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { ShopwareClient } from '../shopware-client';
 import { defineTool } from './define-tool';
-import { normalizeBaseUrl } from './storefront-tool.utils';
 import { productSelectorShape } from './schemas';
 import type { StorefrontToolOptions, UnknownRecord } from '../types';
 
@@ -32,7 +31,6 @@ const getProductCategoriesInput = z
 type GetProductCategoriesInput = z.output<typeof getProductCategoriesInput>;
 
 export function createGetProductCategoriesTool(options: StorefrontToolOptions = {}) {
-    const baseUrl = normalizeBaseUrl(options.baseUrl);
     const shopwareClient = new ShopwareClient(options);
 
     return defineTool({
@@ -48,7 +46,7 @@ export function createGetProductCategoriesTool(options: StorefrontToolOptions = 
                 scope === 'product'
                     ? await shopwareClient.getProductCategories(input)
                     : await shopwareClient.getNavigationCategories(NAVIGATION_TREE_DEPTH);
-            const result = buildCategoryResult(scope, baseUrl, tree);
+            const result = buildCategoryResult(scope, tree);
 
             return {
                 content: [{ type: 'text', text: formatCategoryResult(result) }],
@@ -75,13 +73,12 @@ function lookupOf(scope: CategoryScope, input: GetProductCategoriesInput): Unkno
     };
 }
 
-function buildCategoryResult(scope: CategoryScope, sourceUrl: string, tree: UnknownRecord[]): UnknownRecord {
+function buildCategoryResult(scope: CategoryScope, tree: UnknownRecord[]): UnknownRecord {
     const flat = flattenCategories(tree);
 
     return {
         scope,
         source: 'store-api',
-        sourceUrl,
         count: flat.length,
         activeCategoryIds: flat.filter((category) => category.active).map((category) => category.id),
         categories: flat,
