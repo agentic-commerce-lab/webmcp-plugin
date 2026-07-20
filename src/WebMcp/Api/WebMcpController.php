@@ -39,11 +39,11 @@ final class WebMcpController
     {
         $config = $this->configProvider->getConfig($salesChannelContext);
         if (!$config->enabled || !$config->getCartToolEnabled) {
-            return new JsonResponse(['message' => 'WebMCP cart tool is disabled.'], Response::HTTP_NOT_FOUND);
+            return $this->errorResponse('WebMCP cart tool is disabled.', Response::HTTP_NOT_FOUND);
         }
 
         if (!$salesChannelContext instanceof SalesChannelContext) {
-            return new JsonResponse(['message' => 'Sales channel context is unavailable.'], Response::HTTP_BAD_REQUEST);
+            return $this->errorResponse('Sales channel context is unavailable.', Response::HTTP_BAD_REQUEST);
         }
 
         $cart = $this->cartService->getCart($salesChannelContext->getToken(), $salesChannelContext);

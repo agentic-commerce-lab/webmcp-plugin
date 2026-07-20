@@ -110,9 +110,9 @@ test('get_product returns details for a product found via search', async ({ page
 });
 
 test('get_product_categories returns a category structure', async ({ page }) => {
-    // NOTE: this tool infers the tree from storefront DOM/breadcrumbs (see ADR 0001
-    // §6 / roadmap B1). Assertions stay structural rather than value-exact so a
-    // theme tweak does not make the test flaky.
+    // NOTE: this tool reads the navigation tree from the Shopware Store API (see
+    // ADR 0001), marking the active trail from the current page. Assertions stay
+    // structural rather than value-exact so demo-data changes do not make it flaky.
     const result = await callTool(page, TOOL.getProductCategories, { scope: 'tree' });
 
     expectValidToolResult(result);

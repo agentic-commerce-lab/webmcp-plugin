@@ -48,8 +48,9 @@ function formatCartResult(cart: CartSummary): string {
         lineItems.length > itemLines.length
             ? `\n...and ${lineItems.length - itemLines.length} more line item${lineItems.length - itemLines.length === 1 ? '' : 's'}.`
             : '';
+    const itemCount = cart.itemCount ?? lineItems.length;
 
-    return `Cart has ${cart.itemCount ?? lineItems.length} item${cart.itemCount === 1 ? '' : 's'}${total ? `, total ${total}` : ''}.${checkoutUrl}\n${itemLines.join('\n')}${remaining}`;
+    return `Cart has ${itemCount} item${itemCount === 1 ? '' : 's'}${total ? `, total ${total}` : ''}.${checkoutUrl}\n${itemLines.join('\n')}${remaining}`;
 }
 
 function formatMoney(value: unknown): string | null {
