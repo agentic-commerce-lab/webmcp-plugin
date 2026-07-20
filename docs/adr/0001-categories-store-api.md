@@ -1,7 +1,7 @@
 # ADR 0001 — Move `get_product_categories` from DOM scraping to the Store API
 
 Date: 2026-07-17
-Status: Accepted
+Status: Accepted (implemented on `refactor/typescript-foundation`, commit `996c712`)
 Relates to: [Architecture Overview](../Architecture.md) ·
 [Improvements & Roadmap](../specs/0001-improvements-and-roadmap.md) (item B1 / #12)
 

@@ -1,7 +1,7 @@
 # Spec — Improvements, Gaps & Roadmap
 
-Date: 2026-07-17
-Status: Draft
+Date: 2026-07-17 (revised 2026-07-19)
+Status: Living backlog — foundation & cart items delivered; feature tools open
 Baseline: [Architecture Overview](../Architecture.md)
 Sources: current codebase (IST), Linear project *WebMCP Support*
 (MVP Definition, Status Report, Showcase Brief) and Milestone 2 issues
@@ -16,6 +16,18 @@ the status-report learnings, and the Milestone 2 issues.
 
 This spec is a decision & backlog record. It does not implement anything.
 
+> **Delivery status (`refactor/typescript-foundation`, not yet merged to `main`).**
+> Already shipped: the TypeScript foundation (Spec 0002 WP1–WP6, WP8), the cart
+> architecture (ADR 0004 / Spec 0003), the `.wmcp` removal (ADR 0006), Store-API
+> categories (ADR 0001), the integration test suite (ADR 0002), the safety hints and
+> tool factory, `get_sales_channel_context`, and the storefront `navigate` tool
+> (ACL-127). **Still open:** the remaining WP7 domain typing, and the feature tools in
+> Part B / the roadmap below (`get_checkout_requirements`, `clear_cart`,
+> `create_checkout`, order history, coupons, variant helper, tool-name alignment,
+> confirmation policy, status endpoint, audit logging) — plus the entire **Admin**
+> capability ([ADR 0005](../adr/0005-admin-runtime-and-api-strategy.md) /
+> [Spec 0004](0004-admin-webmcp.md)), which is not started.
+
 ---
 
 ## Part A — Code & architecture improvements
@@ -23,54 +35,45 @@ This spec is a decision & backlog record. It does not implement anything.
 Severity: **P1** = correctness/maintainability risk or best-practice violation
 that will bite soon · **P2** = meaningful debt · **P3** = polish.
 
-> The TypeScript-specific items below (A1–A3, A7) are elaborated for **open-source
-> readiness** in [ADR 0003 — TypeScript integration, architecture & conventions](../adr/0003-typescript-architecture.md):
-> the strange JS-entry/two-compiler build wiring, unenforced type-checking, missing
-> lint/format, boundary `any`, and module structure.
+> The TypeScript-specific items below (A2, A3, A7) are elaborated for **open-source
+> readiness** in [ADR 0003 — TypeScript integration, architecture & conventions](../adr/0003-typescript-architecture.md)
+> (build wiring, type-check enforcement, lint/format, boundary `any`, module
+> structure) with the execution tracked in
+> [Spec 0002](0002-typescript-foundation-implementation-plan.md). A1 (the contract
+> duplication) is settled separately by
+> [ADR 0006](../adr/0006-tool-discovery-contract.md).
 
-### A1. Single source of truth for the WebMCP contract — P1
+### A1. Single source of truth for the WebMCP contract — P1 — ✅ resolved
 
-**Problem:** the document/element/security contract is implemented twice — PHP
-`WebMcpController.php:79-292` and TS `runtime.ts:78-390` — plus the `version`
-string `'0.2'` hard-coded in both. Any change must be mirrored by hand; they will
-drift.
+**Problem:** the document/element/security contract was implemented twice — PHP
+`WebMcpController` and TS `runtime.ts` — with the `version` string `'0.2'` hard-coded
+in both. Any change had to be mirrored by hand; they drifted.
 
-**Direction:** make one side authoritative. Options, in order of preference:
-1. PHP builds the document; the storefront fetches it from `/webmcp.wmcp` and the
-   runtime stops rebuilding it client-side (removes ~300 lines of duplicated TS).
-2. If the client must build it offline, extract a shared JSON contract fixture and
-   generate both sides from it.
+**Resolution:** the bespoke `.wmcp` document is **removed entirely**;
+`document.modelContext` (the live registered tools) is the single discovery contract,
+and each tool's zod schema generates its own JSON Schema. The duplication is dissolved
+by deletion, not by a sync pipeline — see
+[ADR 0006 — Tool discovery contract](../adr/0006-tool-discovery-contract.md).
 
-**Verification:** one place defines version/elements/security; a contract test (or
-at minimum a build-time diff) proves PHP and TS agree.
+### A2. Break up the god modules — P1 — ✅ largely done
 
-### A2. Break up the god modules — P1
-
-| File | Lines | Split into |
+| File | Was | Now |
 | --- | --- | --- |
-| `runtime/shopware-client.ts` | 1302 | `store-api-client`, `cart-client`, `product-normalizer`, `cart-normalizer`, `cart-ui-sync`, `token-discovery` |
-| `runtime.ts` | 897 | `bootstrap`, `document-builder` (or drop per A1), `tool-registry`, `native-bridge` |
-| `tools/get-product-categories.tool.ts` | 876 | `category-tree` inference engine as its own module, thin tool wrapper on top |
-| `Model/CartPayloadBuilder.php` | 378 | acceptable, but extract line-item + totals serializers |
+| `runtime/shopware-client.ts` | 1302 | ~336, over `transport/` + `domain/` (WP5; `storeApiRequest` extraction + `domain/cart.ts` remain) |
+| `runtime.ts` | 897 | ~190; `model-context/registry.ts` + `native-bridge.ts` extracted (WP6) |
+| `tools/get-product-categories.tool.ts` | 876 | ~123 — Store API instead of a DOM inference engine (ADR 0001) |
+| `Model/CartPayloadBuilder.php` | 378 | to be **deleted** — projection moves to `domain/cart.ts` ([ADR 0004](../adr/0004-cart-architecture.md) D4) |
 
-AGENTS.md §2.2 already forbids "god objects / oversized files"; these violate it.
+Tracked step-by-step in [Spec 0002](0002-typescript-foundation-implementation-plan.md).
+**Verification:** no runtime source file > ~300 lines; `tsc` + build green.
 
-**Verification:** no runtime source file > ~300 lines; `tsc` + build still green.
+### A3. Remove per-tool duplication with a shared factory — P2 — ✅ done
 
-### A3. Remove per-tool duplication with a shared factory — P2
-
-The "exactly one of id/sku/url" validator (get-product `:79-83`, add-to-cart
-`:88-92`, update-line-item `:115-119`, remove-from-cart `:95-99`),
-`normalizeQuantity` (3 near-identical copies), and the `MAX_PRODUCT_ID_LENGTH` /
-`MAX_SKU_LENGTH` / `MAX_URL_LENGTH` / `MAX_QUANTITY` constants are copy-pasted.
-`removeEmptyValues`/`isPlainObject`/`parseJson` are each duplicated 2–3×.
-
-**Direction:** a `createStorefrontTool()` factory + shared `productSelector` schema
-+ shared validators/constants in `storefront-tool.utils.ts`. This also fixes the
-recent top-level-`oneOf` class of bugs in one place instead of seven.
-
-**Verification:** each tool file drops to schema + description + execute; shared
-helpers covered once.
+The "exactly one of id/sku/url" validator, `normalizeQuantity`, and the `MAX_*`
+constants were copy-pasted across tools. Resolved by the `defineTool` factory +
+shared `productSelector`/`quantity` in `tools/schemas.ts` (WP4): each tool file is now
+schema + description + execute, and the top-level-`oneOf` schema-bug class is fixed in
+one place (zod `.refine` is runtime-only).
 
 ### A4. Fix dead / redundant logic — P2
 
@@ -136,11 +139,11 @@ depth/size/line-item cap; `CartPayloadBuilder` has a child-recursion guard
 | --- | --- | --- | --- |
 | `search_products` | Must | ✅ done | as `shopware_webmcp_search_products` |
 | `get_product` | Must | ✅ done | |
-| `get_product_categories` | Must | ⚠️ partial | works, but **DOM-scraped**, not Store API — fragile, theme-dependent |
-| `add_to_cart` | Must | ✅ done | |
+| `get_product_categories` | Must | ✅ done | now via the Store API navigation endpoint (ADR 0001), not DOM scraping |
+| `add_to_cart` | Must | ✅ done | product-keyed, relative (ADR 0004) |
 | `get_cart` | Must | ✅ done | |
-| `remove_from_cart` | Must | ✅ done | |
-| `update_line_item` | Should | ✅ done | |
+| `remove_from_cart` | Must | ✅ done → **dropped** | redundant with `update_line_item(quantity: 0)` (ADR 0004 D2) |
+| `update_line_item` | Should | ✅ done | declarative per-line target, `0` = remove (ADR 0004) |
 | `get_checkout_requirements` | Should | ❌ **missing** | read-only checkout metadata (address fields, countries, salutations, shipping/payment methods, tax display, currency, checkout URL) |
 | `get_sales_channel_context` | **Differentiator** | ❌ **missing** | sales channel, language, currency, country, customer group, tax mode, active domain, enabled capabilities — the Shopware-specific edge |
 
@@ -154,11 +157,11 @@ differentiator (`get_sales_channel_context`).
 | Enable/disable toggle | ✅ | `enabled` |
 | Separate read vs cart-mutation toggles | ⚠️ partial | per-tool toggles exist, but no read/write **grouping** or single mutation kill-switch |
 | **User confirmation for cart mutations** | ❌ missing | no confirmation config, no confirmation surface / native confirmation hint |
-| **Read/write classification in tool metadata** (`readOnlyHint`) | ❌ missing | Chrome security guide calls this out; not emitted |
-| **`untrustedContentHint`** for product/user content | ❌ missing | product descriptions are attacker-controllable (prompt injection) |
-| Store API as source of truth | ⚠️ partial | products ✅, cart via storefront routes, categories via DOM |
-| Same shopper/session context | ✅ | context-token capture/replay |
-| **Status endpoint** (version, enabled tools, browser reqs, safety posture) | ⚠️ partial | `/webmcp.wmcp` document exists, but no `/.well-known/webmcp-status` reporting version/tools/policy/safety/readiness |
+| **Read/write classification in tool metadata** (`readOnlyHint`) | ✅ done | emitted via `defineTool` (WP4) |
+| **`untrustedContentHint`** for product/user content | ✅ done | emitted for product/cart content tools (WP4) |
+| Store API as source of truth | ✅ | products ✅, categories via Store API navigation (ADR 0001) ✅, cart via server-side `CartService` bridge (ADR 0004) ✅ |
+| Same shopper/session context | ✅ | session cookie resolves context server-side (ADR 0004) |
+| **Status endpoint** (version, enabled tools, browser reqs, safety posture) | ❌ missing | the bespoke `.wmcp` document was removed (ADR 0006); no `/.well-known/webmcp-status` reporting version/tools/policy/safety/readiness |
 | **Deterministic fallback harness** (gated behind demo setting) | ❌ missing | the earlier PoC had a gated `window.__SwagWebMcp.call`; current build exposes `window.SwagWebMcp` **ungated** and ships no harness |
 | **Mutation audit logging** | ❌ missing | earlier PoC logged mutation audit events server-side; current build does not |
 | No checkout/payment/account/admin in V1 | ✅ | correctly out of scope |
@@ -208,13 +211,13 @@ Ordering blends impact (MVP/differentiator, safety) with effort and dependency.
 
 | # | Item | Type | Priority | Depends on |
 | --- | --- | --- | --- | --- |
-| 1 | `get_sales_channel_context` tool (differentiator, cheap, Store API) | Feature (B1) | P1 | A3 helps |
-| 2 | Read/write tool metadata: `readOnlyHint` + `untrustedContentHint` | Safety (B2) | P1 | — |
-| 3 | Single source of truth for the WebMCP contract | Debt (A1) | P1 | — |
-| 4 | Shared tool factory + validators (kills boilerplate & schema-bug class) | Debt (A3) | P1 | — |
+| 1 | `get_sales_channel_context` tool (differentiator, cheap; reuses the cart context primitive) | Feature (B1) | P1 | [Cart plan](0003-cart-implementation-plan.md) C5 |
+| 2 | ~~Read/write tool metadata: `readOnlyHint` + `untrustedContentHint`~~ ✅ done (WP4) | Safety (B2) | P1 | — |
+| 3 | ~~Single source of truth for the WebMCP contract~~ ✅ done — removed the `.wmcp` document ([ADR 0006](../adr/0006-tool-discovery-contract.md)) | Debt (A1) | P1 | — |
+| 4 | ~~Shared tool factory + validators~~ ✅ done (WP4) | Debt (A3) | P1 | — |
 | 5 | `get_checkout_requirements` tool | Feature (B1) | P1 | 1 |
 | 6 | Proper status endpoint `/.well-known/webmcp-status` | Safety (B2) | P2 | 3 |
-| 7 | Split god modules (`shopware-client.ts`, `runtime.ts`, categories) | Debt (A2) | P2 | 4 |
+| 7 | ~~Split god modules (`shopware-client.ts`, `runtime.ts`, categories)~~ ✅ largely done (WP5/WP6); `storeApiRequest` + `domain/cart.ts` remain | Debt (A2) | P2 | 4 |
 | 8 | Confirmation policy for cart mutations + admin toggle | Safety (B2) | P2 | 2 |
 | 9 | `clear_cart` (ACL-129) + `create_checkout` (ACL-128) tools | Feature (B3) | P2 | 4 |
 | 10 | Land page-navigation tool (ACL-127) into main | Feature (B3) | P2 | 4 |

@@ -5,8 +5,10 @@ intended to guide agents working in this repo, not to describe unrelated
 projects or product systems.
 
 ## 1. Project Context
-1. This repository is a Shopware 6 plugin that publishes a WebMCP side-car
-   document and browser-side `document.modelContext` tools for storefronts.
+1. This repository is a Shopware 6 plugin that registers browser-side
+   `document.modelContext` tools for storefronts. There is no static side-car
+   document — `document.modelContext` is the single discovery contract (see
+   `docs/adr/0006-tool-discovery-contract.md`).
 2. Keep the package structure conventional for a Shopware platform plugin:
    `composer.json`, `src/SwagWebMcp.php`, `src/WebMcp`,
    `src/Resources/config`, `src/Resources/views`, and the TypeScript storefront
@@ -37,15 +39,18 @@ projects or product systems.
    features outside the configured platform version.
 
 ## 4. Shopware and WebMCP Contracts
-1. Preserve the public endpoints unless the task explicitly changes them:
-   `GET /webmcp.wmcp` and `GET /webmcp/cart`.
-2. The WebMCP document endpoint should return `application/webmcp+json` and
-   remain unavailable when the plugin is disabled.
+1. Preserve the storefront JSON endpoints unless the task explicitly changes
+   them: `GET /webmcp/cart`, `GET /webmcp/sales-channel-context`, and
+   `POST`/`PATCH /webmcp/cart/line-item`. Each returns `404` when its tool is
+   disabled in config, and every response is `Cache-Control: private, no-store`.
+2. Tool discovery is runtime-only via `document.modelContext`. There is no
+   `/webmcp.wmcp` route, `application/webmcp+json` document, or side-car file;
+   do not reintroduce one (see `docs/adr/0006-tool-discovery-contract.md`).
 3. Keep Shopware Admin configuration, service wiring, routes, Twig data
    attributes, and storefront runtime behavior in sync.
 4. Preserve the browser globals and tool surface expected by the README:
-   `document.webMcp`, `document.modelContext`, `window.SwagWebMcp`, and
-   `shopware.webmcp.*` tool names.
+   `document.modelContext`, `window.SwagWebMcp`, and `window.SwagWebMcpRuntime`;
+   all tool names are prefixed `shopware_webmcp_*`.
 5. Keep tool inputs and outputs stable, especially `structuredContent`, unless
    the requested change intentionally updates the WebMCP contract.
 6. The storefront runtime is TypeScript under
@@ -53,9 +58,8 @@ projects or product systems.
    compiles it for dev/theme; `bun run build` produces the release `dist` bundle.
 
 ## 5. Validation and Safety
-1. Validate external input at runtime, including plugin config JSON,
-   `staticElementsJson`, route input, Store API payloads, and browser tool
-   arguments.
+1. Validate external input at runtime, including plugin config JSON, route
+   input, Store API and cart payloads, and browser tool arguments.
 2. Prefer explicit error handling over silent failure.
 3. Never log secrets, tokens, credentials, storefront session identifiers, CSRF
    tokens, or raw sensitive user/cart data.

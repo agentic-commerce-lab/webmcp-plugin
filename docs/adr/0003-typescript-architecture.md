@@ -1,10 +1,17 @@
 # ADR 0003 — TypeScript integration, architecture & conventions (open-source readiness)
 
-Date: 2026-07-17
-Status: Draft
+Date: 2026-07-17 (revised 2026-07-19)
+Status: Accepted (foundation delivered — execution & remaining steps in Spec 0002)
 Relates to: [Architecture Overview](../Architecture.md) ·
 [ADR 0002 — Testing Strategy](0002-testing-strategy.md) ·
+[ADR 0006 — Tool discovery contract](0006-tool-discovery-contract.md) ·
+[TypeScript foundation & module refactor plan](../specs/0002-typescript-foundation-implementation-plan.md) ·
 [Improvements & Roadmap](../specs/0001-improvements-and-roadmap.md) (A1–A3, A7)
+
+> **SSOT for the TypeScript architecture *decisions* and *conventions*** (build
+> model, tsconfig, lint/format, zod-as-schema-source, domain typing, and the module
+> layering rule). The commit-by-commit *execution* — what is done and what remains —
+> lives in the [TypeScript foundation & module refactor plan](../specs/0002-typescript-foundation-implementation-plan.md).
 
 ## Context
 
@@ -251,30 +258,48 @@ compiled bundle **must** ship in the ZIP. The TS source is also in the ZIP but i
 - Type the core request methods (`storeApiRequest<T>()`), removing `Promise<any>`.
 
 ### 6. Structure for readability (open-source ergonomics)
-- Split the god modules along the seams in the Architecture Overview §9 / roadmap A2:
-  `store-api-client`, `cart-client`, `*-normalizer`, `cart-ui-sync`,
-  `token-discovery`, and a thin `tool-registry` / `native-bridge`.
-- A **shared tool factory** + typed `productSelector` schema to remove per-tool
-  boilerplate (A3).
-- Establish a **single source of truth for the WebMCP document** (A1).
-- Add a short **CONTRIBUTING.md + architecture note** so the layering, the build
-  paths, and the conventions are discoverable.
 
-## Implementation status (2026-07-17)
+The runtime follows a small, explicit layering with **one-way dependencies**
+(`tools → adapter → transport / domain`). This is the canonical convention; the
+concrete decomposition steps and current line counts live in
+[Spec 0002](../specs/0002-typescript-foundation-implementation-plan.md).
 
-Delivered on the `refactor/typescript-foundation` branch: ESLint + Prettier + CI
-quality gate; `main.ts` entrypoint (Shopware resolves `main.ts` ahead of `main.js`,
-so the JS shim was removed); the `defineTool` + zod tool factory with safety hints;
-the `shopware-client.ts` split into `transport/` + `domain/` + `cart-ui-sync`; the
-`runtime.ts` model-context registry extracted; and the browser/node tsconfig split
-with the stricter flags.
+| Layer | Answers | Knows about | Must NOT |
+| --- | --- | --- | --- |
+| **transport/** | "how to make the HTTP call" | fetch, headers, CSRF/token, endpoint paths, response parsing | know what a product or cart *means*; hold session state |
+| **domain/** | "what the data means" | raw payload shapes → typed models (`ProductSummary`, `CartSummary`, category nodes) | do any I/O / touch the DOM |
+| **adapter** (`shopware-client.ts`) | "do a commerce operation" | which backend per op, session/context, combining transport + domain | build JSON schemas or format agent text (that's `tools/`) |
+| **tools/** | the MCP contract for the agent | zod schema + description + execute | make HTTP calls or normalize payloads directly |
+| **model-context/** | MCP plumbing | register/unregister, native `document.modelContext` bridge | know about commerce |
 
-Deferred: the **single-source WebMCP document** (WP6) — making the storefront fetch
-the document from the PHP endpoint would change `document.webMcp.getDocument()` from
-sync to async, a public API change that needs its own reviewed change and e2e, so it
-was intentionally not folded into the runtime split. Full domain-type coverage
-(replacing the remaining parse-boundary `any`) is likewise a follow-up, kept separate
-to avoid runtime-parse regressions on real Store API payloads.
+**Why one adapter, not two classes:** the Store-API reads and the cart writes share
+`baseUrl`, `contextToken`, and `resolveProductId`. Splitting `ShopwareClient` into
+two classes would just thread that shared state around, so the *backends* are
+separated in `transport/` (function modules) while `ShopwareClient` stays a single
+facade that holds context and orchestrates.
+
+Supporting decisions:
+- A **shared tool factory** (`defineTool`) + typed `productSelector` schema removes
+  per-tool boilerplate (A3).
+- Tool discovery has a **single source of truth** — the live `document.modelContext`
+  registry; there is no static document (see [ADR 0006](0006-tool-discovery-contract.md), formerly A1).
+- A short **CONTRIBUTING.md + architecture note** makes the layering, the build
+  paths, and the conventions discoverable.
+
+## Implementation status
+
+The foundation is delivered on the `refactor/typescript-foundation` branch: ESLint +
+Prettier + a CI quality gate; a `main.ts` entrypoint (Shopware resolves `main.ts`
+ahead of `main.js`, so the JS shim was removed); the `defineTool` + zod tool factory
+with safety hints; the `shopware-client.ts` split into `transport/` + `domain/` +
+`cart-ui-sync`; the `runtime.ts` model-context registry extracted; and the
+browser/node tsconfig split with the stricter flags.
+
+The former "single-source WebMCP document" work was overtaken by events: rather than
+making one side authoritative, the bespoke document was **removed entirely** — see
+[ADR 0006](0006-tool-discovery-contract.md). Full domain-type coverage (replacing the
+remaining parse-boundary `any`) and the final module tidy remain follow-ups, tracked
+step-by-step in [Spec 0002](../specs/0002-typescript-foundation-implementation-plan.md).
 
 ## Non-goals
 
