@@ -39,11 +39,6 @@ same topic they are cross-linked in their headers.
   declarative per-line target, two product-keyed tools), server-side `CartService`
   execution (thin PHP bridge, no token in the browser), and frontend projection
   (`domain/cart.ts`). Consolidates the former ADR 0004 + 0006.
-- [0005 — Admin WebMCP: runtime & API strategy](adr/0005-admin-runtime-and-api-strategy.md)
-  — **Proposed (not started).** A second WebMCP runtime in the plugin's `administration` bundle
-  (sharing a `webmcp-core`) that drives Shopware through the admin's own JS layer
-  (`repositoryFactory` / domain services / router), reusing the merchant's live
-  session and ACL rather than a direct Admin-API client or new server endpoints.
 - [0006 — Tool discovery contract](adr/0006-tool-discovery-contract.md) —
   **Accepted & implemented** (on `refactor/typescript-foundation`). Removes the
   bespoke `.wmcp` document; `document.modelContext` (the live registered tools) is the
@@ -70,8 +65,3 @@ same topic they are cross-linked in their headers.
   [ADR 0004](adr/0004-cart-architecture.md) — server-side `CartService` write
   endpoints, declarative-per-line tools, slimmed `cart-ui-sync`, frontend cart
   projection, `.wmcp` removal, `get_sales_channel_context`.
-- [0004 — WebMCP in the Shopware Admin](specs/0004-admin-webmcp.md) — **not started.** Extend WebMCP
-  to the Administration: full admin tool surface (products, orders, categories,
-  CMS/landing pages, settings navigation), driven through the admin JS layer, with
-  ACL gating, confirmation/visibility model, a CMS block-template abstraction, and a
-  phased roadmap. Implements [ADR 0005](adr/0005-admin-runtime-and-api-strategy.md).

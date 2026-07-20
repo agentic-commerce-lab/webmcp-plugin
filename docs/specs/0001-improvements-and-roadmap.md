@@ -24,9 +24,7 @@ This spec is a decision & backlog record. It does not implement anything.
 > (ACL-127). **Still open:** the remaining WP7 domain typing, and the feature tools in
 > Part B / the roadmap below (`get_checkout_requirements`, `clear_cart`,
 > `create_checkout`, order history, coupons, variant helper, tool-name alignment,
-> confirmation policy, status endpoint, audit logging) — plus the entire **Admin**
-> capability ([ADR 0005](../adr/0005-admin-runtime-and-api-strategy.md) /
-> [Spec 0004](0004-admin-webmcp.md)), which is not started.
+> confirmation policy, status endpoint, audit logging).
 
 ---
 
