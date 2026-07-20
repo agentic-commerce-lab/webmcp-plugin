@@ -8,14 +8,9 @@ import type {
     StorefrontToolOptions,
     UnknownRecord,
 } from './types';
-import {
-    ACCESS_KEY_HEADER,
-    CONTEXT_TOKEN_HEADER,
-    persistContextToken,
-    readAccessKey,
-    readContextToken,
-} from './transport/token-discovery';
-import { parseJsonResponse, storeApiErrorMessage, webMcpErrorMessage } from './transport/http';
+import { readAccessKey, readContextToken } from './transport/token-discovery';
+import { StoreApiClient } from './transport/store-api';
+import { webMcpRequest } from './transport/webmcp';
 import {
     createProductCriteria,
     normalizeProduct,
@@ -26,15 +21,20 @@ import { markActiveCategoryTrail, normalizeCategories, normalizeCategoryNode } f
 import { normalizeCart } from './domain/cart';
 import { openCartOverlay, refreshCartUi } from './cart-ui-sync';
 
-const STORE_API_PATH = '/store-api';
 const WEBMCP_CART_PATH = '/webmcp/cart';
 const WEBMCP_CART_LINE_ITEM_PATH = '/webmcp/cart/line-item';
 const WEBMCP_SALES_CHANNEL_CONTEXT_PATH = '/webmcp/sales-channel-context';
 
+/**
+ * Orchestrates the storefront tools against the two transports: read/search go
+ * through the Store API (`StoreApiClient`), cart writes and context reads through
+ * the plugin's own same-origin `/webmcp` endpoints (`webMcpRequest`). This class
+ * holds no transport details itself — only the page-derived options and the
+ * domain normalization wiring.
+ */
 export class ShopwareClient {
     private baseUrl: string;
-    private contextToken: string | null;
-    private accessKey: string | null;
+    private storeApi: StoreApiClient;
     private navigationCategoryId: string | null;
     private currencyIsoCode: string | null;
     private activeCategoryId: string | null;
@@ -42,8 +42,11 @@ export class ShopwareClient {
 
     constructor(options: StorefrontToolOptions = {}) {
         this.baseUrl = normalizeBaseUrl(options.baseUrl);
-        this.contextToken = cleanText(options.contextToken) || readContextToken();
-        this.accessKey = cleanText(options.accessKey) || readAccessKey();
+        this.storeApi = new StoreApiClient(
+            this.baseUrl,
+            cleanText(options.accessKey) || readAccessKey(),
+            cleanText(options.contextToken) || readContextToken(),
+        );
         this.navigationCategoryId = cleanText(options.navigationCategoryId);
         this.currencyIsoCode = cleanText(options.currencyIsoCode);
         this.activeCategoryId = cleanText(options.activeCategoryId);
@@ -54,7 +57,7 @@ export class ShopwareClient {
         products: ProductSummary[];
         total: number;
     }> {
-        const result = (await this.storeApiRequest(
+        const result = (await this.storeApi.request(
             '/search',
             createProductCriteria({
                 search: query,
@@ -70,7 +73,7 @@ export class ShopwareClient {
     }
 
     private async findProductBySku(sku: string): Promise<ProductSummary | null> {
-        const result = await this.storeApiRequest(
+        const result = await this.storeApi.request(
             '/search',
             createProductCriteria({
                 limit: 1,
@@ -96,7 +99,7 @@ export class ShopwareClient {
 
     async getProduct(input: ProductLookupInput = {}): Promise<ProductSummary> {
         const productId = await this.resolveProductId(input);
-        const result = (await this.storeApiRequest(
+        const result = (await this.storeApi.request(
             `/product/${encodeURIComponent(productId)}`,
             createProductCriteria({
                 limit: 1,
@@ -120,7 +123,7 @@ export class ShopwareClient {
             );
         }
 
-        const result = (await this.storeApiRequest(
+        const result = (await this.storeApi.request(
             `/navigation/${encodeURIComponent(rootId)}/${encodeURIComponent(rootId)}`,
             { depth, buildTree: true, associations: { seoUrls: {} } },
         )) as UnknownRecord;
@@ -148,7 +151,7 @@ export class ShopwareClient {
             throw new Error('Product category scope requires a product id, SKU, or URL, or an active product page.');
         }
 
-        const result = (await this.storeApiRequest(
+        const result = (await this.storeApi.request(
             `/product/${encodeURIComponent(productId)}`,
             createProductCriteria({
                 limit: 1,
@@ -165,7 +168,7 @@ export class ShopwareClient {
     }
 
     async getCart(): Promise<CartSummary> {
-        const rawCart = await this.webMcpCartRequest();
+        const rawCart = await webMcpRequest(this.webMcpUrl(WEBMCP_CART_PATH));
 
         if (!isPlainObject(rawCart)) {
             throw new Error('No cart details were returned by the Shopware WebMCP cart endpoint.');
@@ -175,20 +178,7 @@ export class ShopwareClient {
     }
 
     async getSalesChannelContext(): Promise<UnknownRecord> {
-        const url = new URL(WEBMCP_SALES_CHANNEL_CONTEXT_PATH, this.baseUrl);
-        const response = await fetch(url.toString(), {
-            method: 'GET',
-            credentials: 'same-origin',
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        });
-        const payload = await parseJsonResponse(response);
-
-        if (!response.ok) {
-            throw new Error(webMcpErrorMessage(response, payload));
-        }
+        const payload = await webMcpRequest(this.webMcpUrl(WEBMCP_SALES_CHANNEL_CONTEXT_PATH));
 
         if (!isPlainObject(payload)) {
             throw new Error('No sales channel context was returned by the Shopware WebMCP endpoint.');
@@ -199,7 +189,10 @@ export class ShopwareClient {
 
     async addProductToCart(input: QuantityInput): Promise<CartSummary | null> {
         const productId = await this.resolveProductId(input);
-        const cart = await this.cartWriteRequest('POST', { productId, quantity: input.quantity });
+        const cart = await webMcpRequest(this.webMcpUrl(WEBMCP_CART_LINE_ITEM_PATH), {
+            method: 'POST',
+            body: { productId, quantity: input.quantity },
+        });
 
         if (input.showCartOverlay) {
             openCartOverlay(this.baseUrl);
@@ -210,7 +203,10 @@ export class ShopwareClient {
 
     async updateLineItem(input: CartQuantityInput): Promise<CartSummary | null> {
         const productId = await this.resolveProductId(input);
-        const cart = await this.cartWriteRequest('PATCH', { productId, quantity: input.quantity });
+        const cart = await webMcpRequest(this.webMcpUrl(WEBMCP_CART_LINE_ITEM_PATH), {
+            method: 'PATCH',
+            body: { productId, quantity: input.quantity },
+        });
 
         return this.finalizeCartMutation(cart);
     }
@@ -245,82 +241,8 @@ export class ShopwareClient {
         throw new Error('Product lookup requires a Shopware product id, SKU/product number, or /detail/{id} URL.');
     }
 
-    private async storeApiRequest(path: string, body: UnknownRecord = {}): Promise<unknown> {
-        const url = new URL(`${STORE_API_PATH}${path}`, this.baseUrl);
-        const headers: Record<string, string> = {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-        };
-
-        if (this.accessKey) {
-            headers[ACCESS_KEY_HEADER] = this.accessKey;
-        }
-
-        if (this.contextToken) {
-            headers[CONTEXT_TOKEN_HEADER] = this.contextToken;
-        }
-
-        const response = await fetch(url.toString(), {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers,
-            body: JSON.stringify(body),
-        });
-        const responseContextToken = cleanText(response.headers.get(CONTEXT_TOKEN_HEADER));
-
-        if (responseContextToken) {
-            this.contextToken = responseContextToken;
-            persistContextToken(responseContextToken);
-        }
-
-        const payload = await parseJsonResponse(response);
-
-        if (!response.ok) {
-            throw new Error(storeApiErrorMessage(response, payload));
-        }
-
-        return payload;
-    }
-
-    private async webMcpCartRequest(): Promise<unknown> {
-        const url = new URL(WEBMCP_CART_PATH, this.baseUrl);
-        const response = await fetch(url.toString(), {
-            method: 'GET',
-            credentials: 'same-origin',
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        });
-        const payload = await parseJsonResponse(response);
-
-        if (!response.ok) {
-            throw new Error(webMcpErrorMessage(response, payload));
-        }
-
-        return payload;
-    }
-
-    private async cartWriteRequest(method: 'POST' | 'PATCH', body: UnknownRecord): Promise<unknown> {
-        const url = new URL(WEBMCP_CART_LINE_ITEM_PATH, this.baseUrl);
-        const response = await fetch(url.toString(), {
-            method,
-            credentials: 'same-origin',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: JSON.stringify(body),
-        });
-        const payload = await parseJsonResponse(response);
-
-        if (!response.ok) {
-            throw new Error(webMcpErrorMessage(response, payload));
-        }
-
-        return payload;
+    private webMcpUrl(path: string): string {
+        return new URL(path, this.baseUrl).toString();
     }
 
     /**
