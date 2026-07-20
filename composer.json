@@ -1,6 +1,6 @@
 {
     "name": "shopware/web-mcp",
-    "description": "Shopware plugin for WebMCP side-car documents",
+    "description": "Shopware plugin exposing storefront WebMCP tools via document.modelContext",
     "type": "shopware-platform-plugin",
     "license": "MIT",
     "require": {
@@ -46,8 +46,8 @@
             "en-GB": "WebMCP"
         },
         "description": {
-            "de-DE": "WebMCP Side-Car-Dokumente fuer Shopware",
-            "en-GB": "WebMCP side-car documents for Shopware"
+            "de-DE": "WebMCP-Tools für die Shopware-Storefront über document.modelContext",
+            "en-GB": "WebMCP storefront tools for Shopware via document.modelContext"
         }
     },
     "config": {

@@ -14,22 +14,6 @@ export function readContextToken(): string | null {
     ]);
 }
 
-export function readCsrfToken(): string | null {
-    return readKnownValue([
-        () =>
-            (
-                document.querySelector(
-                    'form[action*="/checkout/line-item/add"] input[name="_csrf_token"]',
-                ) as HTMLInputElement | null
-            )?.value,
-        () => (document.querySelector('input[name="_csrf_token"]') as HTMLInputElement | null)?.value,
-        () => readMetaContent('csrf-token'),
-        () => readMetaContent('csrf_token'),
-        () => window?.csrf?.token,
-        () => window?.Shopware?.Context?.csrfToken,
-    ]);
-}
-
 export function readAccessKey(): string | null {
     return readKnownValue([
         () => readMetaContent('sw-access-key'),

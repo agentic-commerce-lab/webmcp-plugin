@@ -14,29 +14,6 @@ export async function parseJsonResponse(response: Response): Promise<unknown> {
     }
 }
 
-export async function parseFlexibleResponse(response: Response): Promise<unknown> {
-    const contentType = response.headers.get('content-type') || '';
-    const text = await response.text();
-
-    if (!text) {
-        return null;
-    }
-
-    if (contentType.includes('application/json')) {
-        try {
-            return JSON.parse(text);
-        } catch (error) {
-            return {
-                raw: text,
-            };
-        }
-    }
-
-    return {
-        raw: text,
-    };
-}
-
 export function storeApiErrorMessage(response: Response, payload: any): string {
     const errorDetail = Array.isArray(payload?.errors)
         ? payload.errors
@@ -53,21 +30,6 @@ export function storeApiErrorMessage(response: Response, payload: any): string {
     }
 
     return errorDetail || `Shopware Store API request failed with status ${response.status}.`;
-}
-
-export function storefrontErrorMessage(response: Response, payload: any): string {
-    if (Array.isArray(payload?.errors)) {
-        const errorDetail = payload.errors
-            .map((error: any) => error.detail || error.title)
-            .filter(Boolean)
-            .join(' ');
-
-        if (errorDetail) {
-            return errorDetail;
-        }
-    }
-
-    return `Shopware storefront cart request failed with status ${response.status}.`;
 }
 
 export function webMcpErrorMessage(response: Response, payload: any): string {
