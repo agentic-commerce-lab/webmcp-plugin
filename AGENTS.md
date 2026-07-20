@@ -49,7 +49,7 @@ projects or product systems.
 3. Keep Shopware Admin configuration, service wiring, routes, Twig data
    attributes, and storefront runtime behavior in sync.
 4. Preserve the browser globals and tool surface expected by the README:
-   `document.modelContext`, `window.SwagWebMcp`, and `window.SwagWebMcpRuntime`;
+   `document.modelContext` and the single `window.SwagWebMcp` debug global;
    all tool names are prefixed `shopware_webmcp_*`.
 5. Keep tool inputs and outputs stable, especially `structuredContent`, unless
    the requested change intentionally updates the WebMCP contract.
