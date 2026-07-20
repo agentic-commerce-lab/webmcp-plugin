@@ -1,8 +1,15 @@
 {
     "name": "shopware/web-mcp",
     "description": "Shopware plugin exposing storefront WebMCP tools via document.modelContext",
+    "version": "0.1.0",
     "type": "shopware-platform-plugin",
     "license": "MIT",
+    "authors": [
+        {
+            "name": "Shopware AG",
+            "homepage": "https://www.shopware.com"
+        }
+    ],
     "require": {
         "php": "^8.2",
         "shopware/core": ">=6.6.10.18 <6.8.0",
@@ -46,8 +53,16 @@
             "en-GB": "WebMCP"
         },
         "description": {
-            "de-DE": "WebMCP-Tools für die Shopware-Storefront über document.modelContext",
-            "en-GB": "WebMCP storefront tools for Shopware via document.modelContext"
+            "de-DE": "Stellt Shopware-Storefront-Funktionen für KI-Agenten als WebMCP-Tools über document.modelContext bereit: Produktsuche, Produkt-/Kategorieabruf und serverseitige Warenkorbverwaltung.",
+            "en-GB": "Exposes Shopware storefront capabilities to AI agents as WebMCP tools via document.modelContext: product search, product and category lookup, plus server-side cart management."
+        },
+        "manufacturerLink": {
+            "de-DE": "https://github.com/agentic-commerce-lab/webmcp-plugin",
+            "en-GB": "https://github.com/agentic-commerce-lab/webmcp-plugin"
+        },
+        "supportLink": {
+            "de-DE": "https://github.com/agentic-commerce-lab/webmcp-plugin/issues",
+            "en-GB": "https://github.com/agentic-commerce-lab/webmcp-plugin/issues"
         }
     },
     "config": {
