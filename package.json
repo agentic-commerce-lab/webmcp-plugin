@@ -1,13 +1,37 @@
 {
     "private": true,
     "type": "module",
-    "packageManager": "bun@1.3.14",
     "scripts": {
-        "build": "bun run bin/build-storefront-dist.ts",
-        "check": "tsc --noEmit --pretty false"
+        "build": "shopware-cli extension build .",
+        "check": "tsc -p tsconfig.json --pretty false && tsc -p tsconfig.node.json --pretty false",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "qa": "npm run check && npm run lint && npm run format:check && composer qa",
+        "test:unit": "composer test",
+        "test:e2e": "playwright test",
+        "shop:up": "bin/shop.sh up",
+        "shop:deploy": "bin/shop.sh deploy",
+        "shop:test": "bin/shop.sh test",
+        "shop:down": "bin/shop.sh down",
+        "shop:restart": "bin/shop.sh restart",
+        "shop:logs": "bin/shop.sh logs",
+        "shop:shell": "bin/shop.sh shell",
+        "shop:open": "bin/shop.sh open"
     },
     "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "@playwright/test": "^1.61.1",
         "@types/node": "^26.0.1",
-        "typescript": "^6.0.3"
+        "eslint": "^10.7.0",
+        "eslint-config-prettier": "^10.1.8",
+        "globals": "^17.7.0",
+        "prettier": "^3.9.5",
+        "typescript": "^6.0.3",
+        "typescript-eslint": "^8.64.0"
+    },
+    "dependencies": {
+        "zod": "^4.4.3"
     }
 }

@@ -6,6 +6,10 @@ export interface StorefrontToolOptions {
     baseUrl?: string | null;
     accessKey?: string | null;
     contextToken?: string | null;
+    navigationCategoryId?: string | null;
+    currencyIsoCode?: string | null;
+    activeCategoryId?: string | null;
+    currentProductId?: string | null;
 }
 
 export interface ToolResult {
@@ -50,11 +54,12 @@ export interface NativeModelContext {
 
 export interface WebMcpRuntimeConfig {
     enabled: boolean;
-    context: string;
     baseUrl: string | null;
     storeApiAccessKey: string | null;
-    staticElements?: unknown;
-    staticElementsJson: string | null;
+    navigationCategoryId: string | null;
+    currencyIsoCode: string | null;
+    activeCategoryId: string | null;
+    currentProductId: string | null;
     tools: {
         searchProducts: boolean;
         getProduct: boolean;
@@ -62,35 +67,25 @@ export interface WebMcpRuntimeConfig {
         getCart: boolean;
         addToCart: boolean;
         updateLineItem: boolean;
-        removeFromCart: boolean;
+        getSalesChannelContext: boolean;
+        navigate: boolean;
     };
 }
 
 export type WebMcpToolKey = keyof WebMcpRuntimeConfig['tools'];
 
-export interface WebMcpDocument {
-    version: string;
-    context: string;
-    elements: UnknownRecord[];
-    security: UnknownRecord;
-}
-
 export interface ProductLookupInput {
-    id?: string;
-    sku?: string;
-    url?: string;
-}
-
-export interface CartLineItemLookupInput extends ProductLookupInput {
-    lineItemId?: string;
+    id?: string | undefined;
+    sku?: string | undefined;
+    url?: string | undefined;
 }
 
 export interface QuantityInput extends ProductLookupInput {
-    lineItemId?: string;
     quantity: number;
+    showCartOverlay?: boolean | undefined;
 }
 
-export interface CartQuantityInput extends CartLineItemLookupInput {
+export interface CartQuantityInput extends ProductLookupInput {
     quantity: number;
 }
 

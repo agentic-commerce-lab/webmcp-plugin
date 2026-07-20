@@ -81,30 +81,11 @@ export function cleanText(value: unknown): string | null {
     return text || null;
 }
 
-export function normalizeOptionalStringField(value: unknown, maxLength: number, label: string): string | null {
-    if (typeof value === 'undefined' || value === null || value === '') {
-        return null;
-    }
+// eslint-disable-next-line no-control-regex -- deliberately matches ASCII control characters (C0 range + DEL)
+const CONTROL_CHARACTERS = /[\x00-\x1F\x7F]/;
 
-    if (typeof value !== 'string') {
-        throw new Error(`${label} must be a string.`);
-    }
-
-    const text = value.trim();
-
-    if (!text) {
-        return null;
-    }
-
-    if (text.length > maxLength) {
-        throw new Error(`${label} must be ${maxLength} characters or fewer.`);
-    }
-
-    if (/[\x00-\x1F\x7F]/.test(text)) {
-        throw new Error(`${label} must not contain control characters.`);
-    }
-
-    return text;
+export function hasControlCharacters(value: string): boolean {
+    return CONTROL_CHARACTERS.test(value);
 }
 
 export function uniqueStrings(values: unknown[]): string[] {
@@ -127,4 +108,20 @@ export function uniqueStrings(values: unknown[]): string[] {
 
 export function isPlainObject(value: unknown): value is UnknownRecord {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function removeEmptyValues(value: UnknownRecord): UnknownRecord {
+    return Object.entries(value).reduce((normalizedValue, [key, item]) => {
+        if (item === null || typeof item === 'undefined' || item === '') {
+            return normalizedValue;
+        }
+
+        if (Array.isArray(item) && item.length === 0) {
+            return normalizedValue;
+        }
+
+        normalizedValue[key] = item;
+
+        return normalizedValue;
+    }, {} as UnknownRecord);
 }

@@ -33,13 +33,13 @@ foreach ($files as $file) {
 
     if (0 !== $exitCode) {
         ++$failures;
-        fwrite(STDERR, implode("\n", $output)."\n");
+        fwrite(\STDERR, implode("\n", $output)."\n");
     }
 }
 
 if ($failures > 0) {
-    fwrite(STDERR, sprintf("%d PHP lint failure(s).\n", $failures));
+    fwrite(\STDERR, sprintf("%d PHP lint failure(s).\n", $failures));
     exit(1);
 }
 
-fwrite(STDOUT, sprintf("PHP lint passed for %d file(s).\n", count($files)));
+fwrite(\STDOUT, sprintf("PHP lint passed for %d file(s).\n", count($files)));

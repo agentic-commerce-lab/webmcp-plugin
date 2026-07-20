@@ -1,6 +1,6 @@
 FROM oven/bun:1.3.14-alpine AS bun
 
-FROM php:8.3-cli-alpine
+FROM php:8.2-cli-alpine
 
 RUN apk add --no-cache \
         libstdc++ \

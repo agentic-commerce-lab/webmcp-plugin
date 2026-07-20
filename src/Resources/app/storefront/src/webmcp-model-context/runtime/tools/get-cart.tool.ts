@@ -1,60 +1,31 @@
+import { z } from 'zod';
 import { ShopwareClient } from '../shopware-client';
-import {
-    isPlainObject,
-    normalizeBaseUrl,
-} from './storefront-tool.utils';
+import { defineTool } from './define-tool';
+import { isPlainObject } from './storefront-tool.utils';
 import type { CartSummary, StorefrontToolOptions } from '../types';
 
 export const GET_CART_TOOL_NAME = 'shopware_webmcp_get_cart';
 
+const getCartInput = z.strictObject({});
+
 export function createGetCartTool(options: StorefrontToolOptions = {}) {
-    const baseUrl = normalizeBaseUrl(options.baseUrl);
-    const shopwareClient = new ShopwareClient({
-        baseUrl,
-        accessKey: options.accessKey,
-        contextToken: options.contextToken,
-    });
+    const shopwareClient = new ShopwareClient(options);
 
-    const execute = async (input = {}) => {
-        normalizeInput(input);
-
-        const cart = await shopwareClient.getCart();
-
-        return {
-            content: [
-                {
-                    type: 'text',
-                    text: formatCartResult(cart),
-                },
-            ],
-            structuredContent: {
-                cart,
-            },
-        };
-    };
-
-    return {
+    return defineTool({
         name: GET_CART_TOOL_NAME,
         title: 'Get cart',
-        description: 'Returns the current cart.',
-        inputSchema: {
-            type: 'object',
-            properties: {},
-            additionalProperties: false,
+        description: 'Returns the current cart. Takes no input.',
+        annotations: { readOnlyHint: true, untrustedContentHint: true },
+        input: getCartInput,
+        execute: async () => {
+            const cart = await shopwareClient.getCart();
+
+            return {
+                content: [{ type: 'text', text: formatCartResult(cart) }],
+                structuredContent: { cart },
+            };
         },
-        execute,
-        handler: execute,
-    };
-}
-
-function normalizeInput(input: unknown): void {
-    if (!isPlainObject(input)) {
-        throw new Error('Get cart input must be an object.');
-    }
-
-    if (Object.keys(input).length > 0) {
-        throw new Error('Get cart input does not accept any properties.');
-    }
+    });
 }
 
 function formatCartResult(cart: CartSummary): string {
@@ -73,11 +44,13 @@ function formatCartResult(cart: CartSummary): string {
 
         return `${index + 1}. ${label}${quantity}${price ? ` - ${price}` : ''}`;
     });
-    const remaining = lineItems.length > itemLines.length
-        ? `\n...and ${lineItems.length - itemLines.length} more line item${lineItems.length - itemLines.length === 1 ? '' : 's'}.`
-        : '';
+    const remaining =
+        lineItems.length > itemLines.length
+            ? `\n...and ${lineItems.length - itemLines.length} more line item${lineItems.length - itemLines.length === 1 ? '' : 's'}.`
+            : '';
+    const itemCount = cart.itemCount ?? lineItems.length;
 
-    return `Cart has ${cart.itemCount ?? lineItems.length} item${cart.itemCount === 1 ? '' : 's'}${total ? `, total ${total}` : ''}.${checkoutUrl}\n${itemLines.join('\n')}${remaining}`;
+    return `Cart has ${itemCount} item${itemCount === 1 ? '' : 's'}${total ? `, total ${total}` : ''}.${checkoutUrl}\n${itemLines.join('\n')}${remaining}`;
 }
 
 function formatMoney(value: unknown): string | null {

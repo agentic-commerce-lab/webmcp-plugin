@@ -1,17 +1,32 @@
 compatibility_date: 2026-06-24
 build:
-  shopwareVersionConstraint: ">=6.6.10.18 <6.8.0"
-  zip:
-    composer:
-      enabled: true
-    assets:
-      enabled: true
-    pack:
-      excludes:
-        paths:
-          - .github
-          - .tools
-          - dist
-          - tests
-          - Dockerfile
-          - docker-compose.yml
+    shopwareVersionConstraint: '>=6.6.10.18 <6.8.0'
+    zip:
+        composer:
+            enabled: true
+        assets:
+            enabled: true
+            # Only install the storefront runtime dependency (zod) for the build;
+            # the dev toolchain (eslint/prettier/tsc/playwright) is not needed to bundle.
+            npm_strict: true
+        pack:
+            excludes:
+                paths:
+                    - .github
+                    - .tools
+                    - bin
+                    - dist
+                    - node_modules
+                    - tests
+                    - .husky
+                    - Dockerfile
+                    - docker-compose.yml
+                    - package.json
+                    - package-lock.json
+                    - tsconfig.json
+                    - tsconfig.base.json
+                    - tsconfig.node.json
+                    - eslint.config.js
+                    - .prettierrc.json
+                    - .prettierignore
+                    - playwright.config.ts

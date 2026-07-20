@@ -1,19 +1,14 @@
 # Shopware WebMCP Plugin
 
-This repository contains a Shopware 6 plugin that adds WebMCP support to storefronts. 
+[WebMCP](https://github.com/webmachinelearning/webmcp)
+support for Shopware 6.
+AI-capable clients can do agentic product discovery, category browsing, and cart
+operations in context of a browser session. 
 
-It publishes a WebMCP side-car document and registers browser-side tools for agentic product discovery,
-category discovery, and cart operations. 
-
-## Research Preview
-
-> **Status: Research preview.** This plugin is experimental and is not intended
-> for production use. It is designed to help developers explore and evaluate WebMCP
-> in Shopware storefronts while the technology is still new and evolving.
->
-> Use it only in controlled test or development environments. Before considering any
-> production rollout, carefully validate the behavior in your own storefront, review
-> the exposed tool surface, and complete your normal security, privacy, and QA review.
+> **Status: research preview.** This plugin is experimental and not intended for
+> production use. Use it only in controlled test or development environments, and
+> complete your normal security, privacy, and QA review before any production
+> rollout.
 
 ## What Is WebMCP?
 
@@ -21,184 +16,173 @@ WebMCP is a browser-facing model context pattern that lets a website publish
 structured context and callable tools for AI-capable clients. Instead of forcing
 an assistant to infer product, category, and cart state from rendered HTML, a
 storefront can expose explicit tool contracts with validated inputs and
-structured outputs. Learn more in the official [WebMCP repository](https://github.com/webmachinelearning/webmcp).
-
-## Why It Matters
-
-For Shopware merchants, WebMCP can make storefronts easier for AI assistants to
-understand and operate without changing the shopper-facing theme. Product search,
-product detail lookup, category discovery, and cart actions become explicit,
-bounded capabilities rather than fragile DOM scraping tasks.
-
-For the Shopware community, this plugin provides a small, inspectable reference
-for exploring how WebMCP-style tools can fit into existing storefront,
-configuration, session, and Store API boundaries.
+structured outputs.
 
 ## What This Plugin Does
 
-When enabled, this plugin lets AI-capable browsers and assistants interact with a Shopware storefront through structured catalog and cart tools instead of scraping the rendered page.
+When enabled, AI-capable browsers and assistants can interact with a Shopware
+storefront through structured catalog and cart tools: search products, inspect product details, browse categories, read the current cart, and prepare cart changes — all as explicit, bounded capabilities with validated inputs and structured outputs.
 
-An agent can search products, inspect product details, browse categories, read the current cart, and prepare cart changes through bounded tool calls. 
+It does **not** handle checkout, payment, private backend operations, or
+privileged merchant workflows.
 
-The plugin does not handle checkout, payment, private backend operations, or privileged merchant workflows.
+## Development
 
-## Requirements
+You can checkout this plugin to `custom/plugins/SwagWebMcp` of an existing installation or use ephemeral Shopware instances provided by dockware. 
 
-- Shopware 6 installation.
-- PHP `^8.2`, matching the Composer platform configuration.
-- Docker for the repository QA and installable ZIP workflows.
-- Bun for local TypeScript checks and release storefront asset builds.
-- Host PHP and Composer are optional for local development because QA runs in Docker.
+For this you only need Node.js, [shopware-cli](https://sw-cli.fos.gg/install/), and Docker.
 
-## Installation
-
-Download the plugin here:
-
-https://github.com/agentic-commerce-lab/web-mcp-plugin/releases/download/latest-main/SwagWebMcp.zip
-
-Then upload the zip file in Shopware Admin. Release ZIPs must include compiled
-storefront assets so the plugin works immediately after Admin upload.
-
-Alternatively, clone this repository into your Shopware installation under
-`custom/plugins`. For local development, install the JavaScript development
-dependencies once and build the plugin storefront asset:
+### 1. Install dependencies
 
 ```sh
-bun install
-bun run build
+npm install
 ```
 
-Install and activate the plugin before compiling storefront assets so Shopware
-includes the plugin entrypoint:
+### 2. Boot a local shop
+
+A full, ephemeral Shopware (web + MySQL + Adminer + MailCatcher) runs in a single [Dockware](https://dockware.io) container with this plugin bind-mounted into it.
 
 ```sh
+cp .env.example .env   # then adjust ports if any are already taken
+npm run shop:up        # boot the shop (first run pulls the image)
+npm run shop:deploy    # transpile the TS runtime and install the plugin
+```
+
+Open <http://localhost:8000>:
+
+- Storefront — `http://localhost:8000`
+- Admin — `http://localhost:8000/admin` (`admin` / `shopware`)
+- Adminer — `http://localhost:8000/adminer.php` (`root` / `root`, db `shopware`)
+- Mail — `http://localhost:1080`
+
+Ports and the Shopware version are read from `.env` (see `.env.example`).
+
+### 3. The dev loop
+
+Edit code, then re-run:
+
+```sh
+npm run shop:deploy
+```
+
+`shop:deploy` builds the storefront asset with Shopware's own Webpack **inside the running shop** (~15–20 s, no host `shopware-cli` needed), then installs the plugin and compiles the theme. PHP changes are picked up live from the mounted source; storefront TypeScript changes need the `shop:deploy` rebuild.
+
+### Commands
+
+| Command                 | What it does                                                     |
+| ----------------------- | --------------------------------------------------------------- |
+| `npm run shop:up`       | Start the shop and align its storefront domain with the port    |
+| `npm run shop:deploy`   | Build the asset (webpack, in-shop) + refresh, install, compile  |
+| `npm run shop:test`     | Ensure the shop is up + deployed, then run the e2e tests        |
+| `npm run shop:down`     | Stop and remove the shop container                              |
+| `npm run shop:restart`  | Restart the shop container                                      |
+| `npm run shop:logs`     | Follow the shop logs                                            |
+| `npm run shop:shell`    | Open a shell inside the shop container                          |
+| `npm run shop:open`     | Print the shop, admin, Adminer, and mail URLs                   |
+| `npm run build`         | Build the storefront asset to `dist` via `shopware-cli`          |
+| `npm run check`         | Type-check the TypeScript (`tsc --noEmit`)                      |
+| `npm run lint`          | Lint with ESLint (`lint:fix` to autofix)                        |
+| `npm run format`        | Format with Prettier (`format:check` to verify only)           |
+| `npm run test:e2e`      | Run the Playwright end-to-end tests against the running shop    |
+
+### Testing
+
+The end-to-end tests (Playwright) run against the dev shop, which is also the
+default `baseURL` (`http://localhost:8000`):
+
+```sh
+npx playwright install chromium   # once
+npm run shop:test                  # boot the shop, deploy the plugin, run the tests
+```
+
+If the shop is already up and you only changed a test, `npm run test:e2e` is
+enough. Target a different shop with `SHOPWARE_BASE_URL=... npm run test:e2e`.
+
+For native browser testing, follow Chrome's
+[WebMCP setup guide](https://developer.chrome.com/docs/ai/webmcp), enable
+`chrome://flags/#enable-webmcp-testing`, and relaunch Chrome. Then inspect the runtime from the storefront console:
+
+```js
+window.SwagWebMcp; // runtime config + loaded state
+document.modelContext.getTools(); // registered WebMCP tools
+```
+
+### Architecture
+
+See the [Architecture Overview](docs/Architecture.md) for how the plugin is put
+together, and [docs/](docs/README.md) for the ADRs and specs.
+
+### Building an installable ZIP
+
+```sh
+bin/build-zip.sh   # requires shopware-cli; wraps `shopware-cli extension zip`
+```
+
+## Installing Into an Existing Shopware
+
+### From the prebuilt ZIP (no build required)
+
+The release ZIP already contains the compiled storefront bundle. Download it and
+upload it in Shopware Admin (Extensions → My extensions → Upload extension), then
+activate it:
+
+<https://github.com/agentic-commerce-lab/webmcp-plugin/releases/download/latest-main/SwagWebMcp.zip>
+
+### From a source checkout (build required)
+
+Place the checkout in `custom/plugins/SwagWebMcp`, build the storefront asset,
+then install via the console:
+
+```sh
+npm install && npm run build
 bin/console plugin:refresh
-bin/console plugin:install --activate SwagWebMcp
-bin/console cache:clear
-sudo bin/build-storefront.sh
-bin/console assets:install
-bin/console theme:refresh
-bin/console theme:compile
-bin/console cache:clear
+bin/console plugin:install --activate SwagWebMcp   # or: plugin:update SwagWebMcp
+bin/console theme:compile && bin/console assets:install && bin/console cache:clear
 ```
 
-For an already-installed source checkout, update the plugin instead of running
-`plugin:install`, which skips installed plugins:
-
-```sh
-bin/console plugin:refresh
-bin/console plugin:update SwagWebMcp
-bin/console cache:clear
-bin/build-storefront.sh
-bin/console assets:install
-bin/console theme:refresh
-bin/console theme:compile
-bin/console cache:clear
-```
-
-After installation, enable or configure the plugin in Shopware Admin.
-
-To build an installable ZIP from a source checkout, run the package command.
-The package command type-checks the storefront TypeScript and rebuilds the
-plugin storefront asset before creating the ZIP, so the generated
-`src/Resources/app/storefront/dist` files are included for Admin upload.
-
-```sh
-docker compose run --rm qa bin/build-zip.sh
-```
+After installing, enable and configure the plugin in Shopware Admin.
 
 ## Configuration
 
-Shopware renders these settings in the plugin configuration screen in the Admin
-panel:
+Shopware renders these settings in the plugin configuration screen in the Admin panel:
 
 <img src="docs/admin-configuration.svg" alt="Shopware Admin WebMCP configuration screen" width="760">
 
-- `enabled`: enables the public WebMCP document endpoint and browser tools.
-- `context`: human-readable context for the WebMCP document.
+- `enabled`: enables the public WebMCP browser tools.
 - `searchProductsToolEnabled`: enables the product search `document.modelContext` tool.
 - `getProductToolEnabled`: enables the product detail `document.modelContext` tool.
 - `getProductCategoriesToolEnabled`: enables the product category `document.modelContext` tool.
 - `getCartToolEnabled`: enables the cart read `document.modelContext` tool.
 - `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
-- `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool.
-- `removeFromCartToolEnabled`: enables the cart removal `document.modelContext` tool.
-
-## Test
-For native WebMCP testing, follow Chrome's
-[WebMCP setup guide](https://developer.chrome.com/docs/ai/webmcp), enable
-`chrome://flags/#enable-webmcp-testing`, and relaunch Chrome. To inspect native
-tool registration, install the
-[WebMCP Model Context Tool Inspector](https://chromewebstore.google.com/detail/webmcp-model-context-tool/gbpdfapgefenggkahomfgkhfehlcenpd)
-Chrome extension.
-
-Open a storefront page in Chrome and check the WebMCP runtime in the browser
-console. For example:
-
-```js
-document.webMcp.getDocument()
-document.modelContext.getTools()
-```
-
-Replace placeholder values such as `<product-sku>` and `<cart-line-item-id>`
-with values from your storefront.
-
-## Storefront TypeScript
-
-The browser runtime is maintained in TypeScript source files under
-`src/Resources/app/storefront/src/webmcp-model-context/runtime`. The storefront
-entrypoint remains `src/Resources/app/storefront/src/main.js` because Shopware
-automatically discovers that file as the storefront JavaScript entrypoint. That
-small JavaScript shim imports the TypeScript runtime modules, which Shopware's
-native storefront JavaScript build compiles.
-
-This repository does not keep generated JavaScript beside the TypeScript
-sources. `bun run build` emits only the Shopware storefront distribution asset
-under `src/Resources/app/storefront/dist`, which is required for ZIP releases.
-Use `bun run check` to type-check local TypeScript changes.
+- `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool (quantity `0` removes).
+- `getSalesChannelContextToolEnabled`: enables the sales channel context `document.modelContext` tool.
+- `navigateToolEnabled`: enables the storefront navigation `document.modelContext` tool.
 
 ## Tool Reference
 
-All tools return WebMCP-style results with `content` text and
-`structuredContent` data. Product lookup tools use the Shopware Store API with
-customer context. Cart mutation tools use storefront cart routes, publish a cart
-update event, and request best-effort storefront cart UI refreshes after
-successful mutations.
+All tools return WebMCP-style results with `content` text and `structuredContent`
+data. Product and category lookups use the Shopware Store API with customer
+context. Cart reads/writes and the sales channel context use the plugin's own
+same-origin storefront JSON endpoints (server-side `CartService`), and cart
+writes request best-effort storefront cart UI refreshes after success.
 
 | Tool | Input | Structured output |
 | --- | --- | --- |
 | `shopware_webmcp_search_products` | Optional `query`; optional `limit` from `1` to `20`, default `5`. | `query`, `count`, `total`, `products`. |
 | `shopware_webmcp_get_product` | Exactly one of `id`, `sku`, or same-origin product `url`. | `lookup`, `product`. |
-| `shopware_webmcp_get_product_categories` | Optional `scope`: `tree` or `product`; optional `sku` or same-origin `url`. `sku` implies `product` scope. | `lookup`, `scope`, `source`, `sourceUrl`, `count`, `activeCategoryIds`, `categories`, `tree`. |
+| `shopware_webmcp_get_product_categories` | Optional `scope`: `tree` or `product`; for `product` scope exactly one of `id`, `sku`, or same-origin `url` (any of them implies `product` scope). | `lookup`, `scope`, `source` (`store-api`), `sourceUrl`, `count`, `activeCategoryIds`, `categories`, `tree`. Categories carry real Shopware ids, names, SEO urls, and `parentId`. |
 | `shopware_webmcp_get_cart` | No input properties. | `cart`. |
-| `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`. | `added`, `cart`. |
-| `shopware_webmcp_update_line_item` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100`. Quantity `0` removes the line item. | `updated`, `cart`, or `skipped` with `reason`. |
-| `shopware_webmcp_remove_from_cart` | Exactly one of `lineItemId`, `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`. | `removed`, `cart`. |
-
-
-## Extend
-
-To add or change browser tools, keep the runtime source and storefront plugin
-import in sync. Make source changes in the TypeScript files, run
-`bun run build` to refresh the release storefront asset, and rebuild the
-storefront through Shopware's normal asset pipeline when testing from a source
-checkout.
-
-Use the existing vanilla TypeScript module style in
-`src/Resources/app/storefront/src/webmcp-model-context/runtime`. Keep tool
-inputs and outputs stable, especially `structuredContent`, unless the change
-intentionally updates the WebMCP contract.
-
-When extending configuration, update the Shopware Admin configuration,
-service wiring, routes, Twig data attributes, storefront runtime behavior, and
-this README together.
+| `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`; optional `showCartOverlay` (default `false`) to open the storefront cart overlay for shopper feedback. | `added`, `cart`. |
+| `shopware_webmcp_update_line_item` | Exactly one of `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100`. Quantity `0` removes the line item. | `updated`, `cart`, or `skipped` with `reason`. |
+| `shopware_webmcp_get_sales_channel_context` | No input properties. | `salesChannelContext` (sales channel, language, currency, customer group, country, tax mode, login state). |
+| `shopware_webmcp_navigate` | Same-origin storefront `url` (or path) to open. | `navigatedTo`. |
 
 ## Security & Limits
 
 - Do not expose private backend credentials in storefront code or plugin config.
 - The Store API access key is a storefront value used by Shopware browser clients.
 - Cart read and mutation requests use same-origin storefront session cookies.
-- CSRF tokens are read from the storefront when available and sent with cart mutation requests.
+- Cart mutation endpoints are same-origin, session-scoped, and rely on SameSite cookies; they do not send a separate CSRF token.
 - Tool inputs are validated and normalized before Store API or storefront cart requests are made.
 - Do not log secrets, tokens, credentials, storefront session identifiers, CSRF tokens, or raw sensitive user/cart data.
 - Normalize and constrain URLs, selectors, HTTP methods, quantities, product identifiers, and other user-controllable values before emitting or using them.
@@ -211,16 +195,13 @@ Known limitations:
 - If cart mutation tools update the session but the storefront UI does not refresh, the active theme may not register Shopware's standard cart widget or offcanvas cart plugins, or may replace the standard checkout wrapper markup. The runtime requests best-effort header cart refreshes, updates open cart sidebars in place, and refreshes the rendered cart page fragment when the shopper is already on `/checkout/cart`.
 - Browser-side native tool registration depends on Chrome's WebMCP testing support; `document.modelContext` remains available for manual console testing.
 
-## Contributions
+## Contributing
 
-We welcome feedback and contributions from the community. If you test this plugin,
-please share what you learn with the Agentic Commerce Lab by opening a GitHub issue
-with your findings, questions, or suggested improvements.
-
-Pull requests are also welcome, especially for bug fixes, documentation improvements,
-storefront compatibility notes, and small enhancements that make the plugin easier
-to evaluate. For larger changes, please open an issue first so we can discuss the
-direction before implementation.
+Feedback and contributions are welcome. If you test this plugin, please share
+what you learn with the Agentic Commerce Lab by opening a GitHub issue. Pull
+requests are welcome, especially for bug fixes, documentation, storefront
+compatibility notes, and small enhancements. For larger changes, please open an
+issue first so we can discuss the direction.
 
 ## License
 

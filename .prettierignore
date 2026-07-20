@@ -1,0 +1,10 @@
+node_modules/
+.tools/
+dist/
+src/Resources/app/storefront/dist/
+playwright-report/
+test-results/
+package-lock.json
+composer.lock
+*.md
+.github/

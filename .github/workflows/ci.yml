@@ -1,0 +1,184 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: WebMCP Integration Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Dockware ships a fully installed Shopware incl. demo data; pin the tag so
+      # the catalog is identical on every run (see docs/adr/0002-testing-strategy.md).
+      DOCKWARE_TAG: "6.7.12.1"
+      SHOPWARE_BASE_URL: "http://localhost"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install shopware-cli
+        uses: shopware/shopware-cli-action@v3
+
+      - name: Build storefront asset
+        run: shopware-cli extension build .
+
+      - name: Start Shopware (Dockware)
+        run: docker run -d --name shop -p 80:80 "dockware/shopware:${DOCKWARE_TAG}"
+
+      - name: Wait for storefront
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sfo /dev/null "${SHOPWARE_BASE_URL}/"; then
+              echo "Storefront is up."
+              exit 0
+            fi
+            echo "Waiting for storefront ($i)..."
+            sleep 5
+          done
+          echo "Storefront did not become ready in time." >&2
+          docker logs shop || true
+          exit 1
+
+      - name: Install & activate the plugin
+        run: |
+          docker exec shop mkdir -p /var/www/html/custom/plugins/SwagWebMcp
+          docker cp composer.json shop:/var/www/html/custom/plugins/SwagWebMcp/composer.json
+          docker cp src shop:/var/www/html/custom/plugins/SwagWebMcp/src
+          docker exec -u root shop chown -R www-data:www-data /var/www/html/custom/plugins/SwagWebMcp
+          docker exec -u www-data shop bash -lc "cd /var/www/html && \
+            php bin/console plugin:refresh && \
+            php bin/console plugin:install --activate SwagWebMcp && \
+            php bin/console assets:install && \
+            php bin/console theme:compile && \
+            php bin/console cache:clear"
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run WebMCP integration test
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  quality:
+    name: TypeScript quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+  php-quality:
+    name: PHP quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run PHP QA
+        run: docker compose run --rm qa
+
+  build-plugin-zip:
+    name: Build Plugin Zip
+    needs: [test, quality, php-quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      # Idiomatic Shopware packaging: shopware-cli extension zip --release
+      # (installs shopware-cli, builds the storefront asset, packs src + dist,
+      # then runs `extension validate`). See ADR 0007.
+      - name: Build zip
+        uses: shopware/github-actions/build-zip@main
+        with:
+          extensionName: SwagWebMcp
+          skipCheckout: true
+
+      - name: Upload plugin zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: SwagWebMcp
+          path: SwagWebMcp.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish latest main release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag --force latest-main "${{ github.sha }}"
+          git push --force origin latest-main
+
+          if gh release view latest-main >/dev/null 2>&1; then
+            gh release upload latest-main SwagWebMcp.zip --clobber
+          else
+            gh release create latest-main SwagWebMcp.zip \
+              --title "Latest main build" \
+              --notes "Automatically updated from the latest successful build on main." \
+              --prerelease
+          fi
