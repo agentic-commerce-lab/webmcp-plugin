@@ -12,11 +12,17 @@
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.64",
         "phpstan/extension-installer": "^1.4",
-        "phpstan/phpstan": "^2.0"
+        "phpstan/phpstan": "^2.0",
+        "phpunit/phpunit": "^11.0"
     },
     "autoload": {
         "psr-4": {
             "Swag\\WebMcp\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Swag\\WebMcp\\Tests\\": "tests/php/"
         }
     },
     "scripts": {
@@ -24,10 +30,12 @@
         "phpstan": "phpstan analyse",
         "cs-check": "php-cs-fixer fix --dry-run --diff",
         "cs-fix": "php-cs-fixer fix",
+        "test": "phpunit",
         "qa": [
             "@lint",
             "@phpstan",
-            "@cs-check"
+            "@cs-check",
+            "@test"
         ],
         "ci": "@qa"
     },

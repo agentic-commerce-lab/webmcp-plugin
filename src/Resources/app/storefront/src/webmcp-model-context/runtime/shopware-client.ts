@@ -23,6 +23,7 @@ import {
     productIdFromUrl,
 } from './domain/product';
 import { markActiveCategoryTrail, normalizeCategories, normalizeCategoryNode } from './domain/category';
+import { normalizeCart } from './domain/cart';
 import { openCartOverlay, refreshCartUi } from './cart-ui-sync';
 
 const STORE_API_PATH = '/store-api';
@@ -35,6 +36,7 @@ export class ShopwareClient {
     private contextToken: string | null;
     private accessKey: string | null;
     private navigationCategoryId: string | null;
+    private currencyIsoCode: string | null;
     private activeCategoryId: string | null;
     private currentProductId: string | null;
 
@@ -43,6 +45,7 @@ export class ShopwareClient {
         this.contextToken = cleanText(options.contextToken) || readContextToken();
         this.accessKey = cleanText(options.accessKey) || readAccessKey();
         this.navigationCategoryId = cleanText(options.navigationCategoryId);
+        this.currencyIsoCode = cleanText(options.currencyIsoCode);
         this.activeCategoryId = cleanText(options.activeCategoryId);
         this.currentProductId = cleanText(options.currentProductId);
     }
@@ -162,13 +165,13 @@ export class ShopwareClient {
     }
 
     async getCart(): Promise<CartSummary> {
-        const cart = await this.webMcpCartRequest();
+        const rawCart = await this.webMcpCartRequest();
 
-        if (!isPlainObject(cart)) {
+        if (!isPlainObject(rawCart)) {
             throw new Error('No cart details were returned by the Shopware WebMCP cart endpoint.');
         }
 
-        return cart;
+        return normalizeCart(rawCart, this.baseUrl, this.currencyIsoCode);
     }
 
     async getSalesChannelContext(): Promise<UnknownRecord> {
@@ -321,16 +324,18 @@ export class ShopwareClient {
     }
 
     /**
-     * The server returns the authoritative cart, so there is no client-side delta to
-     * compute — just refresh the storefront cart UI so the shopper sees the change.
+     * The server returns the authoritative (raw Store API) cart, so there is no client-side
+     * delta to compute — normalize it into the compact cart shape and refresh the storefront
+     * cart UI so the shopper sees the change.
      */
-    private finalizeCartMutation(cart: unknown): CartSummary | null {
-        if (!isPlainObject(cart)) {
+    private finalizeCartMutation(rawCart: unknown): CartSummary | null {
+        if (!isPlainObject(rawCart)) {
             return null;
         }
 
+        const cart = normalizeCart(rawCart, this.baseUrl, this.currencyIsoCode);
         const cartWidgetRefreshed = refreshCartUi(this.baseUrl);
 
-        return { ...cart, cartWidgetRefreshed } as CartSummary;
+        return { ...cart, cartWidgetRefreshed };
     }
 }

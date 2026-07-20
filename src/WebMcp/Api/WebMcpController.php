@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Swag\WebMcp\WebMcp\Api;
 
+use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Checkout\Cart\LineItemFactoryRegistry;
+use Shopware\Core\Checkout\Cart\SalesChannel\CartResponse;
 use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
-use Swag\WebMcp\WebMcp\Config\WebMcpConfigProviderInterface;
-use Swag\WebMcp\WebMcp\Model\CartPayloadBuilder;
+use Swag\WebMcp\WebMcp\Config\WebMcpConfigProvider;
 use Swag\WebMcp\WebMcp\Model\SalesChannelContextPayloadBuilder;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,9 +22,8 @@ final class WebMcpController
     private const MAX_QUANTITY = 100;
 
     public function __construct(
-        private readonly WebMcpConfigProviderInterface $configProvider,
+        private readonly WebMcpConfigProvider $configProvider,
         private readonly CartService $cartService,
-        private readonly CartPayloadBuilder $cartPayloadBuilder,
         private readonly LineItemFactoryRegistry $lineItemFactory,
         private readonly SalesChannelContextPayloadBuilder $salesChannelContextPayloadBuilder,
     ) {
@@ -35,7 +35,7 @@ final class WebMcpController
         defaults: ['_routeScope' => ['storefront'], 'auth_required' => false, 'XmlHttpRequest' => true],
         methods: ['GET'],
     )]
-    public function cart(Request $request, ?SalesChannelContext $salesChannelContext = null): Response
+    public function cart(?SalesChannelContext $salesChannelContext = null): Response
     {
         $config = $this->configProvider->getConfig($salesChannelContext);
         if (!$config->enabled || !$config->getCartToolEnabled) {
@@ -47,10 +47,8 @@ final class WebMcpController
         }
 
         $cart = $this->cartService->getCart($salesChannelContext->getToken(), $salesChannelContext);
-        $response = new JsonResponse($this->cartPayloadBuilder->build($cart, $salesChannelContext, $request));
-        $response->headers->set('cache-control', 'private, no-store');
 
-        return $response;
+        return $this->cartResponse($cart);
     }
 
     /**
@@ -152,7 +150,19 @@ final class WebMcpController
             $cart = $this->cartService->add($cart, $this->productLineItem($productId, $quantity, $salesChannelContext), $salesChannelContext);
         }
 
-        $response = new JsonResponse($this->cartPayloadBuilder->build($cart, $salesChannelContext, $request));
+        return $this->cartResponse($cart);
+    }
+
+    /**
+     * Returns Shopware's canonical Store API cart. The global StoreApiResponseListener
+     * encodes the CartResponse (StructEncoder + media/SEO-URL replacement), byte-identical
+     * to `/store-api/checkout/cart`; the storefront runtime projects it into the compact,
+     * agent-facing shape (`runtime/domain/cart.ts`). Keeping the write server-side is what
+     * guarantees the shopper's own session cart without exposing the context token. See ADR 0004.
+     */
+    private function cartResponse(Cart $cart): CartResponse
+    {
+        $response = new CartResponse($cart);
         $response->headers->set('cache-control', 'private, no-store');
 
         return $response;

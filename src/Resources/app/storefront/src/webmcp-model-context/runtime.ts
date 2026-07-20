@@ -161,6 +161,7 @@ function registerStorefrontTool(
             baseUrl: currentBaseUrl(normalizedConfig.baseUrl),
             accessKey: normalizedConfig.storeApiAccessKey,
             navigationCategoryId: normalizedConfig.navigationCategoryId,
+            currencyIsoCode: normalizedConfig.currencyIsoCode,
             activeCategoryId: normalizedConfig.activeCategoryId,
             currentProductId: normalizedConfig.currentProductId,
         }),

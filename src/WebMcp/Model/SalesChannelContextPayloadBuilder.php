@@ -4,15 +4,23 @@ declare(strict_types=1);
 
 namespace Swag\WebMcp\WebMcp\Model;
 
+use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Read-only projection of the active {@see SalesChannelContext} — the Shopware-specific
  * edge for agents (sales channel, language, currency, customer group, country, tax mode,
- * login state). Resolved server-side from the shopper's session, so it always reflects
- * the same context the user browses with. Defensive throughout to tolerate Shopware
- * version differences.
+ * login state). Resolved server-side from the shopper's session, so it always reflects the
+ * same context the user browses with.
+ *
+ * Unlike the cart projection (ADR 0004, moved to the frontend), this stays server-side on
+ * purpose: it is a curated allowlist that keeps customer PII off the wire — it exposes only
+ * whether a customer is logged in / a guest, never the customer entity. The verbose,
+ * PII-heavy raw context never crosses to the browser.
+ *
+ * The `SalesChannelContext` getters used here are typed and stable across the plugin's
+ * supported Shopware range (verified 6.6.0.0 → 6.7.x), so no defensive reflection is needed.
  */
 final class SalesChannelContextPayloadBuilder
 {
@@ -21,107 +29,62 @@ final class SalesChannelContextPayloadBuilder
      */
     public function build(SalesChannelContext $context, Request $request): array
     {
+        $salesChannel = $context->getSalesChannel();
+        $currency = $context->getCurrency();
+        $customerGroup = $context->getCurrentCustomerGroup();
+        $country = $context->getShippingLocation()->getCountry();
+        $paymentMethod = $context->getPaymentMethod();
+        $shippingMethod = $context->getShippingMethod();
+
         return $this->removeNullValues([
-            'salesChannel' => $this->salesChannel($context),
+            'salesChannel' => $this->entityRef($salesChannel->getId(), $salesChannel->getName()),
             'languageId' => $this->stringValue($context->getLanguageId()),
-            'currency' => $this->currency($context),
-            'customerGroup' => $this->entityRef($this->call($context, 'getCurrentCustomerGroup')),
-            'country' => $this->country($context),
-            'taxState' => $this->stringValue($this->call($context, 'getTaxState')),
-            'paymentMethod' => $this->entityRef($this->call($context, 'getPaymentMethod')),
-            'shippingMethod' => $this->entityRef($this->call($context, 'getShippingMethod')),
-            'customer' => $this->customer($context),
+            'currency' => $this->removeNullValues([
+                'id' => $this->stringValue($currency->getId()),
+                'isoCode' => $this->stringValue($currency->getIsoCode()),
+                'symbol' => $this->stringValue($currency->getSymbol()),
+            ]) ?: null,
+            'customerGroup' => $this->entityRef($customerGroup->getId(), $customerGroup->getName()),
+            'country' => $this->removeNullValues([
+                'id' => $this->stringValue($country->getId()),
+                'iso' => $this->stringValue($country->getIso()),
+                'name' => $this->stringValue($country->getName()),
+            ]) ?: null,
+            'taxState' => $this->stringValue($context->getTaxState()),
+            'paymentMethod' => $this->entityRef($paymentMethod->getId(), $paymentMethod->getName()),
+            'shippingMethod' => $this->entityRef($shippingMethod->getId(), $shippingMethod->getName()),
+            'customer' => $this->customer($context->getCustomer()),
             'baseUrl' => rtrim($request->getSchemeAndHttpHost(), '/'),
         ]);
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @return array<string, string>|null
      */
-    private function salesChannel(SalesChannelContext $context): ?array
+    private function entityRef(string $id, ?string $name): ?array
     {
-        $salesChannel = $this->call($context, 'getSalesChannel');
-        if (null === $salesChannel) {
-            return $this->removeNullValues(['id' => $this->stringValue($this->call($context, 'getSalesChannelId'))]) ?: null;
-        }
+        $ref = $this->removeNullValues([
+            'id' => $this->stringValue($id),
+            'name' => $this->stringValue($name),
+        ]);
 
-        return $this->removeNullValues([
-            'id' => $this->stringValue($this->call($salesChannel, 'getId')),
-            'name' => $this->stringValue($this->call($salesChannel, 'getName')),
-        ]) ?: null;
+        return [] !== $ref ? $ref : null;
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @return array<string, bool>
      */
-    private function currency(SalesChannelContext $context): ?array
+    private function customer(?CustomerEntity $customer): array
     {
-        $currency = $this->call($context, 'getCurrency');
-        if (null === $currency) {
-            return null;
-        }
-
-        return $this->removeNullValues([
-            'id' => $this->stringValue($this->call($currency, 'getId')),
-            'isoCode' => $this->stringValue($this->call($currency, 'getIsoCode')),
-            'symbol' => $this->stringValue($this->call($currency, 'getSymbol')),
-        ]) ?: null;
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function country(SalesChannelContext $context): ?array
-    {
-        $shippingLocation = $this->call($context, 'getShippingLocation');
-        $country = null === $shippingLocation ? null : $this->call($shippingLocation, 'getCountry');
-        if (null === $country) {
-            return null;
-        }
-
-        return $this->removeNullValues([
-            'id' => $this->stringValue($this->call($country, 'getId')),
-            'iso' => $this->stringValue($this->call($country, 'getIso')),
-            'name' => $this->stringValue($this->call($country, 'getName')),
-        ]) ?: null;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function customer(SalesChannelContext $context): array
-    {
-        $customer = $this->call($context, 'getCustomer');
-
         return $this->removeNullValues([
             'loggedIn' => null !== $customer,
-            'guest' => null !== $customer ? (bool) $this->call($customer, 'getGuest') : null,
+            'guest' => null !== $customer ? $customer->getGuest() : null,
         ]);
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function entityRef(mixed $entity): ?array
+    private function stringValue(?string $value): ?string
     {
-        if (!\is_object($entity)) {
-            return null;
-        }
-
-        return $this->removeNullValues([
-            'id' => $this->stringValue($this->call($entity, 'getId')),
-            'name' => $this->stringValue($this->call($entity, 'getName')),
-        ]) ?: null;
-    }
-
-    private function call(object $target, string $method): mixed
-    {
-        return method_exists($target, $method) ? $target->{$method}() : null;
-    }
-
-    private function stringValue(mixed $value): ?string
-    {
-        if (!\is_string($value)) {
+        if (null === $value) {
             return null;
         }
 

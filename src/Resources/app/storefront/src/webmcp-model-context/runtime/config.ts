@@ -10,6 +10,7 @@ export function normalizeConfig(options: unknown = {}): WebMcpRuntimeConfig {
         baseUrl: nonEmptyString(source.baseUrl),
         storeApiAccessKey: nonEmptyString(source.storeApiAccessKey),
         navigationCategoryId: nonEmptyString(source.navigationCategoryId),
+        currencyIsoCode: nonEmptyString(source.currencyIsoCode),
         activeCategoryId: nonEmptyString(source.activeCategoryId),
         currentProductId: nonEmptyString(source.currentProductId),
         tools: {
