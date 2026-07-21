@@ -34,11 +34,14 @@ same topic they are cross-linked in their headers.
   zod-as-schema-source, domain typing, and the `tools → adapter → transport/domain`
   layering rule. Execution lives in Spec 0002.
 - [0004 — Cart architecture](adr/0004-cart-architecture.md) — **Accepted &
-  implemented** (on `refactor/typescript-foundation`). The single cart decision record
-  across context-sync, cache-safety, exposure/semantics (imperative `registerTool`,
-  declarative per-line target, two product-keyed tools), server-side `CartService`
-  execution (thin PHP bridge, no token in the browser), and frontend projection
-  (`domain/cart.ts`). Consolidates the former ADR 0004 + 0006.
+  implemented** (on `refactor/typescript-foundation`). The single cart decision record:
+  imperative `registerTool` exposure, declarative per-line-target semantics with two
+  product-keyed tools, execution over Shopware's **session-based storefront routes**
+  (`cart.json` for reads, `/checkout/line-item/*` for writes — session cookie, no token),
+  and frontend projection (`domain/cart.ts`). Documents why the cart is **not** on the
+  Store API (that would need the per-user context token in JS — XSS, custom route,
+  non-idiomatic) while product/category reads stay on the Store API with the public
+  access key.
 - [0006 — Tool discovery contract](adr/0006-tool-discovery-contract.md) —
   **Accepted & implemented** (on `refactor/typescript-foundation`). Removes the
   bespoke `.wmcp` document; `document.modelContext` (the live registered tools) is the
@@ -61,7 +64,7 @@ same topic they are cross-linked in their headers.
   (WP1–WP6, WP8); open: the `storeApiRequest` extraction and domain typing (WP7).
   Implements [ADR 0003](adr/0003-typescript-architecture.md).
 - [0003 — Cart architecture implementation record](specs/0003-cart-implementation-plan.md)
-  — **implemented** (commits C1–C6): the shipped record of
-  [ADR 0004](adr/0004-cart-architecture.md) — server-side `CartService` write
-  endpoints, declarative-per-line tools, slimmed `cart-ui-sync`, frontend cart
-  projection, `.wmcp` removal, `get_sales_channel_context`.
+  — **implemented**: the shipped record of [ADR 0004](adr/0004-cart-architecture.md) —
+  cart over Shopware's session-based storefront routes (`cart.json` + `/checkout/line-item/*`),
+  declarative-per-line product-keyed tools, frontend cart projection, slim native cart-UI
+  refresh, and the e2e coverage (incl. cross-login cart coherence).
