@@ -17,6 +17,7 @@ const TOOL = {
     getCart: 'shopware_webmcp_get_cart',
     addToCart: 'shopware_webmcp_add_to_cart',
     updateLineItem: 'shopware_webmcp_update_line_item',
+    clearCart: 'shopware_webmcp_clear_cart',
     getSalesChannelContext: 'shopware_webmcp_get_sales_channel_context',
     navigate: 'shopware_webmcp_navigate',
 } as const;
@@ -313,6 +314,32 @@ test('cart tools write to the shopper session cart, visible via Shopware /checko
         (afterRemove.lineItems ?? []).some((item) => item.id === product.id),
         'the tool removal is reflected in cart.json',
     ).toBe(false);
+});
+
+test('clear_cart empties a filled cart', async ({ page }) => {
+    const search = await callTool(page, TOOL.searchProducts, { limit: 2 });
+    const [a, b] = search.structuredContent.products as Array<Record<string, any>>;
+    expect(a?.id && b?.id, 'need two products').toBeTruthy();
+
+    await callTool(page, TOOL.addToCart, { id: a.id, quantity: 1 });
+    await callTool(page, TOOL.addToCart, { id: b.id, quantity: 2 });
+    expect((await cartLineItemIds(page)).length, 'cart is filled before clear').toBeGreaterThanOrEqual(2);
+
+    const result = await callTool(page, TOOL.clearCart);
+    expectValidToolResult(result);
+    expect(Array.isArray(result.structuredContent.cart?.lineItems)).toBe(true);
+    expect(result.structuredContent.cart.lineItems.length, 'clear_cart returns an empty cart').toBe(0);
+
+    // Shopware's own session cart is empty too.
+    const storefrontLineItems = await page.evaluate(async () => {
+        const res = await fetch('/checkout/cart.json', {
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin',
+        });
+        const cart = (await res.json()) as { lineItems?: unknown[] };
+        return (cart.lineItems ?? []).length;
+    });
+    expect(storefrontLineItems, 'session cart is empty via cart.json').toBe(0);
 });
 
 // --- Cross-login cart coherence (ADR 0004) -------------------------------------

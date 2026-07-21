@@ -97,7 +97,7 @@ graph LR
         SWClient["runtime/shopware-client.ts"]
         Sync["runtime/cart-ui-sync.ts · 294"]
         Factory["runtime/tools/define-tool.ts · 74<br/>+ schemas.ts (zod) · 46"]
-        Tools["runtime/tools/*.tool.ts · 8 tools"]
+        Tools["runtime/tools/*.tool.ts · 9 tools"]
     end
 
     Dist["dist/.../swag-web-mcp.js<br/>(gitignored · built for ZIP)"]
@@ -198,7 +198,7 @@ so disabled tools are always removed. `model-context/registry.ts` wraps
 
 ## 6. Tool surface
 
-Eight tools, all prefixed `shopware_webmcp_`, all built with the `defineTool`
+Nine tools, all prefixed `shopware_webmcp_`, all built with the `defineTool`
 factory: a single **zod** input schema produces both the runtime validator and
 the advertised JSON Schema, so the two cannot drift. Tools carry WebMCP safety
 annotations (`readOnlyHint`, `untrustedContentHint`) and return
@@ -212,6 +212,7 @@ annotations (`readOnlyHint`, `untrustedContentHint`) and return
 | `get_cart` | none | `cart` | Storefront `GET /checkout/cart.json` |
 | `add_to_cart` | one of id/sku/url + `quantity?` (1–100) + `showCartOverlay?` | `added, cart` | Storefront `POST /checkout/line-item/add` (additive) |
 | `update_line_item` | one of id/sku/url + **required** `quantity` (0–100); `0` removes | `updated, cart` | Storefront `…/change-quantity/{id}` / `…/delete/{id}` |
+| `clear_cart` | none | `cart` | Storefront `POST /checkout/cart/delete` |
 | `get_sales_channel_context` | none | `salesChannelContext` | `/webmcp/sales-channel-context` |
 | `navigate` | same-origin storefront `url`/path | `navigatedTo` | `window.location` (same-origin) |
 
@@ -230,11 +231,12 @@ graph LR
     Twig -->|JSON data-attribute + access key| Runtime["Storefront runtime (TS)"]
 ```
 
-Admin settings: `enabled`, `context` (text), and 8 per-tool toggles
+Admin settings: `enabled`, `context` (text), and 9 per-tool toggles
 (`searchProductsToolEnabled`, `getProductToolEnabled`,
 `getProductCategoriesToolEnabled`, `getCartToolEnabled`, `addToCartToolEnabled`,
-`updateLineItemToolEnabled`, `getSalesChannelContextToolEnabled`,
-`navigateToolEnabled`) — all default true. The former `staticElementsJson`
+`updateLineItemToolEnabled`, `clearCartToolEnabled`,
+`getSalesChannelContextToolEnabled`, `navigateToolEnabled`) — all default true.
+The former `staticElementsJson`
 setting was removed with the `.wmcp` document.
 
 The config reaches the runtime in two independent ways: PHP reads it via the

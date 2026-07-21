@@ -222,6 +222,35 @@ export class ShopwareClient {
         return this.finalizeCartMutation(await this.storefrontCart.loadCart());
     }
 
+    async clearCart(): Promise<CartSummary | null> {
+        // Read the cart, then bulk-remove all line items by id (portable across the
+        // supported Shopware range; /checkout/cart/delete only exists in later 6.7).
+        const currentCart = await this.storefrontCart.loadCart();
+        const ids = this.rawCartLineItemIds(currentCart);
+
+        if (ids.length === 0) {
+            return this.finalizeCartMutation(currentCart);
+        }
+
+        await this.storefrontCart.removeLineItems(ids);
+
+        return this.finalizeCartMutation(await this.storefrontCart.loadCart());
+    }
+
+    private rawCartLineItemIds(rawCart: unknown): string[] {
+        if (!isPlainObject(rawCart)) {
+            return [];
+        }
+
+        const cart = normalizeCart(rawCart, this.baseUrl, this.currencyIsoCode);
+
+        return Array.isArray(cart.lineItems)
+            ? cart.lineItems
+                  .map((lineItem) => lineItem.id)
+                  .filter((id): id is string => typeof id === 'string' && id.length > 0)
+            : [];
+    }
+
     private rawCartHasLineItem(rawCart: unknown, productId: string): boolean {
         if (!isPlainObject(rawCart)) {
             return false;

@@ -54,6 +54,25 @@ export class StorefrontCartClient {
         await this.write(`${LINE_ITEM_DELETE_PATH}/${encodeURIComponent(productId)}`, new URLSearchParams());
     }
 
+    /**
+     * Removes several line items in one request via the bulk delete route
+     * (`frontend.checkout.line-items.delete`). Used to clear the cart. This is preferred
+     * over `/checkout/cart/delete`, which only exists in later 6.7 patches — the bulk
+     * line-item delete is available across the plugin's supported Shopware range.
+     */
+    async removeLineItems(ids: string[]): Promise<void> {
+        if (ids.length === 0) {
+            return;
+        }
+
+        const body = new URLSearchParams();
+        for (const id of ids) {
+            body.append('ids[]', id);
+        }
+
+        await this.write(LINE_ITEM_DELETE_PATH, body);
+    }
+
     private async write(path: string, body: URLSearchParams): Promise<void> {
         const response = await fetch(this.url(path), {
             method: 'POST',

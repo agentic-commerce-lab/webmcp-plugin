@@ -155,6 +155,7 @@ Shopware renders these settings in the plugin configuration screen in the Admin 
 - `getCartToolEnabled`: enables the cart read `document.modelContext` tool.
 - `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
 - `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool (quantity `0` removes).
+- `clearCartToolEnabled`: enables the clear cart `document.modelContext` tool (removes every item).
 - `getSalesChannelContextToolEnabled`: enables the sales channel context `document.modelContext` tool.
 - `navigateToolEnabled`: enables the storefront navigation `document.modelContext` tool.
 
@@ -177,6 +178,7 @@ best-effort storefront cart UI refreshes after success.
 | `shopware_webmcp_get_cart` | No input properties. | `cart`. |
 | `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`; optional `showCartOverlay` (default `false`) to open the storefront cart overlay for shopper feedback. | `added`, `cart`. |
 | `shopware_webmcp_update_line_item` | Exactly one of `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100`. Quantity `0` removes the line item (a no-op if it is not in the cart). | `updated`, `cart`. |
+| `shopware_webmcp_clear_cart` | No input properties. | `cart` (empty). |
 | `shopware_webmcp_get_sales_channel_context` | No input properties. | `salesChannelContext` (sales channel, language, currency, customer group, country, tax mode, login state). |
 | `shopware_webmcp_navigate` | Same-origin storefront `url` (or path) to open. | `navigatedTo`. |
 

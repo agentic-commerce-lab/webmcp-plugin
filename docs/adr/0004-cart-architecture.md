@@ -80,7 +80,9 @@ The canonical write is **per-line target** (`quantity: N` on a product-keyed lin
 idempotent, retry-safe, touches only the targeted line. Two product-keyed tools:
 `add_to_cart(product, quantity = 1)` (relative) and `update_line_item(product, quantity)`
 (target; `0` = remove). Line-item id is keyed to the product id, so tools stay
-product-addressable without a DOM lookup.
+product-addressable without a DOM lookup. A third, whole-cart write — `clear_cart` (no
+input) — empties the cart in one tool call (ACL-129); it is a convenience over
+`update_line_item(0)` per line, not a per-line operation.
 
 ### D3 — Execution backend: session-based storefront routes
 
@@ -94,11 +96,16 @@ token in the browser, no custom route:
 | `add_to_cart(pid, qty)` | `POST /checkout/line-item/add`, `lineItems[pid][id|type|referencedId|quantity]` (additive) |
 | `update_line_item(pid, N>0)` | present → `POST /checkout/line-item/change-quantity/{pid}` (`quantity=N`); absent → add |
 | `update_line_item(pid, 0)` | present → `POST /checkout/line-item/delete/{pid}`; absent → no-op |
+| `clear_cart` | read `cart.json`, then bulk-remove all line items via `POST /checkout/line-item/delete` (`ids[]`) |
 
 `update_line_item` reads `cart.json` first to branch present/absent (mirrors the routes'
-`$cart->has()` requirement). Writes return HTML/redirects, so after a write the runtime
-re-reads `cart.json` for the authoritative state. Product/category **reads** stay on the
-**Store API** with the public access key (anonymous context).
+`$cart->has()` requirement). `clear_cart` likewise reads `cart.json` and bulk-removes all
+line-item ids; it uses `/checkout/line-item/delete` rather than `/checkout/cart/delete`
+because the latter only exists in later 6.7 patches, while the bulk line-item delete is
+available across the plugin's supported Shopware range (≥ 6.6.10.18). Writes return
+HTML/redirects, so after a write the runtime re-reads `cart.json` for the authoritative
+state. Product/category **reads** stay on the **Store API** with the public access key
+(anonymous context).
 
 Agent and shopper share one cart **by construction**: both ride the same storefront
 session. Login-time token rotation (`CartRestorer`) is transparent — the session cookie is

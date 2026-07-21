@@ -1,4 +1,5 @@
 import { ADD_TO_CART_TOOL_NAME, createAddToCartTool } from './runtime/tools/add-to-cart.tool';
+import { CLEAR_CART_TOOL_NAME, createClearCartTool } from './runtime/tools/clear-cart.tool';
 import { createGetCartTool, GET_CART_TOOL_NAME } from './runtime/tools/get-cart.tool';
 import {
     createGetProductCategoriesTool,
@@ -52,6 +53,7 @@ export function registerConfiguredTools(config: unknown = {}): void {
     registerGetCartTool(normalizedConfig);
     registerAddToCartTool(normalizedConfig);
     registerUpdateLineItemTool(normalizedConfig);
+    registerClearCartTool(normalizedConfig);
     registerGetSalesChannelContextTool(normalizedConfig);
     registerNavigateTool(normalizedConfig);
 }
@@ -83,6 +85,10 @@ export function registerAddToCartTool(config: unknown = {}): ModelContextTool | 
 
 export function registerUpdateLineItemTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(config, 'updateLineItem', UPDATE_LINE_ITEM_TOOL_NAME, createUpdateLineItemTool);
+}
+
+export function registerClearCartTool(config: unknown = {}): ModelContextTool | null {
+    return registerStorefrontTool(config, 'clearCart', CLEAR_CART_TOOL_NAME, createClearCartTool);
 }
 
 export function registerGetSalesChannelContextTool(config: unknown = {}): ModelContextTool | null {
@@ -138,6 +144,7 @@ function exposeGlobals(config: WebMcpRuntimeConfig): void {
         registerGetCartTool: () => registerGetCartTool(config),
         registerAddToCartTool: () => registerAddToCartTool(config),
         registerUpdateLineItemTool: () => registerUpdateLineItemTool(config),
+        registerClearCartTool: () => registerClearCartTool(config),
         registerGetSalesChannelContextTool: () => registerGetSalesChannelContextTool(config),
         registerNavigateTool: () => registerNavigateTool(config),
     };
