@@ -1,264 +1,226 @@
-# ADR 0004 — Cart architecture: context, caching, exposure & projection
+# ADR 0004 — Cart architecture: context, cache-safety, exposure & projection
 
-Date: 2026-07-19
-Status: Accepted — **implemented** on `refactor/typescript-foundation` (not yet merged to `main`)
+Date: 2026-07-21
+Status: Accepted — implemented on `refactor/typescript-foundation` (not yet merged to `main`)
 Relates to: [Architecture Overview](../Architecture.md) ·
 [ADR 0001 — Categories via Store API](0001-categories-store-api.md) ·
 [ADR 0003 — TypeScript architecture](0003-typescript-architecture.md) ·
 [ADR 0006 — Tool discovery contract](0006-tool-discovery-contract.md) ·
 [Cart implementation plan](../specs/0003-cart-implementation-plan.md)
 
-> **Single source of truth for the cart.** This ADR records the *final* cart
-> design across four entangled questions — context-sync, cache-safety, exposure
-> mechanism, and projection location. It supersedes the earlier split between an
-> "ADR 0004" (context/caching/semantics) and an "ADR 0006" (projection); those are
-> folded in here. The tool-discovery / `.wmcp` decision that once lived in this ADR
-> now has its own record: [ADR 0006](0006-tool-discovery-contract.md).
+> **Single source of truth for the cart.** Records the cart design across four entangled
+> questions: context-sync, cache-safety, exposure/semantics, and projection.
 
 ## Context
 
-The cart touches four questions that were historically decided in different places
-and are separated cleanly here:
+The cart touches four questions:
 
-1. **Context synchronisation** — how do we guarantee the agent operates on the
-   *same* Shopware `SalesChannelContext` / cart row as the human shopper?
-2. **Cache-safety** — how do we guarantee cart/session state never leaks into
-   HTTP-cached (reverse proxy / Varnish) full-page HTML?
-3. **Exposure & semantics** — is the cart driven by **imperative** executable tools
-   or a **declarative** description of page affordances, and with what write
-   semantics (relative delta vs. per-line target vs. full-cart replace)?
-4. **Projection** — where is the raw Shopware cart shaped into the compact,
-   LLM-friendly payload the tools return: in PHP or in the frontend?
+1. **Context synchronisation** — the agent must operate on the *same* Shopware
+   `SalesChannelContext` / cart row as the human shopper.
+2. **Cache-safety** — cart/session state must never leak into HTTP-cached full-page HTML.
+3. **Exposure & semantics** — imperative executable tools vs. a declarative description of
+   page affordances, and with what write semantics.
+4. **Projection** — where the raw Shopware cart is shaped into the compact payload the
+   tools return.
 
-There is a forward dependency: the roadmap commits to a `get_sales_channel_context`
-tool (the Shopware-specific differentiator). Whatever context-resolution primitive
-the cart uses must serve that too.
+## Platform facts (verified against `shopware/core`, `v6.7.11.1`)
+
+- **Two request worlds resolve context differently.** Storefront controller routes are
+  **session-based**: the `StorefrontSubscriber` promotes the session's `sw-context-token`
+  into the request header, so a same-origin request with the session cookie resolves the
+  shopper's context and cart — no token needed in the browser
+  (`StorefrontSubscriber.php:118-124`). The **Store API** (`/store-api/*`) resolves the
+  token from the `sw-context-token` **request header only**; a missing token mints a fresh
+  *anonymous* token (`SalesChannelRequestContextResolver.php:44-49`). The session→header
+  promotion is storefront-scoped and explicitly excludes `/store-api`
+  (`RequestTransformer::isSalesChannelRequired`).
+- **The context token is a per-user secret, but a same-origin script can read the
+  shopper's own.** It lives server-side in the session and is not rendered into cached
+  HTML, a readable cookie, or a response header — so it cannot leak *across users* (the
+  HTTP cache is keyed by `sw-cache-hash`, shared between users). However, a
+  session-authenticated, uncached route *does* return it: `cart.json`'s body carries
+  `token` (see below). So the shopper's own JS — or an XSS on the page — can obtain it,
+  and it is exactly the token the Store API would need.
+- **Shopware ships no first-class Store API access for storefront JS.** The
+  `StoreApiClient` storefront service was removed in 6.5; `HttpClient` is deprecated in
+  favour of native `fetch` against storefront controller routes; core exposes neither the
+  access key nor the token to JS. Shopware's own cart JS (`add-to-cart.plugin.js`) posts a
+  plain `fetch` to the **storefront** `/checkout/line-item/add` route with the session
+  cookie — no token, no access key.
+- **The storefront exposes a JSON cart read — whose body includes the context token.**
+  `GET /checkout/cart.json` (`frontend.checkout.cart.json`, storefront-scoped) delegates to
+  the same `AbstractCartLoadRoute` as `/store-api/checkout/cart`, i.e. it returns a
+  byte-identical `CartResponse` — session-based, no token needed to *call* it. Its body
+  carries `token` (the session context token), so one **could** read it here and drive the
+  cart over the Store API with it. We deliberately don't — see Rejected alternatives A.
+- **Storefront product/search/navigation routes return HTML, not JSON.** The only `.json`
+  storefront route is `cart.json`. Structured product/category data therefore comes from
+  the **Store API**, which needs only the **public** sales-channel access key (a
+  non-secret, cache-safe, sales-channel-global value) for anonymous reads.
 
 ## Two orthogonal axes (avoid conflating "declarative")
 
-- **Axis A — write semantics.** How an operation's *intent* is expressed: *relative
-  delta* (`add 1`) vs. *per-line target* (`this line = quantity N`) vs. *full-cart
-  replace* (`cart = [...]`).
-- **Axis B — exposure mechanism.** How the capability is *surfaced*: *imperative*
-  `registerTool` handlers vs. a *declarative* description of native forms the
-  browser drives.
-
-## Platform facts — Shopware
-
-- **Context resolution is automatic.** A storefront-scoped
-  (`_routeScope => ['storefront']`), same-origin request carrying the session
-  cookie is resolved by Shopware into the shopper's `SalesChannelContext`,
-  including the exact `sw-context-token` in that session. `CartService::getCart($token,
-  $context)` then loads **the same cart row the shopper sees** — no client-side
-  token exchange required.
-- **The context token is a per-user secret.** The HTTP cache is keyed by URL +
-  `sw-cache-hash` (customer group, currency, active rules, login state) — **not** by
-  the individual session/cart. A cache entry is shared across *different users* with
-  the same hash. Injecting the token into full-page HTML would therefore serve one
-  user's token to every user sharing that cache entry → cart cross-contamination and
-  session hijack. This is *why* Shopware keeps it server-side, and why a stock
-  storefront exposes no readable token. Sales-channel-global, non-secret values
-  (`storeApiAccessKey`, `navigationCategoryId`) are cache-safe to expose; the
-  per-user token is categorically not.
-- **Cache-safety is a response contract.** `GET` responses are made uncacheable with
-  `Cache-Control: private, no-store`; `POST`/`PATCH`/`DELETE` are never HTTP-cached.
-  `XmlHttpRequest => true` restricts a route to XHR, preventing prefetch /
-  direct-navigation caching.
-- **The cart is richer than `{sku: qty}`.** Promotions, vouchers, rule-inserted
-  free-gift line items, bundles and nested items mean any model that lets the agent
-  declare the *whole* cart risks clobbering user- or rule-owned lines and reconcile
-  loops against auto-inserted gifts.
-- **"Store API for cart" ≠ HTTP to `/store-api`.** The Store API cart controllers
-  are thin wrappers over `CartService`. Inside a storefront PHP route we call
-  `CartService` **in-process** — same result, same context, no round-trip, no token.
-
-## Platform facts — WebMCP standard
-
-Source: W3C Web Machine Learning CG, *WebMCP* Draft Community Group Report,
-10 July 2026 (not ratified; still evolving).
-
-- **The imperative API is fully specified.** `document.modelContext.registerTool(tool,
-  options)` with `ModelContextTool = { name, title, description, inputSchema
-  (JSON Schema), execute, annotations }`; `ToolAnnotations = { readOnlyHint,
-  untrustedContentHint }`. This is exactly what the runtime already targets.
-- **The declarative form API is explicitly incomplete.** Its section is "entirely a
-  TODO"; the proposed HTML attributes and the "synthesize a declarative JSON Schema"
-  algorithm are undefined. Betting the cart on it now is premature.
-- **Identity inheritance is a first-class principle.** Tools "inherit user identity
-  and authentication context from the browser" and run in the user's existing
-  session, secure-context only, same-origin gated. This is the standard's blessing of
-  exactly the Shopware mechanism above: execute same-origin and the session comes for
-  free.
+- **Axis A — write semantics.** *relative delta* vs. *per-line target* vs. *full-cart
+  replace*.
+- **Axis B — exposure mechanism.** *imperative* `registerTool` handlers vs. a *declarative*
+  description of native forms.
 
 ## Decisions
 
 ### D1 — Exposure: imperative `registerTool` (Axis B)
 
-Keep the executable contract **imperative**. The W3C imperative API is stable,
-implemented, and the only path that can express add-an-arbitrary-product, structured
-reads, and `get_sales_channel_context` regardless of the current page. The
-declarative form API (annotating native forms) is deferred — it is a spec TODO,
-exposes only affordances present on the current page, and returns HTML/redirects
-rather than structured JSON. Adopt it later *additively* as progressive enhancement
-when it stabilises, without removing the imperative tools; re-open this ADR then.
+The executable contract is **imperative**. The W3C imperative API is stable and can express
+add-an-arbitrary-product regardless of the current page. The declarative form API is
+deferred (a spec TODO, and it can only surface affordances present on the current page — it
+cannot add an arbitrary product from any page).
 
 ### D2 — Write semantics: declarative per-line target (Axis A), two product-keyed tools
 
-The canonical write is **per-line target** (`quantity: N` on a product-keyed line),
-which is idempotent → retry-safe (the dominant agent failure mode), needs no
-current-quantity bookkeeping or line-item-ID juggling, and touches only the targeted
-product line → never clobbers other items, promotions, or rule-owned gifts. It also
-matches Shopify's `cartLinesUpdate` model.
+The canonical write is **per-line target** (`quantity: N` on a product-keyed line):
+idempotent, retry-safe, touches only the targeted line. Two product-keyed tools:
+`add_to_cart(product, quantity = 1)` (relative) and `update_line_item(product, quantity)`
+(target; `0` = remove). Line-item id is keyed to the product id, so tools stay
+product-addressable without a DOM lookup. A third, whole-cart write — `clear_cart` (no
+input) — empties the cart in one tool call (ACL-129); it is a convenience over
+`update_line_item(0)` per line, not a per-line operation.
 
-Two product-keyed tools:
+### D3 — Execution backend: session-based storefront routes
 
-- `add_to_cart(product, quantity = 1)` — relative convenience (discoverable verb,
-  Shopify parity). Not idempotent under retry; accepted because every write returns
-  full cart state for re-grounding.
-- `update_line_item(product, quantity)` — declarative target, `0` = remove;
-  idempotent.
+The cart executes over Shopware's **stock storefront controller routes**, authenticated by
+the **session cookie** — the same mechanism Shopware's own storefront JS uses. No context
+token in the browser, no custom route:
 
-Keying off product id/sku removes the DOM-based line-item lookup. `remove_from_cart`
-is dropped (redundant with `update_line_item(quantity: 0)`). Full-cart replace
-(`set_cart([...])`) is **rejected** — it clobbers concurrent edits and rule/promotion
-lines and cannot faithfully represent the rich line-item domain.
+| Tool | Route (storefront-scoped, session cookie) |
+| --- | --- |
+| `get_cart` | `GET /checkout/cart.json` → `CartResponse` |
+| `add_to_cart(pid, qty)` | `POST /checkout/line-item/add`, `lineItems[pid][id|type|referencedId|quantity]` (additive) |
+| `update_line_item(pid, N>0)` | present → `POST /checkout/line-item/change-quantity/{pid}` (`quantity=N`); absent → add |
+| `update_line_item(pid, 0)` | present → `POST /checkout/line-item/delete/{pid}`; absent → no-op |
+| `clear_cart` | read `cart.json`, then bulk-remove all line items via `POST /checkout/line-item/delete` (`ids[]`) |
 
-### D3 — Execution backend: server-side `CartService` via a thin PHP bridge
+`update_line_item` reads `cart.json` first to branch present/absent (mirrors the routes'
+`$cart->has()` requirement). `clear_cart` likewise reads `cart.json` and bulk-removes all
+line-item ids; it uses `/checkout/line-item/delete` rather than `/checkout/cart/delete`
+because the latter only exists in later 6.7 patches, while the bulk line-item delete is
+available across the plugin's supported Shopware range (≥ 6.6.10.18). Writes return
+HTML/redirects, so after a write the runtime re-reads `cart.json` for the authoritative
+state. Product/category **reads** stay on the **Store API** with the public access key
+(anonymous context).
 
-Cart writes execute **server-side**, in storefront-scoped, same-origin,
-`private, no-store`, `XmlHttpRequest`-restricted endpoints that resolve
-`$context->getToken()` and call `CartService` in-process. This satisfies
-context-sync and cache-safety **by construction** and needs **no token in the
-browser**.
+Agent and shopper share one cart **by construction**: both ride the same storefront
+session. Login-time token rotation (`CartRestorer`) is transparent — the session cookie is
+unchanged and the server maps it to the rotated token.
 
-Why not hit the Store API cart routes directly from the browser, the way products
-do? Because a usable token cannot be safely handed to the browser on a cacheable
-page (see Platform facts), and the reliable alternative — the session cookie the
-browser already sends — makes the thin PHP endpoint the simplest correct option:
+### D4 — Projection: normalize in the frontend (`domain/cart.ts`)
 
-- **Reads tolerate a missing token; cart writes do not.** Product/category reads run
-  fine in an anonymous Store API context (a missing token just means default
-  pricing). A cart write with a missing/wrong token writes to a *different cart than
-  the shopper sees* — a correctness bug, not a degraded read. So token unavailability
-  is tolerable for reads and disqualifying for cart mutations.
-- **Fetching the token via an uncached AJAX call is rejected.** It puts the token
-  into JS memory (widening the XSS blast radius from "read the page" to "act on the
-  victim's cart and checkout as them"), adds token-lifecycle handling (the storefront
-  rotates the token on login/logout/context change), and buys nothing over the
-  session cookie the browser already sends.
-
-This is the standard's "identity inheritance" applied server-side, and it is the same
-primitive `get_sales_channel_context` needs — build the context-resolution endpoint
-once, two consumers.
-
-### D4 — Projection: normalize in the frontend (`domain/cart.ts`), not PHP
-
-The thin PHP bridge **returns the raw Shopware cart** (`CartResponse` /
-`StructEncoder` output); `runtime/domain/cart.ts` normalizes it into the compact
-`CartSummary` before the tool returns `structuredContent`.
-
-Rationale: products and categories already settled on "Store API + normalize in JS"
-(`domain/product.ts`, `domain/category.ts`, ADR 0001). The cart was the only domain
-projected elsewhere — in PHP, in a second style, in a second language. Nothing in the
-projection needs data unavailable to the browser: it consumes the same price, line
-items, taxes and deliveries the Store API `CartResponse` already serializes, and its
-convenience fields (`cartUrl`, `checkoutUrl`, per-line `url`) are base-URL
-concatenations the JS product normalizer already builds.
-
-Verbosity never reaches the model: the raw cart travels only browser↔server
-(same-origin, uncached), and `domain/cart.ts` compacts it *before* the tool returns.
-The agent-facing payload is byte-for-byte today's `CartSummary`; the verbosity is
-browser-internal bandwidth, not model context.
-
-This unifies the projection layer and lets `CartPayloadBuilder` (~350 lines of PHP)
-plus the controller's projection helpers be deleted, leaving PHP as a thin bridge:
-config gating (disabled → `404`, enforced server-side), session-context resolution,
-`CartService` write execution, and cache-safety headers.
+The runtime normalizes the raw `CartResponse` (from `cart.json`) into the compact
+`CartSummary` in `runtime/domain/cart.ts`, next to `product.ts` / `category.ts`. No PHP
+cart payload builder. Because `cart.json` returns the same `CartResponse` as the Store API
+cart route, the projection is transport-independent.
 
 ### D5 — UI refresh: slim, native, no client-side deltas
 
 After a write, trigger Shopware's native cart-widget/offcanvas refresh from the
-authoritative server response. Drop the earlier client-side delta computation
-(prev/removed/delta) — the server now returns the authoritative cart. Keep the
-optional `showCartOverlay`.
+authoritative `cart.json` state (`cart-ui-sync.ts`); keep the optional `showCartOverlay`.
 
 ### D6 — Tool discovery is out of scope here
 
-The bespoke `.wmcp` affordance document is **removed**; `document.modelContext` (the
-live registered tools) is the single source of truth for discovery. The full
-reasoning is [ADR 0006 — Tool discovery contract](0006-tool-discovery-contract.md).
+`document.modelContext` is the single source of truth for discovery — see
+[ADR 0006](0006-tool-discovery-contract.md).
 
 ```mermaid
 flowchart LR
   A[Agent] -->|registerTool call| T[Cart tool runtime]
   T -->|normalizeCart -> CartSummary| A
-  T -->|same-origin XHR + session cookie| E[Thin PHP bridge]
-  E -->|gate + resolve context + CartService| C[CartService in-process]
-  E -.->|raw CartResponse, private no-store| T
-  U[Human user] -->|native forms, same session| C
-  C --- Cart[(Cart row keyed by context token)]
+  T -->|GET /checkout/cart.json, session cookie| S[Storefront routes]
+  T -->|POST /checkout/line-item/*, session cookie| S
+  U[Human user] -->|native forms, same session| S
+  S --- Cart[(Cart row keyed by the session's context token)]
+  T -.->|product/category reads, public access key| SA[Store API]
 ```
 
-## Implementation status
+## Rejected alternatives
 
-Delivered on `refactor/typescript-foundation` (commits `0816fc2`, `a7d9d48`,
-`d353a07`, `6d52b09`, `b2cd66d`): server-side `CartService` write endpoints (D3);
-product-keyed `add_to_cart` + `update_line_item` with `0` = remove, `remove_from_cart`
-dropped (D1/D2); the controller returns the raw `CartResponse` and `domain/cart.ts`
-normalizes it, with no `CartPayloadBuilder` in the tree (D4); slimmed `cart-ui-sync`
-(D5); the `.wmcp` document removed (D6, see [ADR 0006](0006-tool-discovery-contract.md));
-and `get_sales_channel_context` on the shared context primitive. The step-by-step
-record is in the [cart implementation plan](../specs/0003-cart-implementation-plan.md).
+### A — Cart over the Store API with a browser-held context token
+
+Drive the cart over `/store-api/checkout/cart*` with the shopper's context token. The token
+is obtainable — `cart.json`'s body carries it (Platform facts), so we could read it there
+(no custom bootstrap route strictly needed) and send it as the `sw-context-token` header.
+**Rejected anyway**, because the win is illusory and the cost is real:
+
+- **It buys nothing over D3.** The session-based storefront routes already operate the
+  shopper's exact cart with *no* token at all. Routing the cart through the Store API adds
+  a credential to manage for zero functional gain.
+- **It makes our code hold and persist the token.** To use the Store API we'd keep the
+  token in JS memory and (as the withdrawn implementation did) persist it to `localStorage`
+  and thread it through the transport — a broader, longer-lived exposure than never touching
+  it. Note this is a hygiene/attack-surface argument, **not** a hard boundary: since
+  `cart.json` already returns the token same-origin, an XSS on the page can read it either
+  way, so "no token in JS" is not a security guarantee against a token-stealing XSS.
+- **It is non-idiomatic.** It imports a headless/PWA pattern (browser-held token + Store
+  API) into the Twig storefront, which Shopware itself does not use for the cart —
+  `add-to-cart.plugin.js` posts to the storefront routes with the session cookie.
+
+So we go the Shopware-idiomatic way (D3) even though the token is right there for the
+taking. (The Store API variant was briefly implemented, then withdrawn.) The native Store
+API MCP server Shopware is building (behind the `MCP_SERVER` flag, targeting 6.8) inherits
+the same header-token model, so it would not change this either.
+
+### B — Storefront HTML routes for product/category reads (drop the access key too)
+
+Serve products/search/categories from the HTML-rendering storefront routes to avoid
+exposing even the access key. **Rejected.** Those routes return **HTML, not structured
+JSON** (the only `.json` storefront route is `cart.json`), so this reintroduces DOM/HTML
+scraping — exactly what [ADR 0001](0001-categories-store-api.md) removed for robustness.
+The Store API access key is **public and cache-safe** (not a secret like the token), so
+keeping it for reads is not a security concern.
+
+### C — W3C declarative form API for the cart
+
+Annotate the storefront's native add-to-cart form and let the browser drive it. **Deferred.**
+The spec section is a TODO, and it can only expose the current page's product — it cannot
+add an arbitrary product from any page, which the agent must do. Re-open additively when the
+spec stabilises (D1).
 
 ## Consequences
 
 **Positive**
-- Context-sync and cache-safety become structural, not incidental; no token in the
-  browser; retry-safe idempotent writes; one executable contract; Shopify parity.
-- One projection layer, one language: cart normalization lives next to `product.ts` /
-  `category.ts`; the PHP↔JS shape drift is gone.
-- Net less code: deletes the storefront-route cart writes, CSRF discovery, the DOM
-  line-item lookup, `CartPayloadBuilder` (~350 lines), the delta logic, and
-  `remove_from_cart`; adds thin `CartService` write endpoints and `domain/cart.ts`.
+- The idiomatic Shopware path: stock storefront routes, session cookie, **no custom route**
+  and **no token handled by our code** (we never read, hold, or persist the context token —
+  even though `cart.json` exposes it). This is smaller attack surface than the withdrawn
+  Store-API variant, which persisted the token to `localStorage`. (It is *not* a hard XSS
+  boundary — an XSS can still read the token from `cart.json`; see Rejected alternatives A.)
+- Agent and shopper share one cart by construction (one session); login/logout token
+  rotation is transparent.
+- One projection layer; `cart.json` returns the same `CartResponse` the Store API would, so
+  `domain/cart.ts` is unchanged and transport-independent. The token in the raw `cart.json`
+  is **not** projected into `CartSummary` (allowlist), so it never reaches the agent/model.
 
 **Negative / risks**
-- New server-side write endpoints replace the storefront-route writes — behaviour
-  (esp. promotion / rule-gift interaction and the `cart-ui-sync` refresh) must be
-  re-verified via the Playwright e2e suite.
-- `domain/cart.ts` must faithfully handle the richer raw shape (promotions, free-gift
-  lines, bundles, nested children, deliveries/shipping totals). Projection **parity
-  with the current output must be verified** field-by-field.
-- One more raw-Store-API shape the frontend depends on; parity tests must catch a
-  future `CartResponse` serialization change.
+- Writes return HTML/redirects, so each write is followed by a `cart.json` read for the
+  authoritative state (an extra request; also true for the present/absent branch).
+- Product/category reads run in an **anonymous** Store API context (public access key, no
+  token), so product prices reflect the default context, not the shopper's session-specific
+  pricing (e.g. customer-group prices). The **cart** (`cart.json`) is always session-exact.
+- One more stock-route shape the frontend depends on (`cart.json` = `CartResponse`); parity
+  must be watched across Shopware upgrades.
 
 ## Non-goals
 
 - The W3C declarative form path (deferred, additive later).
-- Any cross-origin agent scenario — it breaks identity inheritance and reintroduces
-  the token-exposure question. Out of scope.
-- Moving the cart *write* to the browser. Explicitly rejected (D3).
+- Any cross-origin agent scenario — the session cookie is same-origin only.
+- Full-cart replace semantics (rejected, D2).
 
 ## Verification
 
-- **Projection parity (primary).** Playwright e2e: for representative carts — single
-  product, multiple products, a variant with options, a promotion/voucher, a
-  rule-inserted free gift, and a bundle/nested line item — assert the `CartSummary`
-  from `get_cart` / `add_to_cart` / `update_line_item` is field-by-field equivalent
-  before and after the projection move.
-- **Idempotency & shared cart.** `update_line_item` is retry-safe; add-then-login-
-  then-read keeps one cart (token rotation handled by per-request server-side
-  resolution); writes touch only the targeted line, never promotion/gift lines
-  (e2e with an active promotion).
-- **Gating & cache-safety unchanged.** Each cart tool disabled → the bridge returns
-  `404` server-side; bridge responses keep `Cache-Control: private, no-store` and
-  stay `XmlHttpRequest`-restricted.
-- **Build/type & manual.** `bun run check` + `bun run build` green, dist deployed to
-  the dev shop; an agent add/update/remove is reflected in the shopper's live cart
-  widget/offcanvas.
-
-## Rollback
-
-The projection move is behind the tool runtime and the bridge response body. If
-parity regressions surface, revert to returning the `CartPayloadBuilder` projection
-from the bridge without touching tool contracts — the agent-facing `CartSummary` is
-identical either way.
+- **Shared cart (primary).** Storefront add → `get_cart` (via `cart.json`) shows the
+  product; agent writes are reflected in the shopper's live cart widget/offcanvas. Cross-
+  login coherence is guaranteed by the shared session (e2e: guest add → login → persists;
+  shopper + agent add → both present; logged-in add).
+- **Semantics.** `add_to_cart` is additive; `update_line_item` sets an exact target, `0`
+  removes, absent-product `0` is a no-op.
+- **No token / no secret exposure.** No context token is fetched or held by the runtime; the
+  cart uses only the session cookie; the access key exposed for Store API reads is the
+  public sales-channel key.
+- **Static/build.** `bun run check` + `build` green; `composer qa` green; Playwright cart
+  suite green.

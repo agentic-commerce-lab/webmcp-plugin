@@ -6,12 +6,10 @@ Status: Accepted (describes the current implementation, not a target state)
 > This document describes the **current ("IST") architecture** of the Shopware
 > WebMCP plugin. It records what exists and why, not what should change.
 >
-> **Revision 2026-07-18** — updated to the state after the TypeScript foundation
-> work (ADR 0003), the Store-API category migration (ADR 0001), the integration
-> test suite (ADR 0002), the server-side cart write endpoints (ADR 0004 / cart
-> implementation plan), and the move to a standalone Dockware dev shop. The
-> notable characteristics from the original ADR are now mostly resolved — see
-> §9. The remaining backlog lives in
+> Reflects the state after the TypeScript foundation work (ADR 0003), the Store-API
+> category migration (ADR 0001), the integration test suite (ADR 0002), the cart over
+> Shopware's session-based storefront routes (ADR 0004 / cart implementation plan), and
+> the standalone Dockware dev shop. The remaining backlog lives in
 > [`specs/0001-improvements-and-roadmap.md`](specs/0001-improvements-and-roadmap.md).
 
 ## 1. Context
@@ -41,33 +39,33 @@ graph TB
 
     subgraph Shopware["Shopware 6"]
         subgraph Plugin["SwagWebMcp plugin (PHP)"]
-            Controller["WebMcpController<br/>/webmcp/cart · /webmcp/sales-channel-context<br/>/webmcp/cart/line-item (POST/PATCH)"]
-            Config["SystemConfigWebMcpConfigProvider"]
+            Controller["WebMcpController<br/>/webmcp/sales-channel-context"]
+            Config["WebMcpConfigProvider"]
             Twig["meta.html.twig<br/>(injects config + access key)"]
         end
-        StoreAPI["Store API<br/>/store-api/*"]
-        CartService["CartService (server-side)"]
+        StoreAPI["Store API<br/>/store-api/* (products/categories)"]
+        Storefront["Storefront routes<br/>/checkout/cart.json · /checkout/line-item/*"]
         SysConfig[("system_config")]
     end
 
     Agent -->|discover + call tools| Runtime
     Runtime --> Globals
     Twig -->|data-attribute JSON config| Runtime
-    Runtime -->|product search/detail + navigation| StoreAPI
-    Runtime -->|cart + context read, cart writes JSON| Controller
-    Controller --> CartService
+    Runtime -->|product/category reads, public access key| StoreAPI
+    Runtime -->|cart read/write, session cookie| Storefront
+    Runtime -->|sales-channel context| Controller
     Controller -->|read config| Config
     Twig -->|read config| Config
     Config --> SysConfig
 ```
 
-**Key boundary:** the agent never leaves the merchant origin. It uses the
-shopper's existing session (cookies + `sw-context-token`) and the public Store
-API access key that Shopware already exposes to the storefront. Product and
-category reads go through the **Store API**; cart reads/writes and the sales
-channel context go through the plugin's own **storefront-scoped JSON endpoints**,
-which resolve the shopper's `SalesChannelContext` and operate the cart with
-Shopware's server-side `CartService`. Agent and shopper therefore share one cart.
+**Key boundary:** the agent never leaves the merchant origin. Product/category reads go
+through the **Store API** with the public sales-channel access key (anonymous context).
+The **cart** goes through Shopware's **session-based storefront routes**
+(`/checkout/cart.json`, `/checkout/line-item/*`), authenticated by the shopper's session
+cookie — **no context token in the browser** — so agent and shopper share one cart by
+construction (ADR 0004). The curated, PII-safe sales-channel context stays on the plugin's
+own `/webmcp/sales-channel-context` endpoint.
 
 ## 3. Component / file map
 
@@ -75,11 +73,10 @@ Shopware's server-side `CartService`. Agent and shopper therefore share one cart
 graph LR
     subgraph PHP["PHP backend (src/)"]
         Boot["SwagWebMcp.php · 11<br/>(empty bootstrap)"]
-        Ctrl["WebMcp/Api/WebMcpController.php · 217<br/>4 storefront JSON endpoints"]
-        CfgP["WebMcp/Config/<br/>SystemConfigWebMcpConfigProvider.php · 80"]
-        CfgDTO["WebMcp/Config/WebMcpConfig.php · 20"]
-        Cart["WebMcp/Model/CartPayloadBuilder.php · 378"]
-        Scc["WebMcp/Model/<br/>SalesChannelContextPayloadBuilder.php · 142"]
+        Ctrl["WebMcp/Api/WebMcpController.php<br/>1 storefront JSON endpoint"]
+        CfgP["WebMcp/Config/<br/>WebMcpConfigProvider.php"]
+        CfgDTO["WebMcp/Config/WebMcpConfig.php"]
+        Scc["WebMcp/Model/<br/>SalesChannelContextPayloadBuilder.php"]
     end
 
     subgraph Res["Resources"]
@@ -95,12 +92,12 @@ graph LR
         RT["runtime.ts · 190 · orchestrator"]
         Cfg["runtime/config.ts · 125 · config parse"]
         MC["runtime/model-context/*<br/>registry.ts 212 · native-bridge.ts 180"]
-        Trans["runtime/transport/*<br/>http.ts · token-discovery.ts · paths.ts"]
-        Dom["runtime/domain/*<br/>product.ts 199 · category.ts 95"]
-        SWClient["runtime/shopware-client.ts · 336"]
+        Trans["runtime/transport/*<br/>store-api.ts · storefront-cart.ts · webmcp.ts · http.ts · token-discovery.ts · paths.ts"]
+        Dom["runtime/domain/*<br/>product.ts · category.ts · cart.ts"]
+        SWClient["runtime/shopware-client.ts"]
         Sync["runtime/cart-ui-sync.ts · 294"]
         Factory["runtime/tools/define-tool.ts · 74<br/>+ schemas.ts (zod) · 46"]
-        Tools["runtime/tools/*.tool.ts · 8 tools"]
+        Tools["runtime/tools/*.tool.ts · 9 tools"]
     end
 
     Dist["dist/.../swag-web-mcp.js<br/>(gitignored · built for ZIP)"]
@@ -114,23 +111,20 @@ graph LR
     SWClient --> Trans
     SWClient --> Dom
     SWClient --> Sync
-    Ctrl --> Cart
     Ctrl --> Scc
     Ctrl --> CfgP
     CfgP --> CfgDTO
     Main -.->|shopware-cli build| Dist
 ```
 
-The runtime is now split by responsibility — `transport/` (HTTP + token
-discovery), `domain/` (product & category normalizers), `model-context/`
-(registry + native bridge), and `tools/` (a `defineTool` factory plus one file
-per tool). The former god modules are gone; the only files over ~250 lines are:
-
-| File | Lines | Role |
-| --- | --- | --- |
-| `Model/CartPayloadBuilder.php` | 378 | cart → JSON payload |
-| `runtime/shopware-client.ts` | 336 | Store API + cart/context adapter over `transport/` + `domain/` |
-| `runtime/cart-ui-sync.ts` | 294 | best-effort storefront cart-UI refresh after mutations |
+The runtime is split by responsibility — `transport/` (Store API for reads,
+storefront-cart for the session-based cart, the `/webmcp` client, token discovery),
+`domain/` (product, category & cart normalizers), `model-context/` (registry + native
+bridge), and `tools/` (a `defineTool` factory plus one file per tool). `ShopwareClient`
+drives the cart over the session-based storefront routes (`cart.json` +
+`/checkout/line-item/*`) and `domain/cart.ts` projects the raw `CartResponse` in the
+frontend. `runtime/cart-ui-sync.ts` does the best-effort storefront cart-UI refresh after
+mutations.
 
 ## 4. PHP backend
 
@@ -138,28 +132,19 @@ per tool). The former god modules are gone; the only files over ~250 lines are:
   lifecycle hooks). PSR-4 root `Swag\WebMcp\` → `src/`; subtree split into
   `Api/`, `Config/`, `Model/`.
 - **Endpoints** — `WebMcpController` is a plain service (not
-  `StorefrontController`) wired with `controller.service_arguments`. All routes
-  are storefront-scoped (`_routeScope: storefront`, `auth_required: false`,
-  `XmlHttpRequest: true`) and never cached:
+  `StorefrontController`) wired with `controller.service_arguments`. It is one
+  storefront-scoped (`_routeScope: storefront`, `auth_required: false`,
+  `XmlHttpRequest: true`), never-cached read:
 
   | Route | Method | Name | Purpose | Disabled behavior |
   | --- | --- | --- | --- | --- |
-  | `/webmcp/cart` | GET | `…cart` | structured cart read | `404` (tool off), `400` (no context) |
   | `/webmcp/sales-channel-context` | GET | `…sales_channel_context` | read-only sales channel/language/currency/customer-group/country/tax/login state | `404`, `400` |
-  | `/webmcp/cart/line-item` | POST | `…cart.add` | add `quantity` of a product (relative) | `404`, `400` |
-  | `/webmcp/cart/line-item` | PATCH | `…cart.update` | set exact target quantity (declarative, idempotent); `0` removes; adds if absent | `404`, `400` |
 
-- **Cart writes are server-side.** `writeLineItem()` resolves the shopper's
-  `SalesChannelContext`, decodes a JSON body (`productId`, `quantity`), and drives
-  Shopware's `CartService` (`add` / `changeQuantity` / `remove`) directly. Line
-  item ids are keyed to the product id so a product stays addressable across
-  add/update/remove. Quantities are validated (`0…100`, add default `1`). No CSRF
-  token or form-encoded storefront checkout route is involved anymore.
-- **Payload builders** — `CartPayloadBuilder` serializes the cart;
-  `SalesChannelContextPayloadBuilder` serializes the read-only context.
-- **Config** — `WebMcpConfigProviderInterface` → `SystemConfigWebMcpConfigProvider`
-  reads prefix `SwagWebMcp.config.`, with sales-channel → global fallback and
-  robust bool coercion.
+- **The cart runs over stock storefront routes, not PHP** (ADR 0004). The plugin has no
+  cart route and no context-token route; the cart tools call Shopware's own
+  `/checkout/cart.json` (read) and `/checkout/line-item/*` (write) with the session cookie.
+- **Config** — `WebMcpConfigProviderInterface` → `WebMcpConfigProvider` reads prefix
+  `SwagWebMcp.config.`, with sales-channel → global fallback and robust bool coercion.
 
 ## 5. Storefront runtime & tool call flow
 
@@ -176,18 +161,16 @@ sequenceDiagram
     participant MC as document.modelContext
     participant T as Tool (add_to_cart)
     participant C as ShopwareClient
-    participant P as /webmcp/cart/line-item (PHP)
-    participant CS as CartService
+    participant SF as Storefront routes (session cookie)
 
     A->>MC: callTool("shopware_webmcp_add_to_cart", {sku, quantity})
     MC->>T: execute(input)
     T->>T: zod safeParse — exactly one of id/sku/url, clamp qty
     T->>C: addProductToCart(productId, quantity)
-    C->>P: POST /webmcp/cart/line-item (JSON, same-origin session)
-    P->>CS: add(cart, lineItem, context)
-    CS-->>P: updated cart
-    P-->>C: cart payload (CartPayloadBuilder)
-    C->>C: cart-ui-sync — refresh CartWidget / off-canvas / cart page
+    C->>SF: POST /checkout/line-item/add (session cookie, form data)
+    C->>SF: GET /checkout/cart.json (authoritative state)
+    SF-->>C: raw CartResponse
+    C->>C: normalizeCart (domain/cart.ts) + cart-ui-sync refresh
     C-->>T: CartSummary
     T-->>MC: { content:[text], structuredContent:{added, cart} }
     MC-->>A: result
@@ -202,17 +185,20 @@ so disabled tools are always removed. `model-context/registry.ts` wraps
 
 **Transports in `ShopwareClient`** (over `transport/` + `domain/`):
 
-- **Store API** (`POST /store-api/*`) with `sw-access-key` + `sw-context-token`
-  headers; captures and persists the returned context token. Used for product
-  search/detail and category navigation.
-- **Plugin JSON endpoints** (`/webmcp/cart`, `/webmcp/sales-channel-context`,
-  `POST|PATCH /webmcp/cart/line-item`) for cart read/write and context.
-- Storefront `/checkout/*` routes are used only for **token discovery** and
-  **best-effort cart-UI refresh** (`cart-ui-sync.ts`), never for cart mutations.
+- **Store API** (`/store-api/*`, `transport/store-api.ts`) with the public `sw-access-key`;
+  anonymous context. Used for product search/detail and category navigation.
+- **Storefront cart routes** (`transport/storefront-cart.ts`, session cookie, no token):
+  `GET /checkout/cart.json` (read → `CartResponse`), `POST /checkout/line-item/add`
+  (additive), `…/change-quantity/{id}` (target), `…/delete/{id}` (remove). Each write is
+  followed by a `cart.json` read for the authoritative state.
+- **Plugin JSON endpoint** (`/webmcp/sales-channel-context`) for the curated, PII-safe
+  sales-channel context read.
+- Storefront `/checkout/*` routes are also used for the **best-effort cart-UI refresh**
+  (`cart-ui-sync.ts`).
 
 ## 6. Tool surface
 
-Eight tools, all prefixed `shopware_webmcp_`, all built with the `defineTool`
+Nine tools, all prefixed `shopware_webmcp_`, all built with the `defineTool`
 factory: a single **zod** input schema produces both the runtime validator and
 the advertised JSON Schema, so the two cannot drift. Tools carry WebMCP safety
 annotations (`readOnlyHint`, `untrustedContentHint`) and return
@@ -223,9 +209,10 @@ annotations (`readOnlyHint`, `untrustedContentHint`) and return
 | `search_products` | `query?` (≤120), `limit?` (1–20, def 5) | `query, count, total, products` | Store API `/search` |
 | `get_product` | one of `id`/`sku`/`url` | `lookup, product` | Store API `/product/{id}` |
 | `get_product_categories` | `scope?` (tree\|product), one of `id`/`sku`/`url` for `product` | `lookup, scope, source, sourceUrl, count, activeCategoryIds, categories, tree` | **Store API navigation** |
-| `get_cart` | none | `cart` | `/webmcp/cart` |
-| `add_to_cart` | one of id/sku/url + `quantity?` (1–100) + `showCartOverlay?` | `added, cart` | `POST /webmcp/cart/line-item` |
-| `update_line_item` | one of lineItemId/id/sku/url + **required** `quantity` (0–100); `0` removes | `updated, cart` or `skipped` | `PATCH /webmcp/cart/line-item` |
+| `get_cart` | none | `cart` | Storefront `GET /checkout/cart.json` |
+| `add_to_cart` | one of id/sku/url + `quantity?` (1–100) + `showCartOverlay?` | `added, cart` | Storefront `POST /checkout/line-item/add` (additive) |
+| `update_line_item` | one of id/sku/url + **required** `quantity` (0–100); `0` removes | `updated, cart` | Storefront `…/change-quantity/{id}` / `…/delete/{id}` |
+| `clear_cart` | none | `cart` | Storefront `POST /checkout/cart/delete` |
 | `get_sales_channel_context` | none | `salesChannelContext` | `/webmcp/sales-channel-context` |
 | `navigate` | same-origin storefront `url`/path | `navigatedTo` | `window.location` (same-origin) |
 
@@ -238,23 +225,27 @@ annotations (`readOnlyHint`, `untrustedContentHint`) and return
 ```mermaid
 graph LR
     Admin["Shopware Admin<br/>config.xml card"] --> SC[("system_config<br/>SwagWebMcp.config.*")]
-    SC --> Provider["SystemConfigWebMcpConfigProvider<br/>(sales-channel → global fallback)"]
+    SC --> Provider["WebMcpConfigProvider<br/>(sales-channel → global fallback)"]
     Provider --> Ctrl["WebMcpController (PHP)"]
     SC --> Twig["meta.html.twig<br/>config('SwagWebMcp.config.*')"]
     Twig -->|JSON data-attribute + access key| Runtime["Storefront runtime (TS)"]
 ```
 
-Admin settings: `enabled`, `context` (text), and 8 per-tool toggles
+Admin settings: `enabled`, `context` (text), and 9 per-tool toggles
 (`searchProductsToolEnabled`, `getProductToolEnabled`,
 `getProductCategoriesToolEnabled`, `getCartToolEnabled`, `addToCartToolEnabled`,
-`updateLineItemToolEnabled`, `getSalesChannelContextToolEnabled`,
-`navigateToolEnabled`) — all default true. The former `staticElementsJson`
+`updateLineItemToolEnabled`, `clearCartToolEnabled`,
+`getSalesChannelContextToolEnabled`, `navigateToolEnabled`) — all default true.
+The former `staticElementsJson`
 setting was removed with the `.wmcp` document.
 
 The config reaches the runtime in two independent ways: PHP reads it via the
-provider (endpoints re-check the relevant toggle); the storefront reads it via
-Twig, which emits the enabled toggles and the public `storeApiAccessKey` into a
-`data-*` attribute the runtime parses.
+provider (the one remaining endpoint re-checks `enabled` / the sales-channel-context
+toggle); the storefront reads it via Twig, which emits the enabled toggles and the
+public `storeApiAccessKey` into a `data-*` attribute the runtime parses. The cart
+tools are Store-API-backed, so — like `search_products` / `get_product` — their
+per-tool toggles gate **client-side registration**; there is no server-side cart
+route left to gate.
 
 ## 8. Build, QA & release
 
@@ -263,7 +254,7 @@ graph LR
     Src["TypeScript src/"] -->|shopware-cli build| Dist["dist/.../swag-web-mcp.js<br/>(gitignored)"]
     Dist --> Zip["shopware-cli extension zip → SwagWebMcp.zip"]
     Src -->|npm run check/lint/format:check| TSQA["tsc + ESLint + Prettier"]
-    Src -->|npm run test:e2e| E2E["Playwright · 11 tests"]
+    Src -->|npm run test:e2e| E2E["Playwright · 17 tests"]
     PHP["src/*.php"] -->|composer qa| Lint["php -l + PHPStan (lvl 8) + PHP-CS-Fixer"]
     subgraph CI["GitHub Actions (ci.yml)"]
         J1["test: Integration Test<br/>(Playwright vs dockware/shopware)"]
@@ -294,9 +285,11 @@ the integration test.
 - **TS quality** — `npm run check` (`tsc --noEmit`, split browser/node
   tsconfigs), `npm run lint` (ESLint), `npm run format` (Prettier). All three run
   in the CI "TypeScript quality" job.
-- **Tests** — 11 Playwright integration tests (`tests/e2e`) drive
+- **Tests** — 17 Playwright integration tests (`tests/e2e`) drive
   `document.modelContext` against a real shop (`npm run test:e2e`, ADR 0002), run
-  locally against the dev shop and in CI against `dockware/shopware`.
+  locally against the dev shop and in CI against `dockware/shopware`. They include
+  three cross-login cart-coherence tests (token rotation + guest→customer merge,
+  ADR 0004).
 - **PHP QA** — `composer qa` / `docker compose run --rm qa` run `php -l` syntax
   linting (`bin/lint`), **PHPStan** at level 8 (`phpstan.neon.dist`, clean, no
   baseline), and **PHP-CS-Fixer** in dry-run/check mode (`.php-cs-fixer.dist.php`,
@@ -326,7 +319,7 @@ Most of the concerns recorded in the original ADR have since been addressed.
   `schemas.ts`.
 - **DOM scraping removed.** `get_product_categories` uses the Store API
   navigation endpoint (ADR 0001).
-- **0% tests → integration suite.** 11 Playwright tests plus a CI "TypeScript
+- **0% tests → integration suite.** 17 Playwright tests plus a CI "TypeScript
   quality" gate (ADR 0002, 0003).
 - **Safety hints added.** Tools declare `readOnlyHint` / `untrustedContentHint`.
 - **AGENTS.md corrected** to the TypeScript runtime under `app/storefront/src`.
@@ -335,7 +328,9 @@ Most of the concerns recorded in the original ADR have since been addressed.
 
 - **PHP has no unit tests** — `composer qa` now runs `php -l`, PHPStan (level 8,
   clean) and PHP-CS-Fixer, but there is still no PHPUnit/Psalm.
-- **`CartPayloadBuilder.php` (378) and `cart-ui-sync.ts` (294)** remain the
-  largest units; cart-UI refresh stays inherently best-effort and theme-dependent.
-- **Storefront context dependency** — cart/context endpoints return `400` without
-  a sales channel context (test from a storefront route, not admin/CLI).
+- **`cart-ui-sync.ts` stays the largest runtime unit**; cart-UI refresh is
+  inherently best-effort and theme-dependent.
+- **Storefront context dependency** — the cart rides the storefront session cookie
+  (stock `/checkout/*` routes) and the `/webmcp/sales-channel-context` endpoint returns
+  `400` without a sales channel context, so test from a storefront route, not admin/CLI.
+  An agent without the shopper's session (e.g. cross-origin) cannot see or change the cart.

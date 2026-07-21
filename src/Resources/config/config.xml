@@ -55,6 +55,13 @@
         </input-field>
 
         <input-field type="bool">
+            <name>clearCartToolEnabled</name>
+            <label>Enable clear_cart tool</label>
+            <label lang="de-DE">clear_cart-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
+
+        <input-field type="bool">
             <name>getSalesChannelContextToolEnabled</name>
             <label>Enable get_sales_channel_context tool</label>
             <label lang="de-DE">get_sales_channel_context-Tool aktivieren</label>

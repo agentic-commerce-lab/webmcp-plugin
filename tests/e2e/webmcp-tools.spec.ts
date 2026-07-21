@@ -17,6 +17,7 @@ const TOOL = {
     getCart: 'shopware_webmcp_get_cart',
     addToCart: 'shopware_webmcp_add_to_cart',
     updateLineItem: 'shopware_webmcp_update_line_item',
+    clearCart: 'shopware_webmcp_clear_cart',
     getSalesChannelContext: 'shopware_webmcp_get_sales_channel_context',
     navigate: 'shopware_webmcp_navigate',
 } as const;
@@ -60,6 +61,43 @@ function expectValidToolResult(result: ToolResult): void {
     expect(result.content[0]?.type).toBe('text');
     expect(typeof result.content[0]?.text).toBe('string');
     expect(result.structuredContent).toBeTruthy();
+}
+
+// Shopware demo customer shipped with the Dockware dev shop.
+const DEMO_CUSTOMER = { email: 'test@example.com', password: 'shopware' } as const;
+
+/** The product-id-keyed line items currently in the cart, read via the agent's get_cart tool. */
+async function cartLineItemIds(page: Page): Promise<string[]> {
+    const result = await callTool(page, TOOL.getCart);
+    const lineItems = (result.structuredContent.cart?.lineItems ?? []) as Array<Record<string, any>>;
+    return lineItems.map((item) => String(item.id));
+}
+
+/** Log in through the real storefront login form (a full navigation → token rotation + cart merge). */
+async function loginViaStorefront(page: Page, email: string, password: string): Promise<void> {
+    await page.goto('/account/login');
+    const form = page.locator('form:has(#loginMail)');
+    await form.locator('#loginMail').fill(email);
+    await form.locator('input[name="password"]').fill(password);
+    await form.locator('button[type="submit"]').click();
+    // A successful login redirects away from /account/login to the account overview.
+    await page.waitForURL((url) => !url.pathname.includes('/account/login'), { timeout: 15_000 });
+}
+
+/** Add a product to the cart the way a shopper does: the storefront detail page buy button. */
+async function addToCartViaStorefront(page: Page, productUrl: string): Promise<void> {
+    await page.goto(productUrl);
+    await page.locator('.btn-buy').first().click();
+    // The off-canvas cart confirms the storefront-side add landed.
+    await expect(page.locator('.cart-offcanvas, .offcanvas').first()).toBeVisible({ timeout: 15_000 });
+    await page.goto('/');
+}
+
+/** Remove products from the cart so a persisted customer cart does not leak across runs. */
+async function removeFromCart(page: Page, productIds: string[]): Promise<void> {
+    for (const id of productIds) {
+        await callTool(page, TOOL.updateLineItem, { id, quantity: 0 });
+    }
 }
 
 test.beforeEach(async ({ page }) => {
@@ -170,6 +208,58 @@ test('cart lifecycle: add → read → update → remove', async ({ page }) => {
     expect(stillPresent, 'line item should be gone after removal').toBe(false);
 });
 
+test('add_to_cart is additive: adding the same product twice sums the quantity', async ({ page }) => {
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
+    const product = search.structuredContent.products[0];
+    expect(product?.id, 'need a product to add').toBeTruthy();
+
+    await callTool(page, TOOL.addToCart, { id: product.id, quantity: 1 });
+    await callTool(page, TOOL.addToCart, { id: product.id, quantity: 1 });
+
+    const cart = await callTool(page, TOOL.getCart);
+    const line = (cart.structuredContent.cart.lineItems as Array<Record<string, any>>).find(
+        (item) => item.id === product.id,
+    );
+    expect(line?.quantity, 'two relative adds of qty 1 sum to 2').toBe(2);
+
+    await removeFromCart(page, [product.id]);
+});
+
+test('cart projection: a multi-line cart carries the compact CartSummary fields', async ({ page }) => {
+    const search = await callTool(page, TOOL.searchProducts, { limit: 2 });
+    const [a, b] = search.structuredContent.products as Array<Record<string, any>>;
+    expect(a?.id && b?.id, 'need two distinct products').toBeTruthy();
+
+    await callTool(page, TOOL.addToCart, { id: a.id, quantity: 2 });
+    await callTool(page, TOOL.addToCart, { id: b.id, quantity: 1 });
+
+    const result = await callTool(page, TOOL.getCart);
+    const cart = result.structuredContent.cart;
+
+    // Cart-level projection. itemCount sums product quantities (2 + 1); it ignores any
+    // rule-inserted non-product line, so it stays exact. lineItemCount / lineItems may
+    // carry an extra promotion line on some demo data, hence the >= assertions.
+    expect(Array.isArray(cart.lineItems)).toBe(true);
+    expect(cart.lineItems.length).toBeGreaterThanOrEqual(2);
+    expect(cart.lineItemCount).toBeGreaterThanOrEqual(2);
+    expect(cart.itemCount).toBe(3);
+    expect(cart.totals?.total?.value).toBeGreaterThan(0);
+    expect(cart.checkoutUrl).toContain('/checkout');
+
+    // Per-line projection for product A.
+    const lineA = (cart.lineItems as Array<Record<string, any>>).find((i) => i.id === a.id);
+    expect(lineA, 'product A line present').toBeTruthy();
+    expect(lineA?.type).toBe('product');
+    expect(lineA?.quantity).toBe(2);
+    expect(typeof lineA?.label).toBe('string');
+    expect(lineA?.referencedId).toBe(a.id);
+    expect(lineA?.url).toContain(`/detail/${a.id}`);
+    expect(lineA?.unitPrice?.value).toBeGreaterThan(0);
+    expect(lineA?.totalPrice?.value).toBeGreaterThan(0);
+
+    await removeFromCart(page, [a.id, b.id]);
+});
+
 test('update_line_item to quantity 0 is an idempotent no-op for a product not in the cart', async ({ page }) => {
     const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
     const product = search.structuredContent.products[0];
@@ -182,6 +272,144 @@ test('update_line_item to quantity 0 is an idempotent no-op for a product not in
         (item) => item.id === product.id,
     );
     expect(present ?? false).toBe(false);
+});
+
+// --- WebMCP cart tools operate the storefront session cart (ADR 0004) ----------
+// The cart tools write through Shopware's stock storefront routes (session cookie), so a
+// tool-driven change lands in the shopper's own session cart. We prove it by reading the
+// cart straight from Shopware's own `/checkout/cart.json` — bypassing our tools entirely —
+// and confirming the tool's change is there. This also implicitly confirms no token is
+// needed: the fetch below sends only the session cookie.
+
+test('cart tools write to the shopper session cart, visible via Shopware /checkout/cart.json', async ({ page }) => {
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
+    const product = search.structuredContent.products[0];
+    expect(product?.id, 'need a product to add').toBeTruthy();
+
+    // Agent adds via the WebMCP tool (which writes through the storefront cart routes).
+    await callTool(page, TOOL.addToCart, { id: product.id, quantity: 2 });
+
+    // Read the cart straight from Shopware's own session endpoint, not via our tools.
+    const storefrontCart = await page.evaluate(async () => {
+        const res = await fetch('/checkout/cart.json', {
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin',
+        });
+        return (await res.json()) as { lineItems?: Array<Record<string, any>> };
+    });
+    const line = (storefrontCart.lineItems ?? []).find((item) => item.id === product.id);
+    expect(line, 'the tool add is visible in the shopper session cart (cart.json)').toBeTruthy();
+    expect(line?.quantity, 'quantity matches the tool call').toBe(2);
+
+    // And a target update / remove through the tool is reflected there too.
+    await callTool(page, TOOL.updateLineItem, { id: product.id, quantity: 0 });
+    const afterRemove = await page.evaluate(async () => {
+        const res = await fetch('/checkout/cart.json', {
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin',
+        });
+        return (await res.json()) as { lineItems?: Array<Record<string, any>> };
+    });
+    expect(
+        (afterRemove.lineItems ?? []).some((item) => item.id === product.id),
+        'the tool removal is reflected in cart.json',
+    ).toBe(false);
+});
+
+test('clear_cart empties a filled cart', async ({ page }) => {
+    const search = await callTool(page, TOOL.searchProducts, { limit: 2 });
+    const [a, b] = search.structuredContent.products as Array<Record<string, any>>;
+    expect(a?.id && b?.id, 'need two products').toBeTruthy();
+
+    await callTool(page, TOOL.addToCart, { id: a.id, quantity: 1 });
+    await callTool(page, TOOL.addToCart, { id: b.id, quantity: 2 });
+    expect((await cartLineItemIds(page)).length, 'cart is filled before clear').toBeGreaterThanOrEqual(2);
+
+    const result = await callTool(page, TOOL.clearCart);
+    expectValidToolResult(result);
+    expect(Array.isArray(result.structuredContent.cart?.lineItems)).toBe(true);
+    expect(result.structuredContent.cart.lineItems.length, 'clear_cart returns an empty cart').toBe(0);
+
+    // Shopware's own session cart is empty too.
+    const storefrontLineItems = await page.evaluate(async () => {
+        const res = await fetch('/checkout/cart.json', {
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin',
+        });
+        const cart = (await res.json()) as { lineItems?: unknown[] };
+        return (cart.lineItems ?? []).length;
+    });
+    expect(storefrontLineItems, 'session cart is empty via cart.json').toBe(0);
+});
+
+// --- Cross-login cart coherence (ADR 0004) -------------------------------------
+// The cart runs on the storefront session (session cookie). On login Shopware rotates the
+// context token and merges the guest cart into the customer cart. These tests pin that the
+// agent (session-based cart tools) and the shopper (storefront) stay on one cart across it.
+
+test('cart survives login: agent fills the cart as a guest, then the shopper logs in', async ({ page }) => {
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
+    const product = search.structuredContent.products[0];
+    expect(product?.id, 'need a product to add').toBeTruthy();
+
+    await callTool(page, TOOL.addToCart, { id: product.id, quantity: 1 });
+    expect(await cartLineItemIds(page), 'guest cart holds the added product').toContain(product.id);
+
+    await loginViaStorefront(page, DEMO_CUSTOMER.email, DEMO_CUSTOMER.password);
+    // Re-open the storefront so the runtime re-bootstraps the now-rotated token.
+    await openStorefront(page);
+
+    expect(await cartLineItemIds(page), 'the guest cart merged into the customer cart on login').toContain(product.id);
+
+    await removeFromCart(page, [product.id]);
+});
+
+test('shared cart before login: shopper adds via storefront, agent adds via tool, both survive login', async ({
+    page,
+}) => {
+    const search = await callTool(page, TOOL.searchProducts, { limit: 2 });
+    const [shopperProduct, agentProduct] = search.structuredContent.products as Array<Record<string, any>>;
+    expect(shopperProduct?.url, 'need a product detail url for the storefront add').toBeTruthy();
+    expect(agentProduct?.id, 'need a second product for the agent add').toBeTruthy();
+
+    // Shopper action (storefront session) and agent action (Store API token) as a guest.
+    await addToCartViaStorefront(page, shopperProduct.url);
+    await callTool(page, TOOL.addToCart, { id: agentProduct.id, quantity: 1 });
+
+    // Pre-login: both land in ONE cart — proving the agent token == the shopper session.
+    const beforeLogin = await cartLineItemIds(page);
+    expect(beforeLogin, 'shopper item present pre-login').toContain(shopperProduct.id);
+    expect(beforeLogin, 'agent item present pre-login').toContain(agentProduct.id);
+
+    await loginViaStorefront(page, DEMO_CUSTOMER.email, DEMO_CUSTOMER.password);
+    await openStorefront(page);
+
+    const afterLogin = await cartLineItemIds(page);
+    expect(afterLogin, 'shopper item survived login').toContain(shopperProduct.id);
+    expect(afterLogin, 'agent item survived login').toContain(agentProduct.id);
+
+    await removeFromCart(page, [shopperProduct.id, agentProduct.id]);
+});
+
+test('logged-in coherence: log in first, then agent and shopper add to the same cart', async ({ page }) => {
+    await loginViaStorefront(page, DEMO_CUSTOMER.email, DEMO_CUSTOMER.password);
+    await openStorefront(page);
+
+    const search = await callTool(page, TOOL.searchProducts, { limit: 2 });
+    const [shopperProduct, agentProduct] = search.structuredContent.products as Array<Record<string, any>>;
+    expect(shopperProduct?.url && agentProduct?.id, 'need two products').toBeTruthy();
+
+    // Clean any residue from earlier runs so the assertions are about this run's adds.
+    await removeFromCart(page, [shopperProduct.id, agentProduct.id]);
+
+    await callTool(page, TOOL.addToCart, { id: agentProduct.id, quantity: 1 });
+    await addToCartViaStorefront(page, shopperProduct.url);
+
+    const cart = await cartLineItemIds(page);
+    expect(cart, 'agent item present while logged in').toContain(agentProduct.id);
+    expect(cart, 'shopper item present while logged in').toContain(shopperProduct.id);
+
+    await removeFromCart(page, [shopperProduct.id, agentProduct.id]);
 });
 
 test('get_sales_channel_context returns the active sales channel context', async ({ page }) => {

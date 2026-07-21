@@ -27,6 +27,7 @@ final class WebMcpConfigProvider
             getCartToolEnabled: $this->boolConfig('getCartToolEnabled', $salesChannelId),
             addToCartToolEnabled: $this->boolConfig('addToCartToolEnabled', $salesChannelId),
             updateLineItemToolEnabled: $this->boolConfig('updateLineItemToolEnabled', $salesChannelId),
+            clearCartToolEnabled: $this->boolConfig('clearCartToolEnabled', $salesChannelId),
             getSalesChannelContextToolEnabled: $this->boolConfig('getSalesChannelContextToolEnabled', $salesChannelId),
             navigateToolEnabled: $this->boolConfig('navigateToolEnabled', $salesChannelId),
         );

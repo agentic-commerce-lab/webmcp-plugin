@@ -67,6 +67,7 @@ export interface WebMcpRuntimeConfig {
         getCart: boolean;
         addToCart: boolean;
         updateLineItem: boolean;
+        clearCart: boolean;
         getSalesChannelContext: boolean;
         navigate: boolean;
     };

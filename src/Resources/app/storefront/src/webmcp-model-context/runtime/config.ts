@@ -22,6 +22,7 @@ export function normalizeConfig(options: unknown = {}): WebMcpRuntimeConfig {
             getCart: booleanOption(tools.getCart, true),
             addToCart: booleanOption(tools.addToCart, true),
             updateLineItem: booleanOption(tools.updateLineItem, true),
+            clearCart: booleanOption(tools.clearCart, true),
             getSalesChannelContext: booleanOption(tools.getSalesChannelContext, true),
             navigate: booleanOption(tools.navigate, true),
         },

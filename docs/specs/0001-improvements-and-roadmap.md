@@ -157,8 +157,8 @@ differentiator (`get_sales_channel_context`).
 | **User confirmation for cart mutations** | ❌ missing | no confirmation config, no confirmation surface / native confirmation hint |
 | **Read/write classification in tool metadata** (`readOnlyHint`) | ✅ done | emitted via `defineTool` (WP4) |
 | **`untrustedContentHint`** for product/user content | ✅ done | emitted for product/cart content tools (WP4) |
-| Store API as source of truth | ✅ | products ✅, categories via Store API navigation (ADR 0001) ✅, cart via server-side `CartService` bridge (ADR 0004) ✅ |
-| Same shopper/session context | ✅ | session cookie resolves context server-side (ADR 0004) |
+| Store API as source of truth | ✅ | products ✅, categories via Store API navigation (ADR 0001) ✅; the cart runs on Shopware's session-based storefront routes (`cart.json` + `/checkout/line-item/*`), not the Store API (ADR 0004) ✅ |
+| Same shopper/session context | ✅ | the cart rides the storefront session cookie, so agent and shopper share one cart by construction (ADR 0004) |
 | **Status endpoint** (version, enabled tools, browser reqs, safety posture) | ❌ missing | the bespoke `.wmcp` document was removed (ADR 0006); no `/.well-known/webmcp-status` reporting version/tools/policy/safety/readiness |
 | **Deterministic fallback harness** (gated behind demo setting) | ❌ missing | the earlier PoC had a gated `window.__SwagWebMcp.call`; current build exposes `window.SwagWebMcp` **ungated** and ships no harness |
 | **Mutation audit logging** | ❌ missing | earlier PoC logged mutation audit events server-side; current build does not |
