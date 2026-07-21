@@ -10,6 +10,7 @@ import type {
 } from './types';
 import { readAccessKey, readContextToken } from './transport/token-discovery';
 import { StoreApiClient } from './transport/store-api';
+import { StorefrontCartClient } from './transport/storefront-cart';
 import { webMcpRequest } from './transport/webmcp';
 import {
     createProductCriteria,
@@ -21,20 +22,20 @@ import { markActiveCategoryTrail, normalizeCategories, normalizeCategoryNode } f
 import { normalizeCart } from './domain/cart';
 import { openCartOverlay, refreshCartUi } from './cart-ui-sync';
 
-const WEBMCP_CART_PATH = '/webmcp/cart';
-const WEBMCP_CART_LINE_ITEM_PATH = '/webmcp/cart/line-item';
 const WEBMCP_SALES_CHANNEL_CONTEXT_PATH = '/webmcp/sales-channel-context';
 
 /**
- * Orchestrates the storefront tools against the two transports: read/search go
- * through the Store API (`StoreApiClient`), cart writes and context reads through
- * the plugin's own same-origin `/webmcp` endpoints (`webMcpRequest`). This class
- * holds no transport details itself — only the page-derived options and the
- * domain normalization wiring.
+ * Orchestrates the tools over the transports: product/category reads go through the Store
+ * API (`StoreApiClient`, public access key, anonymous context); the cart goes through
+ * Shopware's session-based storefront routes (`StorefrontCartClient`, session cookie, no
+ * token); only the curated, PII-safe sales-channel context uses the plugin's own `/webmcp`
+ * endpoint (`webMcpRequest`). Holds no transport details — just page-derived options and
+ * domain-normalization wiring. See ADR 0004.
  */
 export class ShopwareClient {
     private baseUrl: string;
     private storeApi: StoreApiClient;
+    private storefrontCart: StorefrontCartClient;
     private navigationCategoryId: string | null;
     private currencyIsoCode: string | null;
     private activeCategoryId: string | null;
@@ -47,6 +48,7 @@ export class ShopwareClient {
             cleanText(options.accessKey) || readAccessKey(),
             cleanText(options.contextToken) || readContextToken(),
         );
+        this.storefrontCart = new StorefrontCartClient(this.baseUrl);
         this.navigationCategoryId = cleanText(options.navigationCategoryId);
         this.currencyIsoCode = cleanText(options.currencyIsoCode);
         this.activeCategoryId = cleanText(options.activeCategoryId);
@@ -168,10 +170,10 @@ export class ShopwareClient {
     }
 
     async getCart(): Promise<CartSummary> {
-        const rawCart = await webMcpRequest(this.webMcpUrl(WEBMCP_CART_PATH));
+        const rawCart = await this.storefrontCart.loadCart();
 
         if (!isPlainObject(rawCart)) {
-            throw new Error('No cart details were returned by the Shopware WebMCP cart endpoint.');
+            throw new Error('No cart details were returned by the Shopware storefront cart endpoint.');
         }
 
         return normalizeCart(rawCart, this.baseUrl, this.currencyIsoCode);
@@ -189,26 +191,45 @@ export class ShopwareClient {
 
     async addProductToCart(input: QuantityInput): Promise<CartSummary | null> {
         const productId = await this.resolveProductId(input);
-        const cart = await webMcpRequest(this.webMcpUrl(WEBMCP_CART_LINE_ITEM_PATH), {
-            method: 'POST',
-            body: { productId, quantity: input.quantity },
-        });
+        // Relative add over the storefront route; Shopware sums quantity for an existing line.
+        await this.storefrontCart.addProduct(productId, input.quantity);
 
         if (input.showCartOverlay) {
             openCartOverlay(this.baseUrl);
         }
 
-        return this.finalizeCartMutation(cart);
+        return this.finalizeCartMutation(await this.storefrontCart.loadCart());
     }
 
     async updateLineItem(input: CartQuantityInput): Promise<CartSummary | null> {
         const productId = await this.resolveProductId(input);
-        const cart = await webMcpRequest(this.webMcpUrl(WEBMCP_CART_LINE_ITEM_PATH), {
-            method: 'PATCH',
-            body: { productId, quantity: input.quantity },
-        });
+        // Read the cart once to branch present/absent; the line-item id equals the product id.
+        const currentCart = await this.storefrontCart.loadCart();
+        const present = this.rawCartHasLineItem(currentCart, productId);
 
-        return this.finalizeCartMutation(cart);
+        if (input.quantity <= 0) {
+            // Target 0 = remove; a no-op (return the current cart) when it is not present.
+            if (!present) {
+                return this.finalizeCartMutation(currentCart);
+            }
+            await this.storefrontCart.removeLineItem(productId);
+        } else if (present) {
+            await this.storefrontCart.changeQuantity(productId, input.quantity);
+        } else {
+            await this.storefrontCart.addProduct(productId, input.quantity);
+        }
+
+        return this.finalizeCartMutation(await this.storefrontCart.loadCart());
+    }
+
+    private rawCartHasLineItem(rawCart: unknown, productId: string): boolean {
+        if (!isPlainObject(rawCart)) {
+            return false;
+        }
+
+        const cart = normalizeCart(rawCart, this.baseUrl, this.currencyIsoCode);
+
+        return Array.isArray(cart.lineItems) && cart.lineItems.some((lineItem) => lineItem.id === productId);
     }
 
     private async resolveProductId(input: ProductLookupInput): Promise<string> {

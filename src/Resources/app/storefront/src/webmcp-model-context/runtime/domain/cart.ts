@@ -2,11 +2,14 @@ import { cleanText, isPlainObject, removeEmptyValues } from '../tools/storefront
 import type { CartSummary, UnknownRecord } from '../types';
 
 /**
- * Projects Shopware's canonical Store API cart (the raw `CartResponse` returned by the
- * thin `/webmcp/cart` bridge) into the compact, agent-facing cart shape. This mirrors the
- * former server-side `CartPayloadBuilder` and lives here so the cart is normalized in the
- * same place and style as products and categories (`domain/product.ts`, `domain/category.ts`).
- * See ADR 0004. The raw cart carries no currency, so it is passed in from the runtime config.
+ * Projects the raw Store API `CartResponse` into the compact, agent-facing cart shape,
+ * alongside the product and category normalizers in `domain/`. The raw cart carries no
+ * currency, so it is passed in from the runtime config. See ADR 0004.
+ *
+ * This is a strict allowlist: it deliberately does NOT project the raw cart's `token`
+ * (the shopper's per-user context token, present in `cart.json`) nor other server-only
+ * fields, so they never reach the tool's `structuredContent` and thus never reach the
+ * agent/model. Do not replace this with a raw spread of the cart.
  */
 export function normalizeCart(rawCart: any, baseUrl: string, currency: string | null): CartSummary {
     const cart = isPlainObject(rawCart) ? rawCart : {};

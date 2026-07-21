@@ -6,9 +6,11 @@ import { parseJsonResponse, storeApiErrorMessage } from './http';
 const STORE_API_PATH = '/store-api';
 
 /**
- * Thin transport for Shopware's Store API. Owns the context token: each request
- * carries the current token and access key, and a fresh token handed back by the
- * server is captured and persisted so the agent and shopper stay on one session.
+ * Thin transport for Shopware's Store API, used for anonymous product/category reads
+ * (ADR 0001). It sends the public sales-channel access key and, if the page happens to
+ * expose one, a context token; a missing token just yields the default (anonymous)
+ * context. The cart does NOT go through here — it uses session-based storefront routes
+ * (ADR 0004).
  */
 export class StoreApiClient {
     private contextToken: string | null;
