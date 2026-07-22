@@ -16,6 +16,7 @@ import {
     createProductCriteria,
     normalizeProduct,
     normalizeProductCollection,
+    toListingItem,
     productIdFromUrl,
 } from './domain/product';
 import { markActiveCategoryTrail, normalizeCategories, normalizeCategoryNode } from './domain/category';
@@ -93,7 +94,7 @@ export class ShopwareClient {
                 limit,
             }),
         )) as UnknownRecord;
-        const products = normalizeProductCollection(result, this.baseUrl);
+        const products = normalizeProductCollection(result, this.baseUrl).map(toListingItem);
 
         return {
             products,
@@ -136,7 +137,7 @@ export class ShopwareClient {
     }> {
         const { path, query, scope, showable } = this.resolveListingRoute(input);
         const result = (await this.storeApi.request(path, createListingRequest({ ...input, query }))) as UnknownRecord;
-        const products = normalizeProductCollection(result, this.baseUrl);
+        const products = normalizeProductCollection(result, this.baseUrl).map(toListingItem);
         const facets = normalizeListingFacets(result);
 
         return {

@@ -38,7 +38,7 @@ export function createSearchProductsTool(options: StorefrontToolOptions = {}) {
         name: SEARCH_PRODUCTS_TOOL_NAME,
         title: 'Search products',
         description:
-            'Searches the storefront catalog and, by default, navigates the shopper to the search results page so they see it. It ALSO returns the matching `products` — present these back to the shopper too (e.g. as a table) so they get the answer in chat as well as on the page. Omit query to just list products as data. Set showResults false to fetch results as data without moving the page (e.g. to answer a question or resolve a product id). To also filter by manufacturer/property/price, use filter_products.',
+            'Searches the storefront catalog and, by default, navigates the shopper to the search results page so they see it. It ALSO returns the matching `products` as compact cards (id, sku, name, price, url, image, availability) — present these back to the shopper too (e.g. as a table) so they get the answer in chat as well as on the page. Omit query to just list products as data. Set showResults false to fetch results as data without moving the page (e.g. to answer a question or resolve a product id). For full details on one product (description, gallery, properties, categories), call get_product with its id or url. To also filter by manufacturer/property/price, use filter_products.',
         annotations: { readOnlyHint: false, untrustedContentHint: true },
         input: searchProductsInput,
         execute: async (input) => {

@@ -65,6 +65,31 @@ export function normalizeProductCollection(result: any, baseUrl: string): Produc
         .filter((product: ProductSummary | null): product is ProductSummary => Boolean(product));
 }
 
+/**
+ * Slim projection of a product for listing contexts (search/filter results): everything an
+ * agent needs to identify and pick a product, without the payload-heavy detail fields
+ * (description, image gallery, properties, categories). Full details stay available via
+ * get_product for the one product the agent actually cares about.
+ */
+export function toListingItem(product: ProductSummary): ProductSummary {
+    const item = product as UnknownRecord;
+
+    return removeEmptyValues({
+        id: item.id,
+        sku: item.sku,
+        name: item.name,
+        manufacturer: item.manufacturer,
+        price: item.price,
+        priceValue: item.priceValue,
+        currency: item.currency,
+        available: item.available,
+        stock: item.stock,
+        url: item.url,
+        image: item.image,
+        options: item.options,
+    }) as ProductSummary;
+}
+
 export function normalizeProduct(product: any, baseUrl: string): ProductSummary | null {
     if (!isPlainObject(product)) {
         return null;
