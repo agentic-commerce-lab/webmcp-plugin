@@ -12,6 +12,12 @@ const updateLineItemInput = z
         quantity: lineItemQuantity.describe(
             'Target quantity for this product in the cart. Use 0 to remove it. Adds the product if it is not in the cart yet.',
         ),
+        showCartOverlay: z
+            .boolean()
+            .default(true)
+            .describe(
+                'Open the storefront cart overlay after the change so the shopper sees it. Keep it true in interactive sessions; set false for headless automation.',
+            ),
     })
     .refine((value) => hasExactlyOne([value.id, value.sku, value.url]), {
         message: 'Provide exactly one of id, sku, or url.',

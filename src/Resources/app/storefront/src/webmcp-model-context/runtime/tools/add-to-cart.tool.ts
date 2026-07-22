@@ -12,9 +12,9 @@ const addToCartInput = z
         quantity: optionalQuantity.describe('Quantity to add.'),
         showCartOverlay: z
             .boolean()
-            .default(false)
+            .default(true)
             .describe(
-                "Opens the storefront cart overlay so the shopper immediately sees the product was added. This tool runs inside the shopper's own browser tab, so a person is usually watching — prefer true in normal interactive sessions to give clear visual confirmation. Only set it to false for headless or background automation where nobody is looking at the page.",
+                "Opens the storefront cart overlay so the shopper immediately sees the product was added. This tool runs inside the shopper's own browser tab, so a person is usually watching — keep it true for clear visual confirmation. Only set it to false for headless or background automation where nobody is looking at the page.",
             ),
     })
     .refine((value) => hasExactlyOne([value.id, value.sku, value.url]), {
@@ -30,7 +30,7 @@ export function createAddToCartTool(options: StorefrontToolOptions = {}) {
         name: ADD_TO_CART_TOOL_NAME,
         title: 'Add to cart',
         description:
-            'Adds a product or selected variant to the current cart. Provide exactly one of id, sku, or url. When a shopper is viewing this browser tab (the usual case), also set showCartOverlay to true so they get immediate visual confirmation.',
+            'Adds a product or selected variant to the current cart and, by default, opens the cart overlay so the shopper gets immediate visual confirmation. Provide exactly one of id, sku, or url. Set showCartOverlay false only for headless automation.',
         annotations: { readOnlyHint: false, untrustedContentHint: true },
         input: addToCartInput,
         execute: async (input) => {

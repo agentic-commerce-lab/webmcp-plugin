@@ -6,7 +6,14 @@ import type { CartSummary, StorefrontToolOptions } from '../types';
 
 export const GET_CART_TOOL_NAME = 'shopware_webmcp_get_cart';
 
-const getCartInput = z.strictObject({});
+const getCartInput = z.object({
+    showCartOverlay: z
+        .boolean()
+        .default(true)
+        .describe(
+            "Open the storefront cart overlay so the shopper sees their cart in their browser. This runs in the shopper's own tab, so keep it true when the shopper wants to see the cart; set false to only read cart data for reasoning or verification.",
+        ),
+});
 
 export function createGetCartTool(options: StorefrontToolOptions = {}) {
     const shopwareClient = new ShopwareClient(options);
@@ -14,15 +21,16 @@ export function createGetCartTool(options: StorefrontToolOptions = {}) {
     return defineTool({
         name: GET_CART_TOOL_NAME,
         title: 'Get cart',
-        description: 'Returns the current cart. Takes no input.',
-        annotations: { readOnlyHint: true, untrustedContentHint: true },
+        description:
+            'Returns the current cart and, by default, opens the cart overlay so the shopper sees it. Set showCartOverlay false to only read cart data without opening the overlay.',
+        annotations: { readOnlyHint: false, untrustedContentHint: true },
         input: getCartInput,
-        execute: async () => {
-            const cart = await shopwareClient.getCart();
+        execute: async (input) => {
+            const cart = await shopwareClient.getCart({ showCartOverlay: input.showCartOverlay });
 
             return {
                 content: [{ type: 'text', text: formatCartResult(cart) }],
-                structuredContent: { cart },
+                structuredContent: { cart, shownInBrowser: input.showCartOverlay },
             };
         },
     });

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { defineTool } from './define-tool';
 import { MAX_URL_LENGTH, boundedString } from './schemas';
 import { normalizeBaseUrl, normalizeSameOriginUrl } from './storefront-tool.utils';
+import { navigateStorefront } from '../navigation';
 import type { StorefrontToolOptions } from '../types';
 
 export const NAVIGATE_TOOL_NAME = 'shopware_webmcp_navigate';
@@ -29,11 +30,7 @@ export function createNavigateTool(options: StorefrontToolOptions = {}) {
                 throw new Error('Navigation URL must be a same-origin storefront URL or path.');
             }
 
-            // Return the tool result first, then navigate: assigning the location
-            // unloads the page, so the response must be produced beforehand.
-            window.setTimeout(() => {
-                window.location.assign(targetUrl);
-            }, 0);
+            navigateStorefront(targetUrl);
 
             return {
                 content: [{ type: 'text', text: `Navigating to ${targetUrl}.` }],

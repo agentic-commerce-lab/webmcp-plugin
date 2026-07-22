@@ -152,10 +152,13 @@ Shopware renders these settings in the plugin configuration screen in the Admin 
 - `searchProductsToolEnabled`: enables the product search `document.modelContext` tool.
 - `getProductToolEnabled`: enables the product detail `document.modelContext` tool.
 - `getProductCategoriesToolEnabled`: enables the product category `document.modelContext` tool.
+- `getListingFiltersToolEnabled`: enables the listing filter vocabulary `document.modelContext` tool.
+- `filterProductsToolEnabled`: enables the faceted listing/search filter `document.modelContext` tool.
 - `getCartToolEnabled`: enables the cart read `document.modelContext` tool.
 - `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
 - `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool (quantity `0` removes).
 - `clearCartToolEnabled`: enables the clear cart `document.modelContext` tool (removes every item).
+- `selectVariantToolEnabled`: enables the product-page variant selector `document.modelContext` tool (page-scoped).
 - `getSalesChannelContextToolEnabled`: enables the sales channel context `document.modelContext` tool.
 - `navigateToolEnabled`: enables the storefront navigation `document.modelContext` tool.
 
@@ -172,13 +175,16 @@ best-effort storefront cart UI refreshes after success.
 
 | Tool | Input | Structured output |
 | --- | --- | --- |
-| `shopware_webmcp_search_products` | Optional `query`; optional `limit` from `1` to `20`, default `5`. | `query`, `count`, `total`, `products`. |
-| `shopware_webmcp_get_product` | Exactly one of `id`, `sku`, or same-origin product `url`. | `lookup`, `product`. |
+| `shopware_webmcp_search_products` | Optional `query`; optional `limit` from `1` to `20`, default `5`; optional `showResults` (default `true`) navigates the shopper to the storefront search page (with a query it shows that search, without one it lists the whole catalog). | `query`, `count`, `total`, `products`, `listingUrl`, `shownInBrowser`. |
+| `shopware_webmcp_get_product` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `showResults` (default `true`) opens the product detail page for the shopper. | `lookup`, `product`, `shownInBrowser`. |
 | `shopware_webmcp_get_product_categories` | Optional `scope`: `tree` or `product`; for `product` scope exactly one of `id`, `sku`, or same-origin `url` (any of them implies `product` scope). | `lookup`, `scope`, `source` (`store-api`), `sourceUrl`, `count`, `activeCategoryIds`, `categories`, `tree`. Categories carry real Shopware ids, names, SEO urls, and `parentId`. |
-| `shopware_webmcp_get_cart` | No input properties. | `cart`. |
-| `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`; optional `showCartOverlay` (default `false`) to open the storefront cart overlay for shopper feedback. | `added`, `cart`. |
-| `shopware_webmcp_update_line_item` | Exactly one of `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100`. Quantity `0` removes the line item (a no-op if it is not in the cart). | `updated`, `cart`. |
-| `shopware_webmcp_clear_cart` | No input properties. | `cart` (empty). |
+| `shopware_webmcp_get_listing_filters` | Optional `categoryId` or `query`; with neither, uses the listing the shopper is viewing (active category → active search → whole catalog). | `scope` (the listing used), `filters`: manufacturers, property groups with options, price range, rating, available sortings — each with the ids needed to filter. |
+| `shopware_webmcp_filter_products` | Optional `categoryId` or `query` (same default as above); optional `manufacturerIds`, `propertyOptionIds`, `priceMin`, `priceMax`, `minRating`, `shippingFree`, `sort`, `limit` (`1`–`24`, default `10`), `page`; optional `showResults` (default `true`) navigates the shopper to the filtered listing so they see it. | `scope`, `count`, `total`, `products`, `filters`, `listingUrl`, `shownInBrowser`. |
+| `shopware_webmcp_get_cart` | Optional `showCartOverlay` (default `true`) opens the cart overlay for the shopper. | `cart`, `shownInBrowser`. |
+| `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`; optional `showCartOverlay` (default `true`) opens the storefront cart overlay for shopper feedback. | `added`, `cart`. |
+| `shopware_webmcp_update_line_item` | Exactly one of `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100` (`0` removes, no-op if absent); optional `showCartOverlay` (default `true`). | `updated`, `cart`. |
+| `shopware_webmcp_clear_cart` | Optional `showCartOverlay` (default `true`) opens the (now empty) cart overlay. | `cart` (empty). |
+| `shopware_webmcp_select_variant` | Page-scoped to the product detail page (no product id needed). `selections` (option names, e.g. `Color: red`, `Size: XL`) or `optionIds`; optional `quantity`, `addToCart` (default `true`), `showCartOverlay` (default `true`). | `variant`, `selectedOptions`, `addedToCart`, `cart`. |
 | `shopware_webmcp_get_sales_channel_context` | No input properties. | `salesChannelContext` (sales channel, language, currency, customer group, country, tax mode, login state). |
 | `shopware_webmcp_navigate` | Same-origin storefront `url` (or path) to open. | `navigatedTo`. |
 
