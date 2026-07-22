@@ -162,6 +162,36 @@ test('search_products without a query shows all products on the search page', as
     await page.waitForURL(/\/search(\?|$)/, { timeout: 15_000 });
 });
 
+test('listing cards stay compact; get_product rehydrates the heavy detail fields', async ({ page }) => {
+    // Token optimization contract: search/filter return slim cards without the payload-heavy
+    // fields, and get_product is the drill-down that returns them in full.
+    const listing = await callTool(page, TOOL.searchProducts, { limit: 10, showResults: false });
+    const cards = listing.structuredContent.products as Array<Record<string, any>>;
+    expect(cards.length).toBeGreaterThan(0);
+
+    const HEAVY = ['description', 'properties', 'categories', 'images'] as const;
+    for (const card of cards) {
+        for (const field of HEAVY) {
+            expect(card, `listing card must omit "${field}"`).not.toHaveProperty(field);
+        }
+        // Essentials the agent needs to present and act stay on the card.
+        expect(card.id, 'card keeps id').toBeTruthy();
+        expect(typeof card.name, 'card keeps name').toBe('string');
+    }
+
+    // Proof it is a projection, not missing data: get_product returns at least one heavy field.
+    let rehydrated = false;
+    for (const card of cards.slice(0, 5)) {
+        const full = await callTool(page, TOOL.getProduct, { id: card.id, showResults: false });
+        const detail = full.structuredContent.product as Record<string, any>;
+        if (HEAVY.some((field) => detail[field] !== undefined)) {
+            rehydrated = true;
+            break;
+        }
+    }
+    expect(rehydrated, 'get_product should return detail fields that listing cards omit').toBe(true);
+});
+
 test('get_product returns details for a product found via search', async ({ page }) => {
     const search = await callTool(page, TOOL.searchProducts, { limit: 1, showResults: false });
     const first = search.structuredContent.products[0];

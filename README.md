@@ -158,7 +158,7 @@ Shopware renders these settings in the plugin configuration screen in the Admin 
 - `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
 - `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool (quantity `0` removes).
 - `clearCartToolEnabled`: enables the clear cart `document.modelContext` tool (removes every item).
-- `selectVariantToolEnabled`: enables the product-page variant selector `document.modelContext` tool (page-scoped).
+- `selectVariantToolEnabled`: enables the variant selector `document.modelContext` tool (resolves an exact variant by options; works with an explicit product id/sku/url or the current product page).
 - `getSalesChannelContextToolEnabled`: enables the sales channel context `document.modelContext` tool.
 - `navigateToolEnabled`: enables the storefront navigation `document.modelContext` tool.
 
