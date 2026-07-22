@@ -30,7 +30,7 @@ export function createAddToCartTool(options: StorefrontToolOptions = {}) {
         name: ADD_TO_CART_TOOL_NAME,
         title: 'Add to cart',
         description:
-            'Adds a product or selected variant to the current cart and, by default, opens the cart overlay so the shopper gets immediate visual confirmation. Provide exactly one of id, sku, or url. Set showCartOverlay false only for headless automation.',
+            'Adds a specific product (by exactly one of id, sku, or url) to the cart and, by default, opens the cart overlay for confirmation. The id/sku/url must identify the exact product to add — this tool does NOT resolve variant options. If the shopper asks for a variant by option (a size, colour, …), use select_variant instead, which resolves the option combination first. Set showCartOverlay false only for headless automation.',
         annotations: { readOnlyHint: false, untrustedContentHint: true },
         input: addToCartInput,
         execute: async (input) => {

@@ -110,21 +110,8 @@ export function registerClearCartTool(config: unknown = {}): ModelContextTool | 
     return registerStorefrontTool(config, 'clearCart', CLEAR_CART_TOOL_NAME, createClearCartTool);
 }
 
-/**
- * Page-scoped: the variant selector only makes sense on a product detail page, so it is
- * registered only when the page exposes a current product. On any other page the tool is
- * unregistered, keeping the advertised tool surface relevant to what the shopper is viewing.
- */
 export function registerSelectVariantTool(config: unknown = {}): ModelContextTool | null {
-    const normalizedConfig = normalizeConfig(config);
-
-    if (!normalizedConfig.currentProductId) {
-        unregisterModelContextTool(SELECT_VARIANT_TOOL_NAME);
-
-        return null;
-    }
-
-    return registerStorefrontTool(normalizedConfig, 'selectVariant', SELECT_VARIANT_TOOL_NAME, createSelectVariantTool);
+    return registerStorefrontTool(config, 'selectVariant', SELECT_VARIANT_TOOL_NAME, createSelectVariantTool);
 }
 
 export function registerGetSalesChannelContextTool(config: unknown = {}): ModelContextTool | null {

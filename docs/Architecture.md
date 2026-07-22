@@ -202,9 +202,10 @@ Twelve tools, all prefixed `shopware_webmcp_`, all built with the `defineTool`
 factory: a single **zod** input schema produces both the runtime validator and
 the advertised JSON Schema, so the two cannot drift. Tools carry WebMCP safety
 annotations (`readOnlyHint`, `untrustedContentHint`) and return
-`{ content: [{type:'text', text}], structuredContent }`. Most tools register
-globally; `select_variant` is **page-scoped** — it registers only when the page
-exposes a current product (a product detail page).
+`{ content: [{type:'text', text}], structuredContent }`. All tools register
+globally; those that need a current-page context (e.g. `select_variant`,
+`filter_products`) read it from the page config but also accept an explicit
+selector, so they work from anywhere (a listing, headless) too.
 
 | Tool | Input | Output keys | Data source |
 | --- | --- | --- | --- |
@@ -217,7 +218,7 @@ exposes a current product (a product detail page).
 | `add_to_cart` | one of id/sku/url + `quantity?` (1–100) + `showCartOverlay?` (def true) | `added, cart` | Storefront `POST /checkout/line-item/add` (additive) |
 | `update_line_item` | one of id/sku/url + **required** `quantity` (0–100); `0` removes + `showCartOverlay?` (def true) | `updated, cart` | Storefront `…/change-quantity/{id}` / `…/delete/{id}` |
 | `clear_cart` | `showCartOverlay?` (def true) | `cart` | Storefront `POST /checkout/cart/delete` |
-| `select_variant` _(page-scoped: PDP)_ | `selections?` (option names) or `optionIds?` + `quantity?`, `addToCart?` (def true), `showCartOverlay?` (def true) | `variant, selectedOptions, addedToCart, cart` | Store API `/product/{id}` (configurator) + `/product` (parent + option ids → exact variant) + cart add |
+| `select_variant` | one of `id`/`sku`/`url` (or omit on a PDP for the current product) + `selections?` (option names) or `optionIds?` + `quantity?`, `addToCart?` (def true), `showCartOverlay?` (def true) | `variant, selectedOptions, addedToCart, cart` | Store API `/product/{id}` (configurator) + `/product` (parent + option ids → exact variant) + cart add |
 | `get_sales_channel_context` | none | `salesChannelContext` | `/webmcp/sales-channel-context` |
 | `navigate` | same-origin storefront `url`/path | `navigatedTo` | `window.location` (same-origin) |
 
@@ -225,8 +226,9 @@ exposes a current product (a product detail page).
 > idempotent) — there is no separate `remove_from_cart` tool. `get_product_categories`
 > now uses the Store API navigation endpoint (ADR 0001), not DOM scraping.
 > `get_listing_filters` + `filter_products` are the global faceted discovery pair
-> (ADR 0001 Store API), and `select_variant` is the page-scoped product-page tool
-> (ACL-132): the current product is implicit, so it needs no product selector.
+> (ADR 0001 Store API), and `select_variant` (ACL-132) resolves an exact variant by
+> options for any product — by explicit id/sku/url, or the current product on a PDP —
+> so a size/colour can be added from a listing or headless, not only from the PDP.
 
 **Interaction model — drive the page by default.** For discovery intent ("search
 for…", "show me…", "find…", "filter to…") the agent drives the storefront: it

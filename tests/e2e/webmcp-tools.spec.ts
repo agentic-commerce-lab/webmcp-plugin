@@ -20,12 +20,12 @@ const TOOL = {
     addToCart: 'shopware_webmcp_add_to_cart',
     updateLineItem: 'shopware_webmcp_update_line_item',
     clearCart: 'shopware_webmcp_clear_cart',
+    selectVariant: 'shopware_webmcp_select_variant',
     getSalesChannelContext: 'shopware_webmcp_get_sales_channel_context',
     navigate: 'shopware_webmcp_navigate',
 } as const;
 
-// Registered only on a product detail page (page-scoped), so it is not part of the global surface.
-const SELECT_VARIANT_TOOL = 'shopware_webmcp_select_variant';
+const SELECT_VARIANT_TOOL = TOOL.selectVariant;
 
 type ToolResult = {
     content: Array<{ type: string; text: string }>;
@@ -637,27 +637,39 @@ test('filter refines the current search results page without an explicit scope (
     await page.waitForURL(/[?&]search=variant/, { timeout: 15_000 });
 });
 
-test('select_variant is page-scoped: absent globally, present on a product page (ACL-132)', async ({ page }) => {
+test('select_variant resolves a variant off the PDP by id, from a listing (ACL-132)', async ({ page }) => {
+    // The reported gap: from a listing/headless, the agent must be able to resolve "Size XL" of a
+    // product it only has an id for — without landing on the PDP. select_variant is global and
+    // takes an explicit id.
+    const search = await callTool(page, TOOL.searchProducts, { query: 'variant', limit: 1, showResults: false });
+    const product = search.structuredContent.products[0];
+    if (!product?.id) {
+        test.skip(true, 'no variant product in this catalog');
+        return;
+    }
+
+    // Still on the home page (not the PDP) — pass the product id explicitly.
+    const result = await callTool(page, SELECT_VARIANT_TOOL, {
+        id: product.id,
+        selections: [{ group: 'Size', option: 'XL' }],
+        addToCart: true,
+        showCartOverlay: false,
+    });
+
+    expectValidToolResult(result);
+    expect(result.structuredContent.addedToCart).toBe(true);
+    const optionNames = (result.structuredContent.variant?.options ?? []).map((o: any) => String(o.name).toLowerCase());
+    expect(optionNames, `resolved variant options: ${optionNames.join('/')}`).toContain('xl');
+    expect(result.structuredContent.cart?.itemCount ?? 0).toBeGreaterThan(0);
+
+    await removeFromCart(page, [String(result.structuredContent.variant.id)]);
+});
+
+test('select_variant is registered globally (not only on product pages) (ACL-132)', async ({ page }) => {
     const registeredOnHome = await page.evaluate(() =>
         ((document as any).modelContext.getTools() as Array<{ name: string }>).map((tool) => tool.name),
     );
-    expect(registeredOnHome, 'select_variant must not be advertised off a product page').not.toContain(
-        SELECT_VARIANT_TOOL,
-    );
-
-    const search = await callTool(page, TOOL.searchProducts, { limit: 1, showResults: false });
-    const product = search.structuredContent.products[0];
-    expect(product?.url, 'need a product detail url').toBeTruthy();
-
-    await page.goto(product.url);
-    await page.waitForFunction(
-        (toolName) => {
-            const mc = (document as any).modelContext;
-            return !!mc && typeof mc.getTools === 'function' && mc.getTools().some((t: any) => t?.name === toolName);
-        },
-        SELECT_VARIANT_TOOL,
-        { timeout: 30_000 },
-    );
+    expect(registeredOnHome).toContain(SELECT_VARIANT_TOOL);
 });
 
 test('select_variant adds the viewed product to the cart (ACL-132)', async ({ page }) => {

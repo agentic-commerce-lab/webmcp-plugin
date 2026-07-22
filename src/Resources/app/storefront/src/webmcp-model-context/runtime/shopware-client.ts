@@ -156,17 +156,21 @@ export class ShopwareClient {
      * Store API (parent + option ids); the cart add rides the session, so the shopper operates
      * their own cart.
      */
-    async selectVariant(input: {
-        selections?: VariantSelection[] | undefined;
-        optionIds?: string[] | undefined;
-        quantity: number;
-        addToCart: boolean;
-        showCartOverlay?: boolean | undefined;
-    }): Promise<{ variant: ProductSummary; selectedOptions: MatchedVariantSelection[]; cart: CartSummary | null }> {
-        const productId = cleanText(this.currentProductId);
+    async selectVariant(
+        input: ProductLookupInput & {
+            selections?: VariantSelection[] | undefined;
+            optionIds?: string[] | undefined;
+            quantity: number;
+            addToCart: boolean;
+            showCartOverlay?: boolean | undefined;
+        },
+    ): Promise<{ variant: ProductSummary; selectedOptions: MatchedVariantSelection[]; cart: CartSummary | null }> {
+        // Identify the product by an explicit selector when given, otherwise the current PDP product.
+        const hasSelector = Boolean(cleanText(input.id) || cleanText(input.sku) || cleanText(input.url));
+        const productId = hasSelector ? await this.resolveProductId(input) : cleanText(this.currentProductId);
 
         if (!productId) {
-            throw new Error('Variant selection requires an active product detail page.');
+            throw new Error('Provide a product (id, sku, or url), or open a product detail page.');
         }
 
         const { groups, parentId, currentOptions } = await this.getVariantContext(productId);
