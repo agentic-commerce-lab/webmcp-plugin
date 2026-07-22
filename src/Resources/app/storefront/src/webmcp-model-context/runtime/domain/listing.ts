@@ -139,6 +139,48 @@ function integerParam(value: unknown): string | null {
     return parsed === null ? null : String(parsed);
 }
 
+export interface ResolvedFilterNames {
+    manufacturerIds: string[];
+    propertyOptionIds: string[];
+    unmatched: string[];
+}
+
+/**
+ * Resolves manufacturer/property-option NAMES against a listing's facets into their ids, so
+ * `filter_products` can take "red"/"Shopware Fashion" directly and skip the extra
+ * get_listing_filters round-trip. Names are matched case-insensitively; anything unmatched is
+ * reported so the caller can surface the available options.
+ */
+export function matchFilterNames(
+    facets: ListingFacets,
+    names: { manufacturers?: string[] | undefined; propertyOptions?: string[] | undefined },
+): ResolvedFilterNames {
+    const unmatched: string[] = [];
+    const options = facets.properties.flatMap((group) => group.options);
+
+    const resolve = (requested: string[] | undefined, pool: ListingFacetOption[]): string[] =>
+        (requested ?? []).flatMap((name) => {
+            const term = cleanText(name);
+            const hit = term ? pool.find((option) => option.name.toLowerCase() === term.toLowerCase()) : null;
+
+            if (!hit) {
+                if (term) {
+                    unmatched.push(term);
+                }
+
+                return [];
+            }
+
+            return [hit.id];
+        });
+
+    return {
+        manufacturerIds: resolve(names.manufacturers, facets.manufacturers),
+        propertyOptionIds: resolve(names.propertyOptions, options),
+        unmatched,
+    };
+}
+
 export function normalizeListingFacets(result: unknown): ListingFacets {
     const listing = isPlainObject(result) ? result : {};
     const aggregations = isPlainObject(listing.aggregations) ? listing.aggregations : {};

@@ -37,7 +37,7 @@ export function createGetProductCategoriesTool(options: StorefrontToolOptions = 
         name: GET_PRODUCT_CATEGORIES_TOOL_NAME,
         title: 'Get product categories',
         description:
-            'Returns the storefront navigation category tree (with the currently viewed category and its ancestors marked active), or the categories a product belongs to, from the Shopware Store API. For product scope provide a product id, sku, or url, or omit them to use the product page the shopper is currently viewing.',
+            "Returns the navigation category tree (active trail marked) or a product's categories, from the Store API. For product scope pass id/sku/url, or omit to use the current product page.",
         annotations: { readOnlyHint: true, untrustedContentHint: true },
         input: getProductCategoriesInput,
         execute: async (input) => {
@@ -74,6 +74,8 @@ function lookupOf(scope: CategoryScope, input: GetProductCategoriesInput): Unkno
 }
 
 function buildCategoryResult(scope: CategoryScope, tree: UnknownRecord[]): UnknownRecord {
+    // Flat list only: each category keeps its `parentId`, so the hierarchy is reconstructable
+    // without duplicating the whole nested `tree` (same data twice).
     const flat = flattenCategories(tree);
 
     return {
@@ -82,7 +84,6 @@ function buildCategoryResult(scope: CategoryScope, tree: UnknownRecord[]): Unkno
         count: flat.length,
         activeCategoryIds: flat.filter((category) => category.active).map((category) => category.id),
         categories: flat,
-        tree,
     };
 }
 

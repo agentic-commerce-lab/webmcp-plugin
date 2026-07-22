@@ -15,7 +15,7 @@ export function createGetSalesChannelContextTool(options: StorefrontToolOptions 
         name: GET_SALES_CHANNEL_CONTEXT_TOOL_NAME,
         title: 'Get sales channel context',
         description:
-            'Returns the active Shopware sales channel context: sales channel, language, currency, customer group, country, tax mode, and whether a customer is logged in. Takes no input.',
+            'Returns the active sales channel context: channel, language, currency, customer group, country, tax mode, login state.',
         annotations: { readOnlyHint: true, untrustedContentHint: true },
         input: getSalesChannelContextInput,
         execute: async () => {

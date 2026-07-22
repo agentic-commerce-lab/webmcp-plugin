@@ -71,6 +71,17 @@ export function normalizeProductCollection(result: any, baseUrl: string): Produc
  * (description, image gallery, properties, categories). Full details stay available via
  * get_product for the one product the agent actually cares about.
  */
+const MAX_DESCRIPTION_LENGTH = 300;
+
+/** Trims marketing prose to a budget; agents rarely need the full text to act. */
+function truncateDescription(description: string | null): string | null {
+    if (!description || description.length <= MAX_DESCRIPTION_LENGTH) {
+        return description;
+    }
+
+    return `${description.slice(0, MAX_DESCRIPTION_LENGTH).trimEnd()}…`;
+}
+
 export function toListingItem(product: ProductSummary): ProductSummary {
     const item = product as UnknownRecord;
 
@@ -110,9 +121,8 @@ export function normalizeProduct(product: any, baseUrl: string): ProductSummary 
     return removeEmptyValues({
         id: product.id,
         sku: cleanText(product.productNumber),
-        productNumber: cleanText(product.productNumber),
         name,
-        description: cleanText(translated.description) || cleanText(product.description),
+        description: truncateDescription(cleanText(translated.description) || cleanText(product.description)),
         manufacturer: normalizeManufacturer(product.manufacturer),
         price: calculatedPrice.formatted,
         priceValue: calculatedPrice.value,

@@ -24,6 +24,7 @@ import { normalizeCart } from './domain/cart';
 import {
     buildListingUrl,
     createListingRequest,
+    matchFilterNames,
     normalizeListingFacets,
     type ListingFacets,
     type ListingFilterInput,
@@ -47,6 +48,14 @@ interface ResolvedListingRoute {
     /** Whether this listing renders a product grid in the storefront (false for the CMS home root). */
     showable: boolean;
 }
+
+type FilterProductsInput = ListingFilterInput & {
+    categoryId?: string | null | undefined;
+    /** Manufacturer names, resolved to ids against the listing's facets. */
+    manufacturers?: string[] | undefined;
+    /** Property/variant option names (e.g. "red", "XL"), resolved to ids against the listing's facets. */
+    propertyOptions?: string[] | undefined;
+};
 
 /**
  * Orchestrates the tools over the transports: product/category reads go through the Store
@@ -128,7 +137,7 @@ export class ShopwareClient {
      * the still-available facets (so the agent can refine further). Anonymous Store API read,
      * consistent with the other product reads (ADR 0001).
      */
-    async filterProducts(input: ListingFilterInput & { categoryId?: string | null | undefined } = {}): Promise<{
+    async filterProducts(input: FilterProductsInput = {}): Promise<{
         products: ProductSummary[];
         total: number;
         facets: ListingFacets;
@@ -136,7 +145,11 @@ export class ShopwareClient {
         listingUrl: string | null;
     }> {
         const { path, query, scope, showable } = this.resolveListingRoute(input);
-        const result = (await this.storeApi.request(path, createListingRequest({ ...input, query }))) as UnknownRecord;
+        const resolvedInput = await this.resolveFilterNames(path, query, input);
+        const result = (await this.storeApi.request(
+            path,
+            createListingRequest({ ...resolvedInput, query }),
+        )) as UnknownRecord;
         const products = normalizeProductCollection(result, this.baseUrl).map(toListingItem);
         const facets = normalizeListingFacets(result);
 
@@ -292,6 +305,46 @@ export class ShopwareClient {
             query,
             scope: query ? { type: 'search', query } : { type: 'search' },
             showable: true,
+        };
+    }
+
+    /**
+     * Turns name-based filters (`manufacturers`, `propertyOptions`) into ids by reading the
+     * listing's facets once, then merges them with any explicit `*Ids`. This collapses the
+     * get_listing_filters → filter_products two-call flow into one. No names → no extra request.
+     */
+    private async resolveFilterNames(
+        path: string,
+        query: string | null,
+        input: FilterProductsInput,
+    ): Promise<FilterProductsInput> {
+        if (!input.manufacturers?.length && !input.propertyOptions?.length) {
+            return input;
+        }
+
+        const facetsResult = await this.storeApi.request(path, createListingRequest({ query, limit: 1 }));
+        const facets = normalizeListingFacets(facetsResult);
+        const resolved = matchFilterNames(facets, {
+            manufacturers: input.manufacturers,
+            propertyOptions: input.propertyOptions,
+        });
+
+        if (resolved.unmatched.length > 0) {
+            const manufacturers = facets.manufacturers.map((entry) => entry.name).join(', ') || 'none';
+            const options =
+                facets.properties
+                    .map((group) => `${group.group}: ${group.options.map((o) => o.name).join('/')}`)
+                    .join('; ') || 'none';
+
+            throw new Error(
+                `No filter matches "${resolved.unmatched.join('", "')}". Available manufacturers: ${manufacturers}. Options — ${options}.`,
+            );
+        }
+
+        return {
+            ...input,
+            manufacturerIds: [...(input.manufacturerIds ?? []), ...resolved.manufacturerIds],
+            propertyOptionIds: [...(input.propertyOptionIds ?? []), ...resolved.propertyOptionIds],
         };
     }
 

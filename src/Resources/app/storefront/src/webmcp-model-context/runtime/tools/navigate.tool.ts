@@ -20,7 +20,7 @@ export function createNavigateTool(options: StorefrontToolOptions = {}) {
         name: NAVIGATE_TOOL_NAME,
         title: 'Navigate',
         description:
-            'Navigates the storefront to a same-origin URL on behalf of the shopper, e.g. to open a product, category, or the cart page.',
+            "Opens a same-origin storefront URL/path for the shopper. Prefer the domain tools' showResults (search/filter/get_product navigate themselves) when available.",
         annotations: { readOnlyHint: false, untrustedContentHint: false },
         input: navigateInput,
         execute: async (input) => {

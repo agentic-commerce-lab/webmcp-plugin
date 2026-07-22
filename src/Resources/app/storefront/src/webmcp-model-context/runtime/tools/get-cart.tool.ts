@@ -7,12 +7,7 @@ import type { CartSummary, StorefrontToolOptions } from '../types';
 export const GET_CART_TOOL_NAME = 'shopware_webmcp_get_cart';
 
 const getCartInput = z.object({
-    showCartOverlay: z
-        .boolean()
-        .default(true)
-        .describe(
-            "Open the storefront cart overlay so the shopper sees their cart in their browser. This runs in the shopper's own tab, so keep it true when the shopper wants to see the cart; set false to only read cart data for reasoning or verification.",
-        ),
+    showCartOverlay: z.boolean().default(true).describe('Open the cart overlay (false = data only).'),
 });
 
 export function createGetCartTool(options: StorefrontToolOptions = {}) {
@@ -21,8 +16,7 @@ export function createGetCartTool(options: StorefrontToolOptions = {}) {
     return defineTool({
         name: GET_CART_TOOL_NAME,
         title: 'Get cart',
-        description:
-            'Returns the current cart and, by default, opens the cart overlay so the shopper sees it. Set showCartOverlay false to only read cart data without opening the overlay.',
+        description: 'Returns the current cart; by default opens the cart overlay (showCartOverlay:false = data only).',
         annotations: { readOnlyHint: false, untrustedContentHint: true },
         input: getCartInput,
         execute: async (input) => {
@@ -37,28 +31,17 @@ export function createGetCartTool(options: StorefrontToolOptions = {}) {
 }
 
 function formatCartResult(cart: CartSummary): string {
+    // One-line summary; the line items live in structuredContent.cart.lineItems.
     const lineItems = Array.isArray(cart?.lineItems) ? cart.lineItems : [];
-    const total = formatMoney(cart?.totals?.total || cart?.totalPrice);
-    const checkoutUrl = cart?.checkoutUrl ? ` Checkout: ${cart.checkoutUrl}` : '';
 
     if (lineItems.length === 0) {
-        return `Cart is empty.${checkoutUrl}`;
+        return 'Cart is empty.';
     }
 
-    const itemLines = lineItems.slice(0, 8).map((item, index) => {
-        const label = item.label || item.id || `Line item ${index + 1}`;
-        const quantity = Number.isFinite(item.quantity) ? ` x ${item.quantity}` : '';
-        const price = formatMoney(item.totalPrice);
-
-        return `${index + 1}. ${label}${quantity}${price ? ` - ${price}` : ''}`;
-    });
-    const remaining =
-        lineItems.length > itemLines.length
-            ? `\n...and ${lineItems.length - itemLines.length} more line item${lineItems.length - itemLines.length === 1 ? '' : 's'}.`
-            : '';
+    const total = formatMoney(cart?.totals?.total || cart?.totalPrice);
     const itemCount = cart.itemCount ?? lineItems.length;
 
-    return `Cart has ${itemCount} item${itemCount === 1 ? '' : 's'}${total ? `, total ${total}` : ''}.${checkoutUrl}\n${itemLines.join('\n')}${remaining}`;
+    return `Cart has ${itemCount} item${itemCount === 1 ? '' : 's'}${total ? `, total ${total}` : ''} (see cart).`;
 }
 
 function formatMoney(value: unknown): string | null {

@@ -99,7 +99,6 @@ export interface CartQuantityInput extends ProductLookupInput {
 export interface ProductSummary {
     id?: string;
     sku?: string | null;
-    productNumber?: string | null;
     name: string;
     price?: string | null;
     priceValue?: number | null;

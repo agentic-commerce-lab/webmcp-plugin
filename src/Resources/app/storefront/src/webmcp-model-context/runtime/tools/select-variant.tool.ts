@@ -25,24 +25,16 @@ const selectVariantInput = z
                 }),
             )
             .max(MAX_SELECTIONS, `Provide at most ${MAX_SELECTIONS} selections.`)
-            .describe('Variant options by name. Prefer this for natural-language picks like red / XL.')
+            .describe('Options by name, e.g. Color: red, Size: XL.')
             .optional(),
         optionIds: z
             .array(boundedString(MAX_PRODUCT_ID_LENGTH, 'Option id'))
             .max(MAX_SELECTIONS, `Provide at most ${MAX_SELECTIONS} option ids.`)
-            .describe('Variant option ids, if already known (e.g. from get_product options).')
+            .describe('Option ids, if already known.')
             .optional(),
-        quantity: optionalQuantity.describe('Quantity to add when addToCart is true.'),
-        addToCart: z
-            .boolean()
-            .default(true)
-            .describe('Add the resolved variant to the cart. Set false to only resolve the variant.'),
-        showCartOverlay: z
-            .boolean()
-            .default(true)
-            .describe(
-                "Opens the cart overlay after adding so the shopper sees the result. This runs in the shopper's own tab, so keep it true unless a background automation is driving the shop.",
-            ),
+        quantity: optionalQuantity.describe('Quantity to add.'),
+        addToCart: z.boolean().default(true).describe('Add to cart (false = only resolve).'),
+        showCartOverlay: z.boolean().default(true).describe('Open the cart overlay after adding (false = data only).'),
     })
     .refine(
         (value) =>
@@ -60,7 +52,7 @@ export function createSelectVariantTool(options: StorefrontToolOptions = {}) {
         name: SELECT_VARIANT_TOOL_NAME,
         title: 'Select product variant',
         description:
-            'Resolves a specific product variant by option names (e.g. Color: red, Size: XL) or option ids and, by default, adds it to the cart. Identify the product with exactly one of id/sku/url (e.g. an id from search_products/filter_products); on a product detail page you may omit the selector to use the product being viewed. Use this whenever a variant option like a size or colour is requested — including from a listing or headless — instead of add_to_cart, which cannot resolve options.',
+            'Resolves a variant by option names/ids AND adds it in one call (addToCart default true). Identify the product with one of id/sku/url (e.g. from search/filter), or omit on its detail page. Use for any size/colour request, from anywhere — add_to_cart cannot resolve options.',
         annotations: { readOnlyHint: false, untrustedContentHint: true },
         input: selectVariantInput,
         execute: async (input) => {

@@ -3,7 +3,7 @@ import { ShopwareClient } from '../shopware-client';
 import { defineTool } from './define-tool';
 import { boundedString, MAX_PRODUCT_ID_LENGTH } from './schemas';
 import { navigateStorefront } from '../navigation';
-import type { ProductSummary, StorefrontToolOptions } from '../types';
+import type { StorefrontToolOptions } from '../types';
 
 export const FILTER_PRODUCTS_TOOL_NAME = 'shopware_webmcp_filter_products';
 
@@ -17,6 +17,11 @@ const filterIdList = z
     .max(MAX_FILTER_IDS, `Provide at most ${MAX_FILTER_IDS} ids.`)
     .optional();
 
+const filterNameList = z
+    .array(boundedString(120, 'Filter name'))
+    .max(MAX_FILTER_IDS, `Provide at most ${MAX_FILTER_IDS} names.`)
+    .optional();
+
 const filterProductsInput = z.object({
     categoryId: boundedString(MAX_PRODUCT_ID_LENGTH, 'Category id')
         .describe('Category to filter. Omit to use the listing the shopper is currently viewing.')
@@ -24,10 +29,10 @@ const filterProductsInput = z.object({
     query: boundedString(MAX_LISTING_QUERY_LENGTH, 'Search query')
         .describe('Search term to filter instead of a category.')
         .optional(),
-    manufacturerIds: filterIdList.describe('Manufacturer ids from get_listing_filters.'),
-    propertyOptionIds: filterIdList.describe(
-        'Property/variant option ids from get_listing_filters (e.g. the id for "red").',
-    ),
+    manufacturers: filterNameList.describe('Manufacturer names, e.g. "Shopware Fashion" (resolved for you).'),
+    propertyOptions: filterNameList.describe('Property/variant option names, e.g. "red", "XL" (resolved for you).'),
+    manufacturerIds: filterIdList.describe('Manufacturer ids (alternative to manufacturers).'),
+    propertyOptionIds: filterIdList.describe('Property/variant option ids (alternative to propertyOptions).'),
     priceMin: z.coerce.number().min(0).describe('Minimum price.').optional(),
     priceMax: z.coerce.number().min(0).describe('Maximum price.').optional(),
     minRating: z.coerce.number().int().min(1).max(5).describe('Minimum star rating (1-5).').optional(),
@@ -43,12 +48,7 @@ const filterProductsInput = z.object({
         .describe('Maximum number of products to return.')
         .default(DEFAULT_LIMIT),
     page: z.coerce.number().int().min(1).describe('1-based result page.').default(1),
-    showResults: z
-        .boolean()
-        .default(true)
-        .describe(
-            "Navigate the shopper to the filtered listing page so they see the result in their browser (search or category listings). This runs in the shopper's own tab, so keep it true in interactive sessions; set false for headless automation or to only fetch data.",
-        ),
+    showResults: z.boolean().default(true).describe('Open the filtered listing page (false = data only).'),
 });
 
 export function createFilterProductsTool(options: StorefrontToolOptions = {}) {
@@ -58,7 +58,7 @@ export function createFilterProductsTool(options: StorefrontToolOptions = {}) {
         name: FILTER_PRODUCTS_TOOL_NAME,
         title: 'Filter products',
         description:
-            'Filters a category or search listing by manufacturer, property/variant options (color, size, …), price, rating, shipping and sort order, and by default navigates the shopper to the filtered listing so they see it in their browser. It ALSO returns the matching `products` as compact cards (id, sku, name, price, url, image, availability) and the still-available `filters` — present these back to the shopper too (e.g. as a table) so they get the answer in chat as well as on the page. For full details on one product (description, gallery, properties, categories), call get_product with its id or url. Use get_listing_filters first to resolve option ids. With no categoryId or query it filters the listing the shopper is currently viewing (the active category, or the current search results); the returned `scope` says which listing was filtered.',
+            "Filters a category or search listing by manufacturer, options (colour/size/…), price, rating, shipping and sort; by default opens the filtered listing (showResults:false = data only). Pass manufacturers/propertyOptions by NAME (resolved for you) or *Ids if known. Returns compact cards + remaining `filters`; call get_product for one product's detail. No categoryId/query = the current listing (see `scope`).",
         annotations: { readOnlyHint: false, untrustedContentHint: true },
         input: filterProductsInput,
         execute: async (input) => {
@@ -73,7 +73,7 @@ export function createFilterProductsTool(options: StorefrontToolOptions = {}) {
                 content: [
                     {
                         type: 'text',
-                        text: formatResult(result.total, result.products, result.listingUrl, showInBrowser),
+                        text: formatResult(result.total, result.listingUrl, showInBrowser),
                     },
                 ],
                 structuredContent: {
@@ -90,34 +90,10 @@ export function createFilterProductsTool(options: StorefrontToolOptions = {}) {
     });
 }
 
-function formatResult(
-    total: number,
-    products: ProductSummary[],
-    listingUrl: string | null,
-    showInBrowser: boolean,
-): string {
-    const countLabel = `${total} product${total === 1 ? '' : 's'} match the selected filters`;
-    // Whether or not the page was navigated, always list the products so the agent has them in
-    // both channels (text + structuredContent) to also present to the shopper, e.g. as a table.
-    const shownNote = showInBrowser && listingUrl ? ` Opened the filtered listing for the shopper: ${listingUrl}` : '';
+function formatResult(total: number, listingUrl: string | null, showInBrowser: boolean): string {
+    // One-line confirmation; the matching rows and remaining facets are in structuredContent for
+    // the agent to present, so they are not duplicated into this text channel.
+    const shownNote = showInBrowser && listingUrl ? ` Opened the filtered listing for the shopper.` : '';
 
-    if (products.length === 0) {
-        return `No products match the selected filters.${shownNote}`;
-    }
-
-    const lines = products.map((product, index) => formatProductLine(product, index));
-    const hint = shownNote || (listingUrl ? `\nOpen ${listingUrl} to view them on the page.` : '');
-
-    return `${countLabel}; here are ${products.length} for you to present:\n${lines.join('\n')}${hint}`;
-}
-
-function formatProductLine(product: ProductSummary, index: number): string {
-    const details = [
-        product.price ? `${product.price}${product.currency ? ` ${product.currency}` : ''}` : null,
-        product.url,
-    ]
-        .filter(Boolean)
-        .join(' - ');
-
-    return `${index + 1}. ${product.name}${details ? ` - ${details}` : ''}`;
+    return `${total} product${total === 1 ? '' : 's'} match the selected filters (see products).${shownNote}`;
 }

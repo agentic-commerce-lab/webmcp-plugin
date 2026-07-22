@@ -626,6 +626,38 @@ test('filter_products reduces the returned facets to genuine refinements (ACL-13
     test.skip(true, 'no category with a reducible colour facet in this catalog');
 });
 
+test('filter_products resolves filter names in one call (no get_listing_filters needed) (ACL-132)', async ({
+    page,
+}) => {
+    // Token/step optimization: the agent can pass an option NAME; the tool resolves it to the id.
+    const tree = await callTool(page, TOOL.getProductCategories, { scope: 'tree' });
+    const categories = (tree.structuredContent.categories ?? []) as Array<Record<string, any>>;
+
+    for (const category of categories) {
+        const vocab = await callTool(page, TOOL.getListingFilters, { categoryId: category.id });
+        const colour = (vocab.structuredContent.filters?.properties ?? []).find((group: any) =>
+            /colou?r/i.test(group.group || ''),
+        );
+        const optionName = colour?.options?.[0]?.name;
+        if (!optionName) {
+            continue;
+        }
+
+        const byName = await callTool(page, TOOL.filterProducts, {
+            categoryId: category.id,
+            propertyOptions: [optionName],
+            showResults: false,
+        });
+        expect(
+            byName.structuredContent.total,
+            `filtering by name "${optionName}" should match products`,
+        ).toBeGreaterThan(0);
+        return;
+    }
+
+    test.skip(true, 'no colour facet to resolve by name in this catalog');
+});
+
 test('filter refines the current search results page without an explicit scope (ACL-132)', async ({ page }) => {
     // The exact shopper flow: on a search results page, "filter for red" must refine THAT search
     // even though the agent passes no categoryId/query — the runtime supplies the active search term.

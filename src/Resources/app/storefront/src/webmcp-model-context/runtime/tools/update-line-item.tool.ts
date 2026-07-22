@@ -9,15 +9,11 @@ export const UPDATE_LINE_ITEM_TOOL_NAME = 'shopware_webmcp_update_line_item';
 const updateLineItemInput = z
     .object({
         ...productSelectorShape,
-        quantity: lineItemQuantity.describe(
-            'Target quantity for this product in the cart. Use 0 to remove it. Adds the product if it is not in the cart yet.',
-        ),
+        quantity: lineItemQuantity.describe('Target quantity; 0 removes.'),
         showCartOverlay: z
             .boolean()
             .default(true)
-            .describe(
-                'Open the storefront cart overlay after the change so the shopper sees it. Keep it true in interactive sessions; set false for headless automation.',
-            ),
+            .describe('Open the cart overlay after the change (false = data only).'),
     })
     .refine((value) => hasExactlyOne([value.id, value.sku, value.url]), {
         message: 'Provide exactly one of id, sku, or url.',
@@ -32,7 +28,7 @@ export function createUpdateLineItemTool(options: StorefrontToolOptions = {}) {
         name: UPDATE_LINE_ITEM_TOOL_NAME,
         title: 'Update line item',
         description:
-            'Sets the cart quantity for a product to an exact target (declarative and idempotent). Use quantity 0 to remove it; the product is added if it is not in the cart yet. Provide exactly one of id, sku, or url.',
+            "Sets a product's cart quantity to an exact target (0 removes; adds if absent). Opens the cart overlay by default. Exactly one of id/sku/url.",
         annotations: { readOnlyHint: false, untrustedContentHint: true },
         input: updateLineItemInput,
         execute: async (input) => {

@@ -11,10 +11,10 @@ const MAX_LISTING_QUERY_LENGTH = 120;
 
 const getListingFiltersInput = z.object({
     categoryId: boundedString(MAX_PRODUCT_ID_LENGTH, 'Category id')
-        .describe('Category to inspect. Omit to use the listing the shopper is currently viewing.')
+        .describe('Category to inspect; omit for the current listing.')
         .optional(),
     query: boundedString(MAX_LISTING_QUERY_LENGTH, 'Search query')
-        .describe('Search term whose result set to inspect. Use instead of categoryId for a search listing.')
+        .describe('Search term to inspect instead of a category.')
         .optional(),
 });
 
@@ -25,7 +25,7 @@ export function createGetListingFiltersTool(options: StorefrontToolOptions = {})
         name: GET_LISTING_FILTERS_TOOL_NAME,
         title: 'Get listing filters',
         description:
-            'Returns the filter vocabulary for a category or search listing: manufacturers, property groups with their options (e.g. Color → red), price range, rating, and available sort orders — each with the ids needed by filter_products. Call this first to map words like "red" or "XL" to concrete option ids. With no categoryId or query it uses the listing the shopper is currently viewing (the active category, or the current search results); the returned `scope` says which listing was used.',
+            'Lists the available filters (manufacturers, property options, price, rating, sortings) with their ids for a category or search. Optional — filter_products also accepts names directly; use this to browse what exists. No categoryId/query = the current listing.',
         annotations: { readOnlyHint: true, untrustedContentHint: true },
         input: getListingFiltersInput,
         execute: async (input) => {

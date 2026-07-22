@@ -10,12 +10,7 @@ export const GET_PRODUCT_TOOL_NAME = 'shopware_webmcp_get_product';
 const getProductInput = z
     .object({
         ...productSelectorShape,
-        showResults: z
-            .boolean()
-            .default(true)
-            .describe(
-                "Navigate the shopper to the product detail page so they see it in their browser. This runs in the shopper's own tab, so keep it true when the shopper wants to look at the product; set false to only fetch details for reasoning (e.g. to answer a question about it).",
-            ),
+        showResults: z.boolean().default(true).describe('Open the product page (false = data only).'),
     })
     .refine((value) => hasExactlyOne([value.id, value.sku, value.url]), {
         message: 'Provide exactly one of id, sku, or url.',
@@ -28,7 +23,7 @@ export function createGetProductTool(options: StorefrontToolOptions = {}) {
         name: GET_PRODUCT_TOOL_NAME,
         title: 'Get product',
         description:
-            'Returns product details and, by default, opens the product detail page for the shopper. Provide exactly one of id, sku, or url. Set showResults false to only fetch details as data (e.g. to answer a question or pick a variant).',
+            "Returns one product's full details (description, gallery, properties, categories) and by default opens its page (showResults:false = data only). Provide exactly one of id, sku, or url.",
         annotations: { readOnlyHint: false, untrustedContentHint: true },
         input: getProductInput,
         execute: async (input) => {
@@ -49,17 +44,11 @@ export function createGetProductTool(options: StorefrontToolOptions = {}) {
 }
 
 function formatProductResult(product: ProductSummary, showInBrowser = false): string {
-    const opening = showInBrowser && product.url ? `Opening ${product.url} for the shopper.\n` : '';
-    const lines = [
-        product.name,
-        product.price ? `Price: ${product.price}${product.currency ? ` ${product.currency}` : ''}` : null,
-        typeof product.available === 'boolean' ? `Available: ${product.available ? 'yes' : 'no'}` : null,
-        product.stock !== undefined ? `Stock: ${product.stock}` : null,
-        product.productNumber ? `Product number: ${product.productNumber}` : null,
-        product.manufacturer ? `Manufacturer: ${product.manufacturer}` : null,
-        product.url,
-        product.description ? `Description: ${product.description}` : null,
-    ].filter(Boolean);
+    // One-line summary; full fields (description, price, stock, …) are in structuredContent.product.
+    const price = product.price ? `, ${product.price}${product.currency ? ` ${product.currency}` : ''}` : '';
+    const availability =
+        typeof product.available === 'boolean' ? ` (${product.available ? 'available' : 'unavailable'})` : '';
+    const opened = showInBrowser && product.url ? ' Opened the product page for the shopper.' : '';
 
-    return `${opening}${lines.join('\n')}`;
+    return `${product.name}${price}${availability} (see product).${opened}`;
 }

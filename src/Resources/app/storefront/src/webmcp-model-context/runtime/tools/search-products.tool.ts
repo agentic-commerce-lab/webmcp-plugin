@@ -23,12 +23,7 @@ const searchProductsInput = z.object({
         .max(MAX_LIMIT, `Product search limit must be at most ${MAX_LIMIT}.`)
         .describe('Maximum number of products to return.')
         .default(DEFAULT_LIMIT),
-    showResults: z
-        .boolean()
-        .default(true)
-        .describe(
-            "Navigate the shopper to the storefront search results page so they see the results in their browser (only when a query is given). This runs in the shopper's own tab, so keep it true when the shopper asked to search/see products; set false to only fetch data for reasoning (e.g. to answer a question or pick a product id).",
-        ),
+    showResults: z.boolean().default(true).describe('Open the search results page (false = data only).'),
 });
 
 export function createSearchProductsTool(options: StorefrontToolOptions = {}) {
@@ -38,7 +33,7 @@ export function createSearchProductsTool(options: StorefrontToolOptions = {}) {
         name: SEARCH_PRODUCTS_TOOL_NAME,
         title: 'Search products',
         description:
-            'Searches the storefront catalog and, by default, navigates the shopper to the search results page so they see it. It ALSO returns the matching `products` as compact cards (id, sku, name, price, url, image, availability) — present these back to the shopper too (e.g. as a table) so they get the answer in chat as well as on the page. Omit query to just list products as data. Set showResults false to fetch results as data without moving the page (e.g. to answer a question or resolve a product id). For full details on one product (description, gallery, properties, categories), call get_product with its id or url. To also filter by manufacturer/property/price, use filter_products.',
+            "Searches the catalog; by default opens the search results page for the shopper (omit query to list all; showResults:false = data only). Returns compact product cards (present them too, e.g. a table). For one product's full detail call get_product; to filter by manufacturer/option/price use filter_products.",
         annotations: { readOnlyHint: false, untrustedContentHint: true },
         input: searchProductsInput,
         execute: async (input) => {
@@ -80,25 +75,10 @@ function formatProductSearchResult(
     listingUrl: string | null,
     showInBrowser: boolean,
 ): string {
+    // One-line confirmation; the product rows live in structuredContent.products for the agent to
+    // present (e.g. a table), so they are not duplicated into this text channel.
     const resultLabel = query ? `for "${query}"` : 'without a search term';
-    // Always list the products (both channels) so the agent can present them, plus a note when
-    // the shopper was also taken to the search results page.
-    const shownNote = showInBrowser && listingUrl ? ` Opened the search results for the shopper: ${listingUrl}` : '';
+    const shownNote = showInBrowser && listingUrl ? ` Opened the results for the shopper.` : '';
 
-    if (products.length === 0) {
-        return `No products found ${resultLabel}.${shownNote}`;
-    }
-
-    const lines = products.map((product, index) => {
-        const details = [
-            product.price ? `${product.price}${product.currency ? ` ${product.currency}` : ''}` : null,
-            product.url,
-        ]
-            .filter(Boolean)
-            .join(' - ');
-
-        return `${index + 1}. ${product.name}${details ? ` - ${details}` : ''}`;
-    });
-
-    return `Found ${products.length} product${products.length === 1 ? '' : 's'} ${resultLabel}:\n${lines.join('\n')}${shownNote}`;
+    return `Found ${products.length} product${products.length === 1 ? '' : 's'} ${resultLabel} (see products).${shownNote}`;
 }
