@@ -114,6 +114,7 @@ export interface ProductSummary {
 export interface CartSummary {
     itemCount?: number;
     cartWidgetRefreshed?: boolean;
+    cartOverlayOpened?: boolean;
     lineItems?: UnknownRecord[];
     totalPrice?: UnknownRecord | null;
     totals?: {

@@ -66,18 +66,30 @@ const CRITERIA_PARAM = 'p';
 export function createListingRequest(input: ListingFilterInput): UnknownRecord {
     const manufacturer = joinIds(input.manufacturerIds);
     const properties = joinIds(input.propertyOptionIds);
+    const minPrice = positiveNumber(input.priceMin);
+    const maxPrice = positiveNumber(input.priceMax);
+    const rating = positiveNumber(input.minRating);
+    const shippingFree = input.shippingFree ? true : null;
+    // Shopware applies listing filters as post-filters and, by default, computes aggregations over
+    // the UNFILTERED result — so the facets would still advertise options with zero matches under
+    // the current filters. `reduce-aggregations` narrows them to genuine refinements once a filter
+    // is active.
+    const hasFilters = Boolean(
+        manufacturer || properties || minPrice !== null || maxPrice !== null || rating !== null || shippingFree,
+    );
 
     return removeEmptyValues({
         search: cleanText(input.query),
         manufacturer,
         properties,
-        'min-price': positiveNumber(input.priceMin),
-        'max-price': positiveNumber(input.priceMax),
-        rating: positiveNumber(input.minRating),
-        'shipping-free': input.shippingFree ? true : null,
+        'min-price': minPrice,
+        'max-price': maxPrice,
+        rating,
+        'shipping-free': shippingFree,
         order: cleanText(input.sort),
         limit: positiveInteger(input.limit),
         [CRITERIA_PARAM]: positiveInteger(input.page),
+        'reduce-aggregations': hasFilters ? true : null,
     });
 }
 
@@ -141,8 +153,21 @@ export function normalizeListingFacets(result: unknown): ListingFacets {
         properties: normalizeProperties(aggregations.properties),
         price: normalizePriceRange(aggregations.price),
         ratingMax: normalizeRatingMax(aggregations.rating),
-        shippingFreeAvailable: isPlainObject(aggregations['shipping-free']),
+        shippingFreeAvailable: hasShippingFree(aggregations['shipping-free']),
     };
+}
+
+/**
+ * Shopware always serializes the `shipping-free` max aggregation when the feature is enabled, with
+ * `max` = "1" only when the listing actually contains a free-shipping product (0/null otherwise).
+ * So inspect the value, not the mere presence of the aggregation.
+ */
+function hasShippingFree(aggregation: unknown): boolean {
+    if (!isPlainObject(aggregation)) {
+        return false;
+    }
+
+    return (toFiniteNumber(aggregation.max) ?? 0) > 0;
 }
 
 function normalizeSortings(value: unknown, active: string | null): ListingSorting[] {

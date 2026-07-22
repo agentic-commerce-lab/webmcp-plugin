@@ -29,7 +29,7 @@ export function createClearCartTool(options: StorefrontToolOptions = {}) {
 
             return {
                 content: [{ type: 'text', text: formatClearCartResult(cart) }],
-                structuredContent: { cart, shownInBrowser: input.showCartOverlay },
+                structuredContent: { cart, shownInBrowser: cart?.cartOverlayOpened ?? false },
             };
         },
     });

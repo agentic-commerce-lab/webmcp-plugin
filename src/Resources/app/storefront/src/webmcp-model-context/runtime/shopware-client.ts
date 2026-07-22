@@ -407,11 +407,9 @@ export class ShopwareClient {
             throw new Error('No cart details were returned by the Shopware storefront cart endpoint.');
         }
 
-        if (showCartOverlay) {
-            openCartOverlay(this.baseUrl);
-        }
+        const cartOverlayOpened = showCartOverlay ? openCartOverlay(this.baseUrl) : false;
 
-        return normalizeCart(rawCart, this.baseUrl, this.currencyIsoCode);
+        return { ...normalizeCart(rawCart, this.baseUrl, this.currencyIsoCode), cartOverlayOpened };
     }
 
     async getSalesChannelContext(): Promise<UnknownRecord> {
@@ -537,13 +535,10 @@ export class ShopwareClient {
             return null;
         }
 
-        if (showCartOverlay) {
-            openCartOverlay(this.baseUrl);
-        }
-
+        const cartOverlayOpened = showCartOverlay ? openCartOverlay(this.baseUrl) : false;
         const cart = normalizeCart(rawCart, this.baseUrl, this.currencyIsoCode);
         const cartWidgetRefreshed = refreshCartUi(this.baseUrl);
 
-        return { ...cart, cartWidgetRefreshed };
+        return { ...cart, cartWidgetRefreshed, cartOverlayOpened };
     }
 }

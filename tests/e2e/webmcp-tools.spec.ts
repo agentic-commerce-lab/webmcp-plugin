@@ -555,6 +555,47 @@ test('get_listing_filters → filter_products by a property option (the "red" ca
     expect(filtered.structuredContent.total).toBeGreaterThan(0);
 });
 
+test('filter_products reduces the returned facets to genuine refinements (ACL-132)', async ({ page }) => {
+    // Find a category that actually carries a colour facet (the demo "Clothing" tree).
+    const tree = await callTool(page, TOOL.getProductCategories, { scope: 'tree' });
+    const flat: Array<Record<string, any>> = [];
+    const walk = (nodes: Array<Record<string, any>>) =>
+        nodes?.forEach((node) => {
+            flat.push(node);
+            if (Array.isArray(node.children)) walk(node.children);
+        });
+    walk(tree.structuredContent.categories ?? []);
+
+    const countOptions = (facets: any) =>
+        (facets?.properties ?? []).reduce((sum: number, group: any) => sum + group.options.length, 0);
+
+    for (const category of flat) {
+        const vocab = await callTool(page, TOOL.getListingFilters, { categoryId: category.id });
+        const colour = (vocab.structuredContent.filters?.properties ?? []).find((group: any) =>
+            /colou?r/i.test(group.group || ''),
+        );
+        const option = colour?.options?.[0];
+        if (!option || countOptions(vocab.structuredContent.filters) < 2) {
+            continue;
+        }
+
+        const filtered = await callTool(page, TOOL.filterProducts, {
+            categoryId: category.id,
+            propertyOptionIds: [option.id],
+            showResults: false,
+        });
+
+        expect(filtered.structuredContent.total).toBeGreaterThan(0);
+        // reduce-aggregations must narrow the facets so we never advertise a zero-match refinement.
+        expect(countOptions(filtered.structuredContent.filters)).toBeLessThan(
+            countOptions(vocab.structuredContent.filters),
+        );
+        return;
+    }
+
+    test.skip(true, 'no category with a reducible colour facet in this catalog');
+});
+
 test('filter refines the current search results page without an explicit scope (ACL-132)', async ({ page }) => {
     // The exact shopper flow: on a search results page, "filter for red" must refine THAT search
     // even though the agent passes no categoryId/query — the runtime supplies the active search term.

@@ -30,7 +30,7 @@ export function createGetCartTool(options: StorefrontToolOptions = {}) {
 
             return {
                 content: [{ type: 'text', text: formatCartResult(cart) }],
-                structuredContent: { cart, shownInBrowser: input.showCartOverlay },
+                structuredContent: { cart, shownInBrowser: cart.cartOverlayOpened ?? false },
             };
         },
     });
