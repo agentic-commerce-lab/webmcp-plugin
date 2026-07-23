@@ -81,6 +81,29 @@ export function cleanText(value: unknown): string | null {
     return text || null;
 }
 
+/**
+ * Strips HTML to plain text so agents read prose, not markup. Uses the browser's parser, which
+ * decodes every entity natively (no lossy hand-rolled table). Not a sanitizer. Requires DOMParser
+ * — the storefront runtime always has it; a non-browser caller fails loud rather than degrading.
+ * Self-contained (no module-scope refs) so the real function can run in a browser via page.evaluate.
+ */
+export function stripHtml(value: unknown): string | null {
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    if (typeof DOMParser !== 'function') {
+        throw new Error('stripHtml requires the browser DOMParser API.');
+    }
+
+    // Space before every tag keeps word boundaries across elements ("shorts.</p><li>Blue"); only ever adds whitespace.
+    const doc = new DOMParser().parseFromString(value.replace(/</g, ' <'), 'text/html');
+    // textContent would include <script>/<style> source; drop those nodes first.
+    doc.querySelectorAll('script, style').forEach((node) => node.remove());
+
+    return (doc.body?.textContent ?? '').replace(/\s+/g, ' ').trim() || null;
+}
+
 // eslint-disable-next-line no-control-regex -- deliberately matches ASCII control characters (C0 range + DEL)
 const CONTROL_CHARACTERS = /[\x00-\x1F\x7F]/;
 

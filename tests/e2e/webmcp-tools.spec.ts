@@ -14,13 +14,18 @@ const TOOL = {
     searchProducts: 'shopware_webmcp_search_products',
     getProduct: 'shopware_webmcp_get_product',
     getProductCategories: 'shopware_webmcp_get_product_categories',
+    getListingFilters: 'shopware_webmcp_get_listing_filters',
+    filterProducts: 'shopware_webmcp_filter_products',
     getCart: 'shopware_webmcp_get_cart',
     addToCart: 'shopware_webmcp_add_to_cart',
     updateLineItem: 'shopware_webmcp_update_line_item',
     clearCart: 'shopware_webmcp_clear_cart',
+    selectVariant: 'shopware_webmcp_select_variant',
     getSalesChannelContext: 'shopware_webmcp_get_sales_channel_context',
     navigate: 'shopware_webmcp_navigate',
 } as const;
+
+const SELECT_VARIANT_TOOL = TOOL.selectVariant;
 
 type ToolResult = {
     content: Array<{ type: string; text: string }>;
@@ -68,7 +73,8 @@ const DEMO_CUSTOMER = { email: 'test@example.com', password: 'shopware' } as con
 
 /** The product-id-keyed line items currently in the cart, read via the agent's get_cart tool. */
 async function cartLineItemIds(page: Page): Promise<string[]> {
-    const result = await callTool(page, TOOL.getCart);
+    // Data probe — suppress the cart overlay so it does not pop during verification reads.
+    const result = await callTool(page, TOOL.getCart, { showCartOverlay: false });
     const lineItems = (result.structuredContent.cart?.lineItems ?? []) as Array<Record<string, any>>;
     return lineItems.map((item) => String(item.id));
 }
@@ -96,7 +102,7 @@ async function addToCartViaStorefront(page: Page, productUrl: string): Promise<v
 /** Remove products from the cart so a persisted customer cart does not leak across runs. */
 async function removeFromCart(page: Page, productIds: string[]): Promise<void> {
     for (const id of productIds) {
-        await callTool(page, TOOL.updateLineItem, { id, quantity: 0 });
+        await callTool(page, TOOL.updateLineItem, { id, quantity: 0, showCartOverlay: false });
     }
 }
 
@@ -115,7 +121,7 @@ test('registers the full WebMCP tool surface', async ({ page }) => {
 });
 
 test('search_products lists products from the real catalog', async ({ page }) => {
-    const result = await callTool(page, TOOL.searchProducts, { limit: 5 });
+    const result = await callTool(page, TOOL.searchProducts, { limit: 5, showResults: false });
 
     expectValidToolResult(result);
     const { products, count, total } = result.structuredContent;
@@ -126,25 +132,91 @@ test('search_products lists products from the real catalog', async ({ page }) =>
     expect(typeof products[0].name).toBe('string');
 });
 
-test('search_products honors a query term', async ({ page }) => {
-    const result = await callTool(page, TOOL.searchProducts, { query: 'a', limit: 3 });
+test('search_products honors a query term (data only)', async ({ page }) => {
+    // showResults:false = data probe, the page must not move.
+    const result = await callTool(page, TOOL.searchProducts, { query: 'a', limit: 3, showResults: false });
 
     expectValidToolResult(result);
     expect(result.structuredContent.query).toBe('a');
     expect(result.structuredContent.products.length).toBeLessThanOrEqual(3);
+    expect(result.structuredContent.shownInBrowser).toBe(false);
+});
+
+test('search_products with a query navigates the shopper to the search results page', async ({ page }) => {
+    // The browse default: "search for variant" should show the shopper the storefront search page.
+    const result = await callTool(page, TOOL.searchProducts, { query: 'variant' });
+
+    expectValidToolResult(result);
+    expect(result.structuredContent.shownInBrowser).toBe(true);
+    expect(String(result.structuredContent.listingUrl)).toContain('search=variant');
+    await page.waitForURL(/[?&]search=variant/, { timeout: 15_000 });
+});
+
+test('search_products without a query shows all products on the search page', async ({ page }) => {
+    // "show me all products" — no query — still lands the shopper on a real listing page.
+    const result = await callTool(page, TOOL.searchProducts, {});
+
+    expectValidToolResult(result);
+    expect(result.structuredContent.shownInBrowser).toBe(true);
+    expect(String(result.structuredContent.listingUrl)).toContain('/search');
+    await page.waitForURL(/\/search(\?|$)/, { timeout: 15_000 });
+});
+
+test('listing cards stay compact; get_product rehydrates the heavy detail fields', async ({ page }) => {
+    // Token optimization contract: search/filter return slim cards without the payload-heavy
+    // fields, and get_product is the drill-down that returns them in full.
+    const listing = await callTool(page, TOOL.searchProducts, { limit: 10, showResults: false });
+    const cards = listing.structuredContent.products as Array<Record<string, any>>;
+    expect(cards.length).toBeGreaterThan(0);
+
+    const HEAVY = ['description', 'properties', 'categories', 'images'] as const;
+    for (const card of cards) {
+        for (const field of HEAVY) {
+            expect(card, `listing card must omit "${field}"`).not.toHaveProperty(field);
+        }
+        // Essentials the agent needs to present and act stay on the card.
+        expect(card.id, 'card keeps id').toBeTruthy();
+        expect(typeof card.name, 'card keeps name').toBe('string');
+    }
+
+    // Proof it is a projection, not missing data: get_product returns at least one heavy field.
+    let rehydrated = false;
+    for (const card of cards.slice(0, 5)) {
+        const full = await callTool(page, TOOL.getProduct, { id: card.id, showResults: false });
+        const detail = full.structuredContent.product as Record<string, any>;
+        if (HEAVY.some((field) => detail[field] !== undefined)) {
+            rehydrated = true;
+            break;
+        }
+    }
+    expect(rehydrated, 'get_product should return detail fields that listing cards omit').toBe(true);
 });
 
 test('get_product returns details for a product found via search', async ({ page }) => {
-    const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1, showResults: false });
+    const first = search.structuredContent.products[0];
+    expect(first?.id, 'search result should carry a product id').toBeTruthy();
+
+    const result = await callTool(page, TOOL.getProduct, { id: first.id, showResults: false });
+
+    expectValidToolResult(result);
+    expect(result.structuredContent.lookup).toMatchObject({ id: first.id });
+    expect(result.structuredContent.shownInBrowser).toBe(false);
+    expect(typeof result.structuredContent.product.name).toBe('string');
+    expect(result.structuredContent.product.id).toBe(first.id);
+});
+
+test('get_product opens the product detail page for the shopper by default', async ({ page }) => {
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1, showResults: false });
     const first = search.structuredContent.products[0];
     expect(first?.id, 'search result should carry a product id').toBeTruthy();
 
     const result = await callTool(page, TOOL.getProduct, { id: first.id });
 
     expectValidToolResult(result);
-    expect(result.structuredContent.lookup).toMatchObject({ id: first.id });
-    expect(typeof result.structuredContent.product.name).toBe('string');
-    expect(result.structuredContent.product.id).toBe(first.id);
+    expect(result.structuredContent.shownInBrowser).toBe(true);
+    // The shopper is taken off the home page onto the product detail page.
+    await page.waitForURL((url) => url.pathname.length > 1, { timeout: 15_000 });
 });
 
 test('get_product_categories returns a category structure', async ({ page }) => {
@@ -170,7 +242,7 @@ test('cart lifecycle: add → read → update → remove', async ({ page }) => {
     // One test = one browser context = one shared shopper session, so the cart
     // persists across the steps below. Cart writes are product-keyed (id/sku/url):
     // a product line item's id equals the product id, so we key everything on it.
-    const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1, showResults: false });
     const product = search.structuredContent.products[0];
     expect(product?.id, 'need a product to put in the cart').toBeTruthy();
 
@@ -209,7 +281,7 @@ test('cart lifecycle: add → read → update → remove', async ({ page }) => {
 });
 
 test('add_to_cart is additive: adding the same product twice sums the quantity', async ({ page }) => {
-    const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1, showResults: false });
     const product = search.structuredContent.products[0];
     expect(product?.id, 'need a product to add').toBeTruthy();
 
@@ -226,7 +298,7 @@ test('add_to_cart is additive: adding the same product twice sums the quantity',
 });
 
 test('cart projection: a multi-line cart carries the compact CartSummary fields', async ({ page }) => {
-    const search = await callTool(page, TOOL.searchProducts, { limit: 2 });
+    const search = await callTool(page, TOOL.searchProducts, { limit: 2, showResults: false });
     const [a, b] = search.structuredContent.products as Array<Record<string, any>>;
     expect(a?.id && b?.id, 'need two distinct products').toBeTruthy();
 
@@ -261,7 +333,7 @@ test('cart projection: a multi-line cart carries the compact CartSummary fields'
 });
 
 test('update_line_item to quantity 0 is an idempotent no-op for a product not in the cart', async ({ page }) => {
-    const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1, showResults: false });
     const product = search.structuredContent.products[0];
     expect(product?.id, 'need a product id to target').toBeTruthy();
 
@@ -282,7 +354,7 @@ test('update_line_item to quantity 0 is an idempotent no-op for a product not in
 // needed: the fetch below sends only the session cookie.
 
 test('cart tools write to the shopper session cart, visible via Shopware /checkout/cart.json', async ({ page }) => {
-    const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1, showResults: false });
     const product = search.structuredContent.products[0];
     expect(product?.id, 'need a product to add').toBeTruthy();
 
@@ -317,7 +389,7 @@ test('cart tools write to the shopper session cart, visible via Shopware /checko
 });
 
 test('clear_cart empties a filled cart', async ({ page }) => {
-    const search = await callTool(page, TOOL.searchProducts, { limit: 2 });
+    const search = await callTool(page, TOOL.searchProducts, { limit: 2, showResults: false });
     const [a, b] = search.structuredContent.products as Array<Record<string, any>>;
     expect(a?.id && b?.id, 'need two products').toBeTruthy();
 
@@ -348,7 +420,7 @@ test('clear_cart empties a filled cart', async ({ page }) => {
 // agent (session-based cart tools) and the shopper (storefront) stay on one cart across it.
 
 test('cart survives login: agent fills the cart as a guest, then the shopper logs in', async ({ page }) => {
-    const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1, showResults: false });
     const product = search.structuredContent.products[0];
     expect(product?.id, 'need a product to add').toBeTruthy();
 
@@ -367,7 +439,7 @@ test('cart survives login: agent fills the cart as a guest, then the shopper log
 test('shared cart before login: shopper adds via storefront, agent adds via tool, both survive login', async ({
     page,
 }) => {
-    const search = await callTool(page, TOOL.searchProducts, { limit: 2 });
+    const search = await callTool(page, TOOL.searchProducts, { limit: 2, showResults: false });
     const [shopperProduct, agentProduct] = search.structuredContent.products as Array<Record<string, any>>;
     expect(shopperProduct?.url, 'need a product detail url for the storefront add').toBeTruthy();
     expect(agentProduct?.id, 'need a second product for the agent add').toBeTruthy();
@@ -395,7 +467,7 @@ test('logged-in coherence: log in first, then agent and shopper add to the same 
     await loginViaStorefront(page, DEMO_CUSTOMER.email, DEMO_CUSTOMER.password);
     await openStorefront(page);
 
-    const search = await callTool(page, TOOL.searchProducts, { limit: 2 });
+    const search = await callTool(page, TOOL.searchProducts, { limit: 2, showResults: false });
     const [shopperProduct, agentProduct] = search.structuredContent.products as Array<Record<string, any>>;
     expect(shopperProduct?.url && agentProduct?.id, 'need two products').toBeTruthy();
 
@@ -434,7 +506,7 @@ test('navigate moves the storefront to a same-origin page (ACL-127)', async ({ p
 });
 
 test('add_to_cart with showCartOverlay opens the cart overlay (ACL-137)', async ({ page }) => {
-    const search = await callTool(page, TOOL.searchProducts, { limit: 1 });
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1, showResults: false });
     const product = search.structuredContent.products[0];
     expect(product?.id, 'need a product to add').toBeTruthy();
 
@@ -442,4 +514,286 @@ test('add_to_cart with showCartOverlay opens the cart overlay (ACL-137)', async 
 
     // Shopware renders the off-canvas cart, giving the shopper direct feedback.
     await expect(page.locator('.cart-offcanvas').first()).toBeVisible({ timeout: 15_000 });
+});
+
+test('get_listing_filters returns the active category filter vocabulary (ACL-132)', async ({ page }) => {
+    // No scope → the active category listing (the storefront home navigation category).
+    const result = await callTool(page, TOOL.getListingFilters, {});
+
+    expectValidToolResult(result);
+    const filters = result.structuredContent.filters;
+    expect(filters, 'a facet structure should be returned').toBeTruthy();
+    expect(Array.isArray(filters.manufacturers)).toBe(true);
+    expect(Array.isArray(filters.properties)).toBe(true);
+    expect(Array.isArray(filters.sortings)).toBe(true);
+    expect(typeof filters.total).toBe('number');
+    expect(filters.sortings.length, 'a listing always advertises sort orders').toBeGreaterThan(0);
+});
+
+test('filter_products filters the active category and narrows by manufacturer (ACL-132)', async ({ page }) => {
+    const unfiltered = await callTool(page, TOOL.filterProducts, { limit: 24, showResults: false });
+    expectValidToolResult(unfiltered);
+    expect(Array.isArray(unfiltered.structuredContent.products)).toBe(true);
+
+    const manufacturers = unfiltered.structuredContent.filters?.manufacturers ?? [];
+
+    // The demo catalog may not expose a manufacturer facet in every environment; only assert
+    // the narrowing contract when there is a manufacturer to filter by.
+    if (manufacturers.length === 0) {
+        test.skip(true, 'no manufacturer facet available for the active category');
+        return;
+    }
+
+    const filtered = await callTool(page, TOOL.filterProducts, {
+        limit: 24,
+        manufacturerIds: [manufacturers[0].id],
+        showResults: false,
+    });
+
+    expectValidToolResult(filtered);
+    expect(filtered.structuredContent.total).toBeGreaterThan(0);
+    expect(filtered.structuredContent.total).toBeLessThanOrEqual(unfiltered.structuredContent.total);
+});
+
+test('get_listing_filters → filter_products by a property option (the "red" case) (ACL-132)', async ({ page }) => {
+    const vocab = await callTool(page, TOOL.getListingFilters, {});
+    const groups = vocab.structuredContent.filters?.properties ?? [];
+    const price = vocab.structuredContent.filters?.price;
+
+    // Price aggregation bounds arrive as strings from the Store API; they must be coerced to numbers.
+    if (price) {
+        expect(typeof price.min === 'number' || price.min === null).toBe(true);
+        expect(typeof price.max === 'number' || price.max === null).toBe(true);
+    }
+
+    const firstOption = groups.flatMap((group: any) => group.options)[0];
+
+    if (!firstOption) {
+        test.skip(true, 'no property facet available for the active category');
+        return;
+    }
+
+    const filtered = await callTool(page, TOOL.filterProducts, {
+        limit: 24,
+        propertyOptionIds: [firstOption.id],
+        showResults: false,
+    });
+
+    expectValidToolResult(filtered);
+    expect(Array.isArray(filtered.structuredContent.products)).toBe(true);
+    // A concrete property option selects a non-empty subset of the catalog.
+    expect(filtered.structuredContent.total).toBeGreaterThan(0);
+});
+
+test('filter_products reduces the returned facets to genuine refinements (ACL-132)', async ({ page }) => {
+    // Find a category that actually carries a colour facet (the demo "Clothing" tree).
+    const tree = await callTool(page, TOOL.getProductCategories, { scope: 'tree' });
+    const flat: Array<Record<string, any>> = [];
+    const walk = (nodes: Array<Record<string, any>>) =>
+        nodes?.forEach((node) => {
+            flat.push(node);
+            if (Array.isArray(node.children)) walk(node.children);
+        });
+    walk(tree.structuredContent.categories ?? []);
+
+    const countOptions = (facets: any) =>
+        (facets?.properties ?? []).reduce((sum: number, group: any) => sum + group.options.length, 0);
+
+    for (const category of flat) {
+        const vocab = await callTool(page, TOOL.getListingFilters, { categoryId: category.id });
+        const colour = (vocab.structuredContent.filters?.properties ?? []).find((group: any) =>
+            /colou?r/i.test(group.group || ''),
+        );
+        const option = colour?.options?.[0];
+        if (!option || countOptions(vocab.structuredContent.filters) < 2) {
+            continue;
+        }
+
+        const filtered = await callTool(page, TOOL.filterProducts, {
+            categoryId: category.id,
+            propertyOptionIds: [option.id],
+            showResults: false,
+        });
+
+        expect(filtered.structuredContent.total).toBeGreaterThan(0);
+        // reduce-aggregations must narrow the facets so we never advertise a zero-match refinement.
+        expect(countOptions(filtered.structuredContent.filters)).toBeLessThan(
+            countOptions(vocab.structuredContent.filters),
+        );
+        return;
+    }
+
+    test.skip(true, 'no category with a reducible colour facet in this catalog');
+});
+
+test('filter_products resolves filter names in one call (no get_listing_filters needed) (ACL-132)', async ({
+    page,
+}) => {
+    // Token/step optimization: the agent can pass an option NAME; the tool resolves it to the id.
+    const tree = await callTool(page, TOOL.getProductCategories, { scope: 'tree' });
+    const categories = (tree.structuredContent.categories ?? []) as Array<Record<string, any>>;
+
+    for (const category of categories) {
+        const vocab = await callTool(page, TOOL.getListingFilters, { categoryId: category.id });
+        const colour = (vocab.structuredContent.filters?.properties ?? []).find((group: any) =>
+            /colou?r/i.test(group.group || ''),
+        );
+        const optionName = colour?.options?.[0]?.name;
+        if (!optionName) {
+            continue;
+        }
+
+        const byName = await callTool(page, TOOL.filterProducts, {
+            categoryId: category.id,
+            propertyOptions: [optionName],
+            showResults: false,
+        });
+        expect(
+            byName.structuredContent.total,
+            `filtering by name "${optionName}" should match products`,
+        ).toBeGreaterThan(0);
+        return;
+    }
+
+    test.skip(true, 'no colour facet to resolve by name in this catalog');
+});
+
+test('filter refines the current search results page without an explicit scope (ACL-132)', async ({ page }) => {
+    // The exact shopper flow: on a search results page, "filter for red" must refine THAT search
+    // even though the agent passes no categoryId/query — the runtime supplies the active search term.
+    await page.goto('/search?search=variant');
+    await page.waitForFunction(
+        (toolName) => {
+            const mc = (document as any).modelContext;
+            return !!mc && typeof mc.getTools === 'function' && mc.getTools().some((t: any) => t?.name === toolName);
+        },
+        TOOL.getListingFilters,
+        { timeout: 30_000 },
+    );
+
+    const vocab = await callTool(page, TOOL.getListingFilters, {});
+    expectValidToolResult(vocab);
+    // Scope resolves to the current search, not an error or the whole catalog.
+    expect(vocab.structuredContent.scope?.type).toBe('search');
+    expect(vocab.structuredContent.scope?.query).toBe('variant');
+
+    const colour = (vocab.structuredContent.filters?.properties ?? []).find((group: any) =>
+        /colou?r/i.test(group.group || ''),
+    );
+    const red = colour?.options.find((option: any) => /red/i.test(option.name));
+
+    if (!red) {
+        test.skip(true, 'no red colour option in the search facet for this catalog');
+        return;
+    }
+
+    const filtered = await callTool(page, TOOL.filterProducts, { propertyOptionIds: [red.id] });
+    expectValidToolResult(filtered);
+    expect(filtered.structuredContent.scope?.query).toBe('variant');
+    expect(filtered.structuredContent.total, 'the red variant should be found in the search').toBeGreaterThan(0);
+
+    // The shopper must SEE it: the tool navigates the browser to the filtered search listing.
+    expect(filtered.structuredContent.shownInBrowser).toBe(true);
+    expect(String(filtered.structuredContent.listingUrl)).toContain('properties=');
+    await page.waitForURL(/[?&]properties=/, { timeout: 15_000 });
+    await page.waitForURL(/[?&]search=variant/, { timeout: 15_000 });
+});
+
+test('select_variant resolves a variant off the PDP by id, from a listing (ACL-132)', async ({ page }) => {
+    // The reported gap: from a listing/headless, the agent must be able to resolve "Size XL" of a
+    // product it only has an id for — without landing on the PDP. select_variant is global and
+    // takes an explicit id.
+    const search = await callTool(page, TOOL.searchProducts, { query: 'variant', limit: 1, showResults: false });
+    const product = search.structuredContent.products[0];
+    if (!product?.id) {
+        test.skip(true, 'no variant product in this catalog');
+        return;
+    }
+
+    // Still on the home page (not the PDP) — pass the product id explicitly.
+    const result = await callTool(page, SELECT_VARIANT_TOOL, {
+        id: product.id,
+        selections: [{ group: 'Size', option: 'XL' }],
+        addToCart: true,
+        showCartOverlay: false,
+    });
+
+    expectValidToolResult(result);
+    expect(result.structuredContent.addedToCart).toBe(true);
+    const optionNames = (result.structuredContent.variant?.options ?? []).map((o: any) => String(o.name).toLowerCase());
+    expect(optionNames, `resolved variant options: ${optionNames.join('/')}`).toContain('xl');
+    expect(result.structuredContent.cart?.itemCount ?? 0).toBeGreaterThan(0);
+
+    await removeFromCart(page, [String(result.structuredContent.variant.id)]);
+});
+
+test('select_variant is registered globally (not only on product pages) (ACL-132)', async ({ page }) => {
+    const registeredOnHome = await page.evaluate(() =>
+        ((document as any).modelContext.getTools() as Array<{ name: string }>).map((tool) => tool.name),
+    );
+    expect(registeredOnHome).toContain(SELECT_VARIANT_TOOL);
+});
+
+test('select_variant adds the viewed product to the cart (ACL-132)', async ({ page }) => {
+    const search = await callTool(page, TOOL.searchProducts, { limit: 1, showResults: false });
+    const product = search.structuredContent.products[0];
+    expect(product?.url, 'need a product detail url').toBeTruthy();
+
+    await page.goto(product.url);
+    await page.waitForFunction(
+        (toolName) => {
+            const mc = (document as any).modelContext;
+            return !!mc && typeof mc.getTools === 'function' && mc.getTools().some((t: any) => t?.name === toolName);
+        },
+        SELECT_VARIANT_TOOL,
+        { timeout: 30_000 },
+    );
+
+    // No selections → resolves the product being viewed and adds it, the "add this to my cart" case.
+    const result = await callTool(page, SELECT_VARIANT_TOOL, { quantity: 1, showCartOverlay: false });
+
+    expectValidToolResult(result);
+    expect(result.structuredContent.addedToCart).toBe(true);
+    expect(result.structuredContent.variant?.id, 'a concrete variant/product should be resolved').toBeTruthy();
+    expect(result.structuredContent.cart?.itemCount ?? 0).toBeGreaterThan(0);
+
+    await removeFromCart(page, [String(result.structuredContent.variant.id)]);
+});
+
+test('select_variant resolves the exact requested option combination (ACL-132)', async ({ page }) => {
+    // Regression: "buy the blue in XL" must resolve the real Blue/XL variant, not silently fall
+    // back to the currently shown variant (e.g. Blue/M).
+    const search = await callTool(page, TOOL.searchProducts, { query: 'variant', limit: 1, showResults: false });
+    const product = search.structuredContent.products[0];
+    if (!product?.url) {
+        test.skip(true, 'no variant product in this catalog');
+        return;
+    }
+
+    await page.goto(product.url);
+    await page.waitForFunction(
+        (toolName) => {
+            const mc = (document as any).modelContext;
+            return !!mc && typeof mc.getTools === 'function' && mc.getTools().some((t: any) => t?.name === toolName);
+        },
+        SELECT_VARIANT_TOOL,
+        { timeout: 30_000 },
+    );
+
+    const result = await callTool(page, SELECT_VARIANT_TOOL, {
+        selections: [
+            { group: 'Colour', option: 'Blue' },
+            { group: 'Size', option: 'XL' },
+        ],
+        addToCart: false,
+    });
+
+    expectValidToolResult(result);
+    const optionNames = (result.structuredContent.variant?.options ?? []).map((option: any) =>
+        String(option.name).toLowerCase(),
+    );
+    // The resolved variant must actually be Blue AND XL — not the current Blue/M.
+    expect(optionNames, `resolved variant options: ${optionNames.join('/')}`).toContain('xl');
+    expect(optionNames).toContain('blue');
+    expect(optionNames).not.toContain('m');
 });

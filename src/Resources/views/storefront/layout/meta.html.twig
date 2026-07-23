@@ -5,10 +5,13 @@
     {% set searchProductsToolEnabled = config('SwagWebMcp.config.searchProductsToolEnabled') %}
     {% set getProductToolEnabled = config('SwagWebMcp.config.getProductToolEnabled') %}
     {% set getProductCategoriesToolEnabled = config('SwagWebMcp.config.getProductCategoriesToolEnabled') %}
+    {% set getListingFiltersToolEnabled = config('SwagWebMcp.config.getListingFiltersToolEnabled') %}
+    {% set filterProductsToolEnabled = config('SwagWebMcp.config.filterProductsToolEnabled') %}
     {% set getCartToolEnabled = config('SwagWebMcp.config.getCartToolEnabled') %}
     {% set addToCartToolEnabled = config('SwagWebMcp.config.addToCartToolEnabled') %}
     {% set updateLineItemToolEnabled = config('SwagWebMcp.config.updateLineItemToolEnabled') %}
     {% set clearCartToolEnabled = config('SwagWebMcp.config.clearCartToolEnabled') %}
+    {% set selectVariantToolEnabled = config('SwagWebMcp.config.selectVariantToolEnabled') %}
     {% set getSalesChannelContextToolEnabled = config('SwagWebMcp.config.getSalesChannelContextToolEnabled') %}
     {% set navigateToolEnabled = config('SwagWebMcp.config.navigateToolEnabled') %}
     {% set activeCategoryId = null %}
@@ -21,21 +24,31 @@
     {% if page.product is defined and page.product %}
         {% set currentProductId = page.product.id %}
     {% endif %}
+    {% set activeSearchTerm = null %}
+    {% if page.searchTerm is defined and page.searchTerm %}
+        {% set activeSearchTerm = page.searchTerm %}
+    {% elseif app.request.get('search') %}
+        {% set activeSearchTerm = app.request.get('search') %}
+    {% endif %}
     {% set webMcpModelContextOptions = {
         enabled: webMcpEnabled,
         storeApiAccessKey: context.salesChannel.accessKey|default(null),
         navigationCategoryId: context.salesChannel.navigationCategoryId|default(null),
         currencyIsoCode: context.currency.isoCode|default(null),
         activeCategoryId: activeCategoryId,
+        activeSearchTerm: activeSearchTerm,
         currentProductId: currentProductId,
         tools: {
             searchProducts: searchProductsToolEnabled,
             getProduct: getProductToolEnabled,
             getProductCategories: getProductCategoriesToolEnabled,
+            getListingFilters: getListingFiltersToolEnabled,
+            filterProducts: filterProductsToolEnabled,
             getCart: getCartToolEnabled,
             addToCart: addToCartToolEnabled,
             updateLineItem: updateLineItemToolEnabled,
             clearCart: clearCartToolEnabled,
+            selectVariant: selectVariantToolEnabled,
             getSalesChannelContext: getSalesChannelContextToolEnabled,
             navigate: navigateToolEnabled
         }

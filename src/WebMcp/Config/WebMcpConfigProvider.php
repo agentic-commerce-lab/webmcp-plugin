@@ -24,10 +24,13 @@ final class WebMcpConfigProvider
             searchProductsToolEnabled: $this->boolConfig('searchProductsToolEnabled', $salesChannelId),
             getProductToolEnabled: $this->boolConfig('getProductToolEnabled', $salesChannelId),
             getProductCategoriesToolEnabled: $this->boolConfig('getProductCategoriesToolEnabled', $salesChannelId),
+            getListingFiltersToolEnabled: $this->boolConfig('getListingFiltersToolEnabled', $salesChannelId),
+            filterProductsToolEnabled: $this->boolConfig('filterProductsToolEnabled', $salesChannelId),
             getCartToolEnabled: $this->boolConfig('getCartToolEnabled', $salesChannelId),
             addToCartToolEnabled: $this->boolConfig('addToCartToolEnabled', $salesChannelId),
             updateLineItemToolEnabled: $this->boolConfig('updateLineItemToolEnabled', $salesChannelId),
             clearCartToolEnabled: $this->boolConfig('clearCartToolEnabled', $salesChannelId),
+            selectVariantToolEnabled: $this->boolConfig('selectVariantToolEnabled', $salesChannelId),
             getSalesChannelContextToolEnabled: $this->boolConfig('getSalesChannelContextToolEnabled', $salesChannelId),
             navigateToolEnabled: $this->boolConfig('navigateToolEnabled', $salesChannelId),
         );

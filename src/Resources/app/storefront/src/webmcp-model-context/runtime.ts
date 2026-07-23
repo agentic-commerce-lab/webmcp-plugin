@@ -1,6 +1,8 @@
 import { ADD_TO_CART_TOOL_NAME, createAddToCartTool } from './runtime/tools/add-to-cart.tool';
 import { CLEAR_CART_TOOL_NAME, createClearCartTool } from './runtime/tools/clear-cart.tool';
+import { createFilterProductsTool, FILTER_PRODUCTS_TOOL_NAME } from './runtime/tools/filter-products.tool';
 import { createGetCartTool, GET_CART_TOOL_NAME } from './runtime/tools/get-cart.tool';
+import { createGetListingFiltersTool, GET_LISTING_FILTERS_TOOL_NAME } from './runtime/tools/get-listing-filters.tool';
 import {
     createGetProductCategoriesTool,
     GET_PRODUCT_CATEGORIES_TOOL_NAME,
@@ -12,6 +14,7 @@ import {
 } from './runtime/tools/get-sales-channel-context.tool';
 import { createNavigateTool, NAVIGATE_TOOL_NAME } from './runtime/tools/navigate.tool';
 import { createSearchProductsTool, SEARCH_PRODUCTS_TOOL_NAME } from './runtime/tools/search-products.tool';
+import { createSelectVariantTool, SELECT_VARIANT_TOOL_NAME } from './runtime/tools/select-variant.tool';
 import { createUpdateLineItemTool, UPDATE_LINE_ITEM_TOOL_NAME } from './runtime/tools/update-line-item.tool';
 import type {
     ModelContextTool,
@@ -50,10 +53,13 @@ export function registerConfiguredTools(config: unknown = {}): void {
     registerSearchProductsTool(normalizedConfig);
     registerGetProductTool(normalizedConfig);
     registerGetProductCategoriesTool(normalizedConfig);
+    registerGetListingFiltersTool(normalizedConfig);
+    registerFilterProductsTool(normalizedConfig);
     registerGetCartTool(normalizedConfig);
     registerAddToCartTool(normalizedConfig);
     registerUpdateLineItemTool(normalizedConfig);
     registerClearCartTool(normalizedConfig);
+    registerSelectVariantTool(normalizedConfig);
     registerGetSalesChannelContextTool(normalizedConfig);
     registerNavigateTool(normalizedConfig);
 }
@@ -75,6 +81,19 @@ export function registerGetProductCategoriesTool(config: unknown = {}): ModelCon
     );
 }
 
+export function registerGetListingFiltersTool(config: unknown = {}): ModelContextTool | null {
+    return registerStorefrontTool(
+        config,
+        'getListingFilters',
+        GET_LISTING_FILTERS_TOOL_NAME,
+        createGetListingFiltersTool,
+    );
+}
+
+export function registerFilterProductsTool(config: unknown = {}): ModelContextTool | null {
+    return registerStorefrontTool(config, 'filterProducts', FILTER_PRODUCTS_TOOL_NAME, createFilterProductsTool);
+}
+
 export function registerGetCartTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(config, 'getCart', GET_CART_TOOL_NAME, createGetCartTool);
 }
@@ -89,6 +108,10 @@ export function registerUpdateLineItemTool(config: unknown = {}): ModelContextTo
 
 export function registerClearCartTool(config: unknown = {}): ModelContextTool | null {
     return registerStorefrontTool(config, 'clearCart', CLEAR_CART_TOOL_NAME, createClearCartTool);
+}
+
+export function registerSelectVariantTool(config: unknown = {}): ModelContextTool | null {
+    return registerStorefrontTool(config, 'selectVariant', SELECT_VARIANT_TOOL_NAME, createSelectVariantTool);
 }
 
 export function registerGetSalesChannelContextTool(config: unknown = {}): ModelContextTool | null {
@@ -141,10 +164,13 @@ function exposeGlobals(config: WebMcpRuntimeConfig): void {
         registerSearchProductsTool: () => registerSearchProductsTool(config),
         registerGetProductTool: () => registerGetProductTool(config),
         registerGetProductCategoriesTool: () => registerGetProductCategoriesTool(config),
+        registerGetListingFiltersTool: () => registerGetListingFiltersTool(config),
+        registerFilterProductsTool: () => registerFilterProductsTool(config),
         registerGetCartTool: () => registerGetCartTool(config),
         registerAddToCartTool: () => registerAddToCartTool(config),
         registerUpdateLineItemTool: () => registerUpdateLineItemTool(config),
         registerClearCartTool: () => registerClearCartTool(config),
+        registerSelectVariantTool: () => registerSelectVariantTool(config),
         registerGetSalesChannelContextTool: () => registerGetSalesChannelContextTool(config),
         registerNavigateTool: () => registerNavigateTool(config),
     };
@@ -171,6 +197,7 @@ function registerStorefrontTool(
             navigationCategoryId: normalizedConfig.navigationCategoryId,
             currencyIsoCode: normalizedConfig.currencyIsoCode,
             activeCategoryId: normalizedConfig.activeCategoryId,
+            activeSearchTerm: normalizedConfig.activeSearchTerm,
             currentProductId: normalizedConfig.currentProductId,
         }),
     );

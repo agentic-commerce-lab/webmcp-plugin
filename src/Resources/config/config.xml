@@ -34,6 +34,20 @@
         </input-field>
 
         <input-field type="bool">
+            <name>getListingFiltersToolEnabled</name>
+            <label>Enable get_listing_filters tool</label>
+            <label lang="de-DE">get_listing_filters-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
+
+        <input-field type="bool">
+            <name>filterProductsToolEnabled</name>
+            <label>Enable filter_products tool</label>
+            <label lang="de-DE">filter_products-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
+
+        <input-field type="bool">
             <name>getCartToolEnabled</name>
             <label>Enable get_cart tool</label>
             <label lang="de-DE">get_cart-Tool aktivieren</label>
@@ -58,6 +72,13 @@
             <name>clearCartToolEnabled</name>
             <label>Enable clear_cart tool</label>
             <label lang="de-DE">clear_cart-Tool aktivieren</label>
+            <defaultValue>true</defaultValue>
+        </input-field>
+
+        <input-field type="bool">
+            <name>selectVariantToolEnabled</name>
+            <label>Enable select_variant tool (product pages)</label>
+            <label lang="de-DE">select_variant-Tool aktivieren (Produktseiten)</label>
             <defaultValue>true</defaultValue>
         </input-field>
 

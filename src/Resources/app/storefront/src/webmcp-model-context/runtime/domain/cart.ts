@@ -58,8 +58,6 @@ function normalizeLineItem(lineItem: any, currency: string | null, baseUrl: stri
         url: type === 'product' && referencedId ? `${baseUrl}/detail/${referencedId}` : undefined,
         unitPrice: price ? money(price.unitPrice, currency) : undefined,
         totalPrice: price ? money(price.totalPrice, currency) : undefined,
-        taxes: price ? normalizeCalculatedTaxes(price.calculatedTaxes, currency) : [],
-        taxRules: price ? normalizeTaxRules(price.taxRules) : [],
         payload: normalizeLineItemPayload(payload),
         children,
     });
@@ -91,7 +89,6 @@ function discountLineItems(lineItems: UnknownRecord[]): UnknownRecord[] {
 }
 
 function normalizeCartTotals(cart: UnknownRecord, price: UnknownRecord, currency: string | null): UnknownRecord {
-    const taxTotal = sumFound(asArray(price.calculatedTaxes), (tax) => numberValue(tax.tax));
     const discountTotal = sumFound(asArray(cart.lineItems), (lineItem) => {
         const itemPrice = isPlainObject(lineItem.price) ? numberValue(lineItem.price.totalPrice) : null;
 
@@ -103,13 +100,11 @@ function normalizeCartTotals(cart: UnknownRecord, price: UnknownRecord, currency
         return shippingCosts ? numberValue(shippingCosts.totalPrice) : null;
     });
 
+    // Compact totals: the net/raw/position duplicates and the derived taxTotal are dropped —
+    // agents act on the grand total (plus subtotal/shipping/discount when present).
     return removeEmptyValues({
         subtotal: money(price.positionPrice, currency),
-        positionPrice: money(price.positionPrice, currency),
-        netTotal: money(price.netPrice, currency),
         total: money(price.totalPrice, currency),
-        rawTotal: money(price.rawTotal, currency),
-        taxTotal: taxTotal !== null ? money(taxTotal, currency) : undefined,
         discountTotal: discountTotal !== null ? money(discountTotal, currency) : undefined,
         shippingTotal: shippingTotal !== null ? money(shippingTotal, currency) : undefined,
         taxStatus: cleanText(price.taxStatus),
@@ -122,15 +117,6 @@ function normalizeCalculatedTaxes(taxes: unknown, currency: string | null): Unkn
             tax: money(tax.tax, currency),
             taxRate: numberValue(tax.taxRate) ?? undefined,
             price: money(tax.price, currency),
-        }),
-    );
-}
-
-function normalizeTaxRules(taxRules: unknown): UnknownRecord[] {
-    return asArray(taxRules).map((taxRule) =>
-        removeEmptyValues({
-            taxRate: numberValue(taxRule.taxRate) ?? undefined,
-            percentage: numberValue(taxRule.percentage) ?? undefined,
         }),
     );
 }

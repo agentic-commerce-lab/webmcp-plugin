@@ -198,27 +198,48 @@ so disabled tools are always removed. `model-context/registry.ts` wraps
 
 ## 6. Tool surface
 
-Nine tools, all prefixed `shopware_webmcp_`, all built with the `defineTool`
+Twelve tools, all prefixed `shopware_webmcp_`, all built with the `defineTool`
 factory: a single **zod** input schema produces both the runtime validator and
 the advertised JSON Schema, so the two cannot drift. Tools carry WebMCP safety
 annotations (`readOnlyHint`, `untrustedContentHint`) and return
-`{ content: [{type:'text', text}], structuredContent }`.
+`{ content: [{type:'text', text}], structuredContent }`. All tools register
+globally; those that need a current-page context (e.g. `select_variant`,
+`filter_products`) read it from the page config but also accept an explicit
+selector, so they work from anywhere (a listing, headless) too.
 
 | Tool | Input | Output keys | Data source |
 | --- | --- | --- | --- |
-| `search_products` | `query?` (≤120), `limit?` (1–20, def 5) | `query, count, total, products` | Store API `/search` |
-| `get_product` | one of `id`/`sku`/`url` | `lookup, product` | Store API `/product/{id}` |
+| `search_products` | `query?` (≤120), `limit?` (1–20, def 5), `showResults?` (def true) | `query, count, total, products, listingUrl, shownInBrowser` | Store API `/search`; navigates to the storefront search page when `showResults` (with a query = that search, without = whole catalog) |
+| `get_product` | one of `id`/`sku`/`url`, `showResults?` (def true) | `lookup, product, shownInBrowser` | Store API `/product/{id}`; opens the product page when `showResults` |
 | `get_product_categories` | `scope?` (tree\|product), one of `id`/`sku`/`url` for `product` | `lookup, scope, source, sourceUrl, count, activeCategoryIds, categories, tree` | **Store API navigation** |
-| `get_cart` | none | `cart` | Storefront `GET /checkout/cart.json` |
-| `add_to_cart` | one of id/sku/url + `quantity?` (1–100) + `showCartOverlay?` | `added, cart` | Storefront `POST /checkout/line-item/add` (additive) |
-| `update_line_item` | one of id/sku/url + **required** `quantity` (0–100); `0` removes | `updated, cart` | Storefront `…/change-quantity/{id}` / `…/delete/{id}` |
-| `clear_cart` | none | `cart` | Storefront `POST /checkout/cart/delete` |
+| `get_listing_filters` | `categoryId?` (def active category) or `query?` | `filters` (manufacturers, property groups, price, rating, sortings) | Store API `/product-listing/{id}` or `/search` |
+| `filter_products` | `categoryId?`/`query?` + `manufacturerIds?`, `propertyOptionIds?`, `priceMin?`, `priceMax?`, `minRating?`, `shippingFree?`, `sort?`, `limit?` (1–24, def 10), `page?`, `showResults?` (def true) | `scope, count, total, products, filters, listingUrl, shownInBrowser` | Store API `/product-listing/{id}` or `/search`; navigates to the filtered listing when `showResults` |
+| `get_cart` | `showCartOverlay?` (def true) | `cart, shownInBrowser` | Storefront `GET /checkout/cart.json`; opens the cart overlay when set |
+| `add_to_cart` | one of id/sku/url + `quantity?` (1–100) + `showCartOverlay?` (def true) | `added, cart` | Storefront `POST /checkout/line-item/add` (additive) |
+| `update_line_item` | one of id/sku/url + **required** `quantity` (0–100); `0` removes + `showCartOverlay?` (def true) | `updated, cart` | Storefront `…/change-quantity/{id}` / `…/delete/{id}` |
+| `clear_cart` | `showCartOverlay?` (def true) | `cart` | Storefront `POST /checkout/cart/delete` |
+| `select_variant` | one of `id`/`sku`/`url` (or omit on a PDP for the current product) + `selections?` (option names) or `optionIds?` + `quantity?`, `addToCart?` (def true), `showCartOverlay?` (def true) | `variant, selectedOptions, addedToCart, cart` | Store API `/product/{id}` (configurator) + `/product` (parent + option ids → exact variant) + cart add |
 | `get_sales_channel_context` | none | `salesChannelContext` | `/webmcp/sales-channel-context` |
 | `navigate` | same-origin storefront `url`/path | `navigatedTo` | `window.location` (same-origin) |
 
 > Removal is handled by `update_line_item` with `quantity: 0` (declarative,
 > idempotent) — there is no separate `remove_from_cart` tool. `get_product_categories`
 > now uses the Store API navigation endpoint (ADR 0001), not DOM scraping.
+> `get_listing_filters` + `filter_products` are the global faceted discovery pair
+> (ADR 0001 Store API), and `select_variant` (ACL-132) resolves an exact variant by
+> options for any product — by explicit id/sku/url, or the current product on a PDP —
+> so a size/colour can be added from a listing or headless, not only from the PDP.
+
+**Interaction model — drive the page by default.** For discovery intent ("search
+for…", "show me…", "find…", "filter to…") the agent drives the storefront: it
+navigates the shopper to the search or filtered listing so the result appears in
+their window. `search_products` and `filter_products` therefore both navigate by
+default and expose `showResults` (default `true`); the shopper sees the same page
+they would by searching/clicking filters themselves. Pass `showResults: false` for
+the data mode — fetching results for the agent to reason about (answer a question,
+resolve a product id) without moving the page. Cart writes follow the same spirit
+via `showCartOverlay`. Pure fact probes (`get_product`, `get_cart`,
+`get_sales_channel_context`) never move the page.
 
 ## 7. Configuration flow
 

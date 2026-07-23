@@ -5,7 +5,9 @@ import type { CartSummary, StorefrontToolOptions } from '../types';
 
 export const CLEAR_CART_TOOL_NAME = 'shopware_webmcp_clear_cart';
 
-const clearCartInput = z.strictObject({});
+const clearCartInput = z.object({
+    showCartOverlay: z.boolean().default(true).describe('Open the (empty) cart overlay (false = data only).'),
+});
 
 export function createClearCartTool(options: StorefrontToolOptions = {}) {
     const shopwareClient = new ShopwareClient(options);
@@ -13,15 +15,15 @@ export function createClearCartTool(options: StorefrontToolOptions = {}) {
     return defineTool({
         name: CLEAR_CART_TOOL_NAME,
         title: 'Clear cart',
-        description: 'Removes every item from the current cart. Takes no input.',
+        description: 'Empties the cart; opens the (empty) cart overlay by default.',
         annotations: { readOnlyHint: false, untrustedContentHint: true },
         input: clearCartInput,
-        execute: async () => {
-            const cart = await shopwareClient.clearCart();
+        execute: async (input) => {
+            const cart = await shopwareClient.clearCart({ showCartOverlay: input.showCartOverlay });
 
             return {
                 content: [{ type: 'text', text: formatClearCartResult(cart) }],
-                structuredContent: { cart },
+                structuredContent: { cart, shownInBrowser: cart?.cartOverlayOpened ?? false },
             };
         },
     });

@@ -9,6 +9,7 @@ export interface StorefrontToolOptions {
     navigationCategoryId?: string | null;
     currencyIsoCode?: string | null;
     activeCategoryId?: string | null;
+    activeSearchTerm?: string | null;
     currentProductId?: string | null;
 }
 
@@ -59,15 +60,19 @@ export interface WebMcpRuntimeConfig {
     navigationCategoryId: string | null;
     currencyIsoCode: string | null;
     activeCategoryId: string | null;
+    activeSearchTerm: string | null;
     currentProductId: string | null;
     tools: {
         searchProducts: boolean;
         getProduct: boolean;
         getProductCategories: boolean;
+        getListingFilters: boolean;
+        filterProducts: boolean;
         getCart: boolean;
         addToCart: boolean;
         updateLineItem: boolean;
         clearCart: boolean;
+        selectVariant: boolean;
         getSalesChannelContext: boolean;
         navigate: boolean;
     };
@@ -88,12 +93,12 @@ export interface QuantityInput extends ProductLookupInput {
 
 export interface CartQuantityInput extends ProductLookupInput {
     quantity: number;
+    showCartOverlay?: boolean | undefined;
 }
 
 export interface ProductSummary {
     id?: string;
     sku?: string | null;
-    productNumber?: string | null;
     name: string;
     price?: string | null;
     priceValue?: number | null;
@@ -108,6 +113,7 @@ export interface ProductSummary {
 export interface CartSummary {
     itemCount?: number;
     cartWidgetRefreshed?: boolean;
+    cartOverlayOpened?: boolean;
     lineItems?: UnknownRecord[];
     totalPrice?: UnknownRecord | null;
     totals?: {
