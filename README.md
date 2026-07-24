@@ -26,6 +26,94 @@ storefront through structured catalog and cart tools: search products, inspect p
 It does **not** handle checkout, payment, private backend operations, or
 privileged merchant workflows.
 
+## Installing Into an Existing Shopware
+
+### From the prebuilt ZIP (no build required)
+
+The release ZIP already contains the compiled storefront bundle. Download it and
+upload it in Shopware Admin (Extensions → My extensions → Upload extension), then
+activate it:
+
+<https://github.com/agentic-commerce-lab/webmcp-plugin/releases/download/latest-main/SwagWebMcp.zip>
+
+### From a source checkout (build required)
+
+Place the checkout in `custom/plugins/SwagWebMcp`, build the storefront asset,
+then install via the console:
+
+```sh
+npm install && npm run build
+bin/console plugin:refresh
+bin/console plugin:install --activate SwagWebMcp   # or: plugin:update SwagWebMcp
+bin/console theme:compile && bin/console assets:install && bin/console cache:clear
+```
+
+After installing, enable and configure the plugin in Shopware Admin.
+
+## Configuration
+
+Shopware renders these settings in the plugin configuration screen in the Admin panel:
+
+<img src="docs/admin-configuration.svg" alt="Shopware Admin WebMCP configuration screen" width="760">
+
+- `enabled`: enables the public WebMCP browser tools.
+- `searchProductsToolEnabled`: enables the product search `document.modelContext` tool.
+- `getProductToolEnabled`: enables the product detail `document.modelContext` tool.
+- `getProductCategoriesToolEnabled`: enables the product category `document.modelContext` tool.
+- `getListingFiltersToolEnabled`: enables the listing filter vocabulary `document.modelContext` tool.
+- `filterProductsToolEnabled`: enables the faceted listing/search filter `document.modelContext` tool.
+- `getCartToolEnabled`: enables the cart read `document.modelContext` tool.
+- `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
+- `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool (quantity `0` removes).
+- `clearCartToolEnabled`: enables the clear cart `document.modelContext` tool (removes every item).
+- `selectVariantToolEnabled`: enables the variant selector `document.modelContext` tool (resolves an exact variant by options; works with an explicit product id/sku/url or the current product page).
+- `getSalesChannelContextToolEnabled`: enables the sales channel context `document.modelContext` tool.
+- `navigateToolEnabled`: enables the storefront navigation `document.modelContext` tool.
+
+## Tool Reference
+
+All tools return WebMCP-style results with `content` text and `structuredContent`
+data. Product and category lookups use the Shopware **Store API** with the public
+sales-channel access key (anonymous context). The **cart** uses Shopware's
+**session-based storefront routes** — `GET /checkout/cart.json` for reads and
+`POST /checkout/line-item/*` for writes — authenticated only by the shopper's session
+cookie, so the agent operates the shopper's own cart without any token. The sales
+channel context uses the plugin's own same-origin JSON endpoint. Cart writes request
+best-effort storefront cart UI refreshes after success.
+
+| Tool | Input | Structured output |
+| --- | --- | --- |
+| `shopware_webmcp_search_products` | Optional `query`; optional `limit` from `1` to `20`, default `5`; optional `showResults` (default `true`) navigates the shopper to the storefront search page (with a query it shows that search, without one it lists the whole catalog). | `query`, `count`, `total`, `products`, `listingUrl`, `shownInBrowser`. `products` are compact cards (id, sku, name, price, url, image, availability, options); use `get_product` for full details. |
+| `shopware_webmcp_get_product` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `showResults` (default `true`) opens the product detail page for the shopper. | `lookup`, `product`, `shownInBrowser`. |
+| `shopware_webmcp_get_product_categories` | Optional `scope`: `tree` or `product`; for `product` scope exactly one of `id`, `sku`, or same-origin `url` (any of them implies `product` scope). | `lookup`, `scope`, `source` (`store-api`), `sourceUrl`, `count`, `activeCategoryIds`, `categories`, `tree`. Categories carry real Shopware ids, names, SEO urls, and `parentId`. |
+| `shopware_webmcp_get_listing_filters` | Optional `categoryId` or `query`; with neither, uses the listing the shopper is viewing (active category → active search → whole catalog). | `scope` (the listing used), `filters`: manufacturers, property groups with options, price range, rating, available sortings — each with the ids needed to filter. |
+| `shopware_webmcp_filter_products` | Optional `categoryId` or `query` (same default as above); optional `manufacturerIds`, `propertyOptionIds`, `priceMin`, `priceMax`, `minRating`, `shippingFree`, `sort`, `limit` (`1`–`24`, default `10`), `page`; optional `showResults` (default `true`) navigates the shopper to the filtered listing so they see it. | `scope`, `count`, `total`, `products`, `filters`, `listingUrl`, `shownInBrowser`. `products` are compact cards, same shape as `search_products`. |
+| `shopware_webmcp_get_cart` | Optional `showCartOverlay` (default `true`) opens the cart overlay for the shopper. | `cart`, `shownInBrowser`. |
+| `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`; optional `showCartOverlay` (default `true`) opens the storefront cart overlay for shopper feedback. | `added`, `cart`. |
+| `shopware_webmcp_update_line_item` | Exactly one of `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100` (`0` removes, no-op if absent); optional `showCartOverlay` (default `true`). | `updated`, `cart`. |
+| `shopware_webmcp_clear_cart` | Optional `showCartOverlay` (default `true`) opens the (now empty) cart overlay. | `cart` (empty). |
+| `shopware_webmcp_select_variant` | Identify the product with one of `id`/`sku`/`url` (or omit on a product page to use the current one); `selections` (option names, e.g. `Color: red`, `Size: XL`) or `optionIds`; optional `quantity`, `addToCart` (default `true`), `showCartOverlay` (default `true`). Resolves the exact variant — use this instead of `add_to_cart` whenever an option (size/colour) is requested, including from a listing. | `variant`, `selectedOptions`, `addedToCart`, `cart`. |
+| `shopware_webmcp_get_sales_channel_context` | No input properties. | `salesChannelContext` (sales channel, language, currency, customer group, country, tax mode, login state). |
+| `shopware_webmcp_navigate` | Same-origin storefront `url` (or path) to open. | `navigatedTo`. |
+
+## Security & Limits
+
+- Do not expose private backend credentials in storefront code or plugin config.
+- The Store API access key is a public, cache-safe storefront value used by Shopware browser clients; it is not a secret.
+- Cart read and mutation requests use same-origin **storefront routes** (`/checkout/cart.json`, `/checkout/line-item/*`) authenticated by the storefront **session cookie** — no context token is exposed to JavaScript. The per-user context token stays server-side, exactly as in stock Shopware. See [ADR 0004](docs/adr/0004-cart-architecture.md).
+- Cart requests are same-origin and ride the session cookie; they do not send a separate CSRF token (matching Shopware's own storefront cart JS).
+- Tool inputs are validated and normalized before Store API or storefront requests are made.
+- Do not log secrets, tokens, credentials, storefront session identifiers, CSRF tokens, or raw sensitive user/cart data.
+- Normalize and constrain URLs, selectors, HTTP methods, quantities, product identifiers, and other user-controllable values before emitting or using them.
+
+Known limitations:
+
+- The cart uses stock Shopware storefront routes (`/checkout/cart.json`, `/checkout/line-item/*`); the plugin's own `/webmcp/sales-channel-context` route returns `400` when a request does not receive a Shopware sales channel context. Test from a storefront route rather than an admin or CLI context.
+- If product tools fail with `401` or `403`, the storefront page may not include a valid sales channel Store API access key or the current sales channel may not allow Store API access.
+- The cart depends only on the storefront session cookie; an agent operating cross-origin (without the shopper's session) cannot see or change the shopper's cart by design.
+- If cart mutation tools update the session but the storefront UI does not refresh, the active theme may not register Shopware's standard cart widget or offcanvas cart plugins, or may replace the standard checkout wrapper markup. The runtime requests best-effort header cart refreshes, updates open cart sidebars in place, and refreshes the rendered cart page fragment when the shopper is already on `/checkout/cart`.
+- Browser-side native tool registration depends on Chrome's WebMCP testing support; `document.modelContext` remains available for manual console testing.
+
 ## Development
 
 You can checkout this plugin to `custom/plugins/SwagWebMcp` of an existing installation or use ephemeral Shopware instances provided by dockware. 
@@ -117,94 +205,6 @@ together, and [docs/](docs/README.md) for the ADRs and specs.
 ```sh
 bin/build-zip.sh   # requires shopware-cli; wraps `shopware-cli extension zip`
 ```
-
-## Installing Into an Existing Shopware
-
-### From the prebuilt ZIP (no build required)
-
-The release ZIP already contains the compiled storefront bundle. Download it and
-upload it in Shopware Admin (Extensions → My extensions → Upload extension), then
-activate it:
-
-<https://github.com/agentic-commerce-lab/webmcp-plugin/releases/download/latest-main/SwagWebMcp.zip>
-
-### From a source checkout (build required)
-
-Place the checkout in `custom/plugins/SwagWebMcp`, build the storefront asset,
-then install via the console:
-
-```sh
-npm install && npm run build
-bin/console plugin:refresh
-bin/console plugin:install --activate SwagWebMcp   # or: plugin:update SwagWebMcp
-bin/console theme:compile && bin/console assets:install && bin/console cache:clear
-```
-
-After installing, enable and configure the plugin in Shopware Admin.
-
-## Configuration
-
-Shopware renders these settings in the plugin configuration screen in the Admin panel:
-
-<img src="docs/admin-configuration.svg" alt="Shopware Admin WebMCP configuration screen" width="760">
-
-- `enabled`: enables the public WebMCP browser tools.
-- `searchProductsToolEnabled`: enables the product search `document.modelContext` tool.
-- `getProductToolEnabled`: enables the product detail `document.modelContext` tool.
-- `getProductCategoriesToolEnabled`: enables the product category `document.modelContext` tool.
-- `getListingFiltersToolEnabled`: enables the listing filter vocabulary `document.modelContext` tool.
-- `filterProductsToolEnabled`: enables the faceted listing/search filter `document.modelContext` tool.
-- `getCartToolEnabled`: enables the cart read `document.modelContext` tool.
-- `addToCartToolEnabled`: enables the cart mutation `document.modelContext` tool.
-- `updateLineItemToolEnabled`: enables the cart line item update `document.modelContext` tool (quantity `0` removes).
-- `clearCartToolEnabled`: enables the clear cart `document.modelContext` tool (removes every item).
-- `selectVariantToolEnabled`: enables the variant selector `document.modelContext` tool (resolves an exact variant by options; works with an explicit product id/sku/url or the current product page).
-- `getSalesChannelContextToolEnabled`: enables the sales channel context `document.modelContext` tool.
-- `navigateToolEnabled`: enables the storefront navigation `document.modelContext` tool.
-
-## Tool Reference
-
-All tools return WebMCP-style results with `content` text and `structuredContent`
-data. Product and category lookups use the Shopware **Store API** with the public
-sales-channel access key (anonymous context). The **cart** uses Shopware's
-**session-based storefront routes** — `GET /checkout/cart.json` for reads and
-`POST /checkout/line-item/*` for writes — authenticated only by the shopper's session
-cookie, so the agent operates the shopper's own cart without any token. The sales
-channel context uses the plugin's own same-origin JSON endpoint. Cart writes request
-best-effort storefront cart UI refreshes after success.
-
-| Tool | Input | Structured output |
-| --- | --- | --- |
-| `shopware_webmcp_search_products` | Optional `query`; optional `limit` from `1` to `20`, default `5`; optional `showResults` (default `true`) navigates the shopper to the storefront search page (with a query it shows that search, without one it lists the whole catalog). | `query`, `count`, `total`, `products`, `listingUrl`, `shownInBrowser`. `products` are compact cards (id, sku, name, price, url, image, availability, options); use `get_product` for full details. |
-| `shopware_webmcp_get_product` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `showResults` (default `true`) opens the product detail page for the shopper. | `lookup`, `product`, `shownInBrowser`. |
-| `shopware_webmcp_get_product_categories` | Optional `scope`: `tree` or `product`; for `product` scope exactly one of `id`, `sku`, or same-origin `url` (any of them implies `product` scope). | `lookup`, `scope`, `source` (`store-api`), `sourceUrl`, `count`, `activeCategoryIds`, `categories`, `tree`. Categories carry real Shopware ids, names, SEO urls, and `parentId`. |
-| `shopware_webmcp_get_listing_filters` | Optional `categoryId` or `query`; with neither, uses the listing the shopper is viewing (active category → active search → whole catalog). | `scope` (the listing used), `filters`: manufacturers, property groups with options, price range, rating, available sortings — each with the ids needed to filter. |
-| `shopware_webmcp_filter_products` | Optional `categoryId` or `query` (same default as above); optional `manufacturerIds`, `propertyOptionIds`, `priceMin`, `priceMax`, `minRating`, `shippingFree`, `sort`, `limit` (`1`–`24`, default `10`), `page`; optional `showResults` (default `true`) navigates the shopper to the filtered listing so they see it. | `scope`, `count`, `total`, `products`, `filters`, `listingUrl`, `shownInBrowser`. `products` are compact cards, same shape as `search_products`. |
-| `shopware_webmcp_get_cart` | Optional `showCartOverlay` (default `true`) opens the cart overlay for the shopper. | `cart`, `shownInBrowser`. |
-| `shopware_webmcp_add_to_cart` | Exactly one of `id`, `sku`, or same-origin product `url`; optional `quantity` from `1` to `100`, default `1`; optional `showCartOverlay` (default `true`) opens the storefront cart overlay for shopper feedback. | `added`, `cart`. |
-| `shopware_webmcp_update_line_item` | Exactly one of `id`, `sku`, or same-origin product `url`; required `quantity` from `0` to `100` (`0` removes, no-op if absent); optional `showCartOverlay` (default `true`). | `updated`, `cart`. |
-| `shopware_webmcp_clear_cart` | Optional `showCartOverlay` (default `true`) opens the (now empty) cart overlay. | `cart` (empty). |
-| `shopware_webmcp_select_variant` | Identify the product with one of `id`/`sku`/`url` (or omit on a product page to use the current one); `selections` (option names, e.g. `Color: red`, `Size: XL`) or `optionIds`; optional `quantity`, `addToCart` (default `true`), `showCartOverlay` (default `true`). Resolves the exact variant — use this instead of `add_to_cart` whenever an option (size/colour) is requested, including from a listing. | `variant`, `selectedOptions`, `addedToCart`, `cart`. |
-| `shopware_webmcp_get_sales_channel_context` | No input properties. | `salesChannelContext` (sales channel, language, currency, customer group, country, tax mode, login state). |
-| `shopware_webmcp_navigate` | Same-origin storefront `url` (or path) to open. | `navigatedTo`. |
-
-## Security & Limits
-
-- Do not expose private backend credentials in storefront code or plugin config.
-- The Store API access key is a public, cache-safe storefront value used by Shopware browser clients; it is not a secret.
-- Cart read and mutation requests use same-origin **storefront routes** (`/checkout/cart.json`, `/checkout/line-item/*`) authenticated by the storefront **session cookie** — no context token is exposed to JavaScript. The per-user context token stays server-side, exactly as in stock Shopware. See [ADR 0004](docs/adr/0004-cart-architecture.md).
-- Cart requests are same-origin and ride the session cookie; they do not send a separate CSRF token (matching Shopware's own storefront cart JS).
-- Tool inputs are validated and normalized before Store API or storefront requests are made.
-- Do not log secrets, tokens, credentials, storefront session identifiers, CSRF tokens, or raw sensitive user/cart data.
-- Normalize and constrain URLs, selectors, HTTP methods, quantities, product identifiers, and other user-controllable values before emitting or using them.
-
-Known limitations:
-
-- The cart uses stock Shopware storefront routes (`/checkout/cart.json`, `/checkout/line-item/*`); the plugin's own `/webmcp/sales-channel-context` route returns `400` when a request does not receive a Shopware sales channel context. Test from a storefront route rather than an admin or CLI context.
-- If product tools fail with `401` or `403`, the storefront page may not include a valid sales channel Store API access key or the current sales channel may not allow Store API access.
-- The cart depends only on the storefront session cookie; an agent operating cross-origin (without the shopper's session) cannot see or change the shopper's cart by design.
-- If cart mutation tools update the session but the storefront UI does not refresh, the active theme may not register Shopware's standard cart widget or offcanvas cart plugins, or may replace the standard checkout wrapper markup. The runtime requests best-effort header cart refreshes, updates open cart sidebars in place, and refreshes the rendered cart page fragment when the shopper is already on `/checkout/cart`.
-- Browser-side native tool registration depends on Chrome's WebMCP testing support; `document.modelContext` remains available for manual console testing.
 
 ## Contributing
 
